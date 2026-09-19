@@ -3,8 +3,18 @@ import cors from "cors";
 import morgan from "morgan";
 import dotenv from "dotenv";
 import { store } from "./store.js";
-import { fetchLiveWeather, fetchFloodMetrics, reverseGeocode, checkAllDataSources } from "./weatherService.js";
-import { scoreRisk, classifyCause, dedupeReports } from "./engine.js";
+import {
+  fetchLiveWeather,
+  fetchFloodMetrics,
+  reverseGeocode,
+  forwardGeocode,
+  checkAllDataSources,
+  calculateRoute,
+  fetchLivePublicShelters,
+  fetchLiveNearbyEmergencyServices,
+  fetchNearbyLiveShelters
+} from "./weatherService.js";
+import { scoreRisk, classifyCause, encodeGeohash, hashEvidence, getAutoRoutedTeam } from "./engine.js";
 
 dotenv.config();
 const app = express();
@@ -12,8 +22,11 @@ app.use(cors());
 app.use(express.json({ limit: "15mb" }));
 app.use(morgan("dev"));
 
-// Initial weather sync on startup
+// Initial weather sync on startup and recurring background sync every 60s
 store.syncLiveWeatherData().catch((err) => console.warn("[init] Weather sync warning:", err.message));
+setInterval(() => {
+  store.syncLiveWeatherData().catch((err) => console.warn("[bg-sync] Weather sync warning:", err.message));
+}, 60000);
 
 // Health
 app.get("/api/health", (_, res) => {
@@ -25,11 +38,154 @@ app.get("/api/health", (_, res) => {
   });
 });
 
-// Zones, Incidents, Alerts, Dispatches
-app.get("/api/zones", (_, res) => res.json(store.getZones()));
+// SSE Live Realtime Stream (supports both /api/events and /api/stream)
+const handleSseStream = (req, res) => {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive"
+  });
+  res.write(`event: connected\ndata: ${JSON.stringify({ ok: true, timestamp: new Date().toISOString() })}\n\n`);
+  store.subscribe(res);
+};
+
+app.get("/api/events", handleSseStream);
+app.get("/api/stream", handleSseStream);
+
+// Weather sync endpoint
+app.post("/api/sync-weather", async (_, res) => {
+  try {
+    await store.syncLiveWeatherData();
+    res.json({ success: true, zones: store.getZones ? store.getZones() : [] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Zones, Incidents, Alerts, Dispatches, Resources, Chronic Blockages
+app.get("/api/zones", (req, res) => {
+  const lat = parseFloat(req.query.lat || req.query.latitude);
+  const lng = parseFloat(req.query.lng || req.query.longitude);
+  res.json(store.getZones ? store.getZones(lat, lng) : []);
+});
 app.get("/api/incidents", (_, res) => res.json(store.getIncidents()));
 app.get("/api/alerts", (_, res) => res.json(store.getAlerts()));
 app.get("/api/dispatches", (_, res) => res.json(store.getDispatches()));
+app.get("/api/resources", (req, res) => {
+  const lat = parseFloat(req.query.lat || req.query.latitude);
+  const lng = parseFloat(req.query.lng || req.query.longitude);
+  res.json(store.getResources(lat, lng));
+});
+app.get("/api/chronic-blockages", (_, res) => res.json(store.getChronicBlockages()));
+
+// Emergency Services & Flood Evacuation Shelters (Dynamic Live Overpass & GIS Resolution)
+app.get("/api/emergency-services", async (req, res) => {
+  try {
+    const lat = Number(req.query.lat || req.query.latitude) || 19.132;
+    const lng = Number(req.query.lng || req.query.longitude) || 72.848;
+    const services = await fetchLiveNearbyEmergencyServices(lat, lng);
+    res.json(services);
+  } catch (err) {
+    res.json(store.getEmergencyServices(req.query.lat, req.query.lng));
+  }
+});
+
+// Dedicated Location-Based Live Shelter Discovery Endpoint
+// GET /api/shelters/nearby?latitude={lat}&longitude={lng}&radius_km=10
+app.get("/api/shelters/nearby", async (req, res) => {
+  try {
+    const lat = parseFloat(req.query.latitude || req.query.lat);
+    const lng = parseFloat(req.query.longitude || req.query.lng);
+    const radiusKm = parseFloat(req.query.radius_km || req.query.radius) || 10;
+
+    if (isNaN(lat) || isNaN(lng)) {
+      return res.status(400).json({ error: "Invalid coordinates provided", latitude: req.query.latitude, longitude: req.query.longitude });
+    }
+
+    const registeredShelters = store.getRegisteredShelters ? store.getRegisteredShelters() : [];
+    const shelters = await fetchNearbyLiveShelters({
+      latitude: lat,
+      longitude: lng,
+      radiusKm,
+      registeredShelters
+    });
+
+    console.log(`[API /api/shelters/nearby] Coordinates: (${lat.toFixed(4)}, ${lng.toFixed(4)}) | Radius: ${radiusKm}km | Found: ${shelters.length} shelters`);
+    res.json(shelters);
+  } catch (err) {
+    console.error("[API /api/shelters/nearby] Discovery error:", err.message);
+    res.status(500).json({ error: "Failed to discover nearby shelters", message: err.message });
+  }
+});
+
+app.get("/api/shelters", async (req, res) => {
+  try {
+    const lat = parseFloat(req.query.lat || req.query.latitude) || 19.132;
+    const lng = parseFloat(req.query.lng || req.query.longitude) || 72.848;
+    const radiusKm = parseFloat(req.query.radius_km || req.query.radius) || 10;
+    const registeredShelters = store.getRegisteredShelters ? store.getRegisteredShelters() : [];
+    const shelters = await fetchNearbyLiveShelters({
+      latitude: lat,
+      longitude: lng,
+      radiusKm,
+      registeredShelters
+    });
+    res.json(shelters);
+  } catch (err) {
+    res.json(store.getShelters ? store.getShelters(req.query.lat, req.query.lng) : []);
+  }
+});
+
+// Forward & Reverse Geocoding Endpoints
+app.get("/api/geocode/search", async (req, res) => {
+  const query = req.query.q || req.query.query;
+  if (!query) return res.status(400).json({ success: false, error: "q parameter is required", results: [] });
+  const result = await forwardGeocode(query);
+  res.json(result);
+});
+
+// Flood Buddy (Nearby Registered Shopkeepers)
+app.get("/api/flood-buddy/nearby", (_, res) => res.json(store.getFloodBuddies()));
+app.post("/api/flood-buddy/notify", (req, res) => {
+  try {
+    const result = store.notifyFloodBuddy(req.body.targetShopId, req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Blitzortung Lightning Detection Data
+app.get("/api/lightning", (_, res) => {
+  res.json(store.getLightningData());
+});
+
+// SOS Emergency Rescue Trigger
+app.post("/api/sos", (req, res) => {
+  try {
+    const result = store.triggerSos(req.body);
+    res.status(201).json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.get("/api/sos", (_, res) => res.json(store.getSosAlerts()));
+
+// Alert Feedback for model calibration ("Resolved" / "False Alarm")
+app.post("/api/alerts/:id/feedback", (req, res) => {
+  try {
+    const result = store.recordAlertFeedback(req.params.id, req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Generate official maintenance report for chronic blockages
+app.post("/api/chronic-blockages/report", (_, res) => {
+  const report = store.generateChronicReport();
+  res.json(report);
+});
 
 // Real Data Sources with live latency & health probes
 app.get("/api/data-sources", async (_, res) => {
@@ -41,7 +197,7 @@ app.get("/api/data-sources", async (_, res) => {
   }
 });
 
-// Live Weather & Flood query for any coordinates (GPS / Custom Lat-Lng)
+// Live Weather & Flood query for coordinates
 app.get("/api/weather/live", async (req, res) => {
   const lat = Number(req.query.lat) || 19.132;
   const lng = Number(req.query.lng) || 72.848;
@@ -61,6 +217,20 @@ app.get("/api/weather/live", async (req, res) => {
   }
 });
 
+// Real OSRM Road Routing Endpoint
+app.get("/api/route", async (req, res) => {
+  const fromLat = Number(req.query.fromLat) || 19.132;
+  const fromLng = Number(req.query.fromLng) || 72.848;
+  const toLat = Number(req.query.toLat) || 19.125;
+  const toLng = Number(req.query.toLng) || 72.838;
+  try {
+    const route = await calculateRoute(fromLat, fromLng, toLat, toLng);
+    res.json(route);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Sync live weather from Open-Meteo across all zones
 app.post("/api/weather/sync", async (_, res) => {
   try {
@@ -75,7 +245,6 @@ app.post("/api/weather/sync", async (_, res) => {
 app.post("/api/reports", async (req, res) => {
   try {
     let address = req.body.address;
-    // If coords given but no address, reverse geocode via OSM
     if (!address && req.body.lat && req.body.lng) {
       const geo = await reverseGeocode(req.body.lat, req.body.lng);
       address = geo.road ? `${geo.road}, ${geo.ward}` : geo.displayName;
@@ -98,7 +267,48 @@ app.post("/api/incidents/:id/verify", (req, res) => {
   res.json({ success: true, incident: inc });
 });
 
-// Real Dispatch Action
+// Mark an incident as False Alarm
+app.post("/api/incidents/:id/false-alarm", (req, res) => {
+  const reason = req.body.reason || "Marked as False Alarm by Authority Admin";
+  const inc = store.markFalseAlarm(req.params.id, reason);
+  if (!inc) return res.status(404).json({ error: "Incident not found" });
+  res.json({ success: true, incident: inc });
+});
+
+// One-click cause-based dispatch per incident
+app.post("/api/incidents/:id/dispatch", (req, res) => {
+  try {
+    const dispatch = store.addDispatch({
+      incidentId: req.params.id,
+      team: req.body.team,
+      teamId: req.body.teamId,
+      reason: req.body.reason,
+      eta: req.body.eta,
+      isOverride: Boolean(req.body.isOverride)
+    });
+    res.status(201).json(dispatch);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin Manual Override
+app.post("/api/incidents/:id/override", (req, res) => {
+  try {
+    const dispatch = store.overrideDispatch({
+      incidentId: req.params.id,
+      team: req.body.team,
+      teamId: req.body.teamId,
+      reason: req.body.reason,
+      force: true
+    });
+    res.json({ success: true, dispatch });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Standard Dispatch Action
 app.post("/api/dispatch", (req, res) => {
   try {
     const dispatch = store.addDispatch(req.body);
@@ -124,12 +334,14 @@ app.post("/api/risk/score", (req, res) => {
   res.json({ ...result, cause });
 });
 
-// Deduplication
+// Deduplication preview
 app.post("/api/deduplicate", (req, res) => {
-  res.json(dedupeReports(req.body.reports || []));
+  const geohash = req.body.lat && req.body.lng ? encodeGeohash(req.body.lat, req.body.lng) : null;
+  const hash = hashEvidence(req.body.note || "");
+  res.json({ geohash, evidenceHash: hash });
 });
 
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`VarshaRaksha API running on http://0.0.0.0:${PORT} (Real Data Connected)`);
+  console.log(`VarshaRaksha API running on http://0.0.0.0:${PORT} (Real Data & SSE Connected)`);
 });
