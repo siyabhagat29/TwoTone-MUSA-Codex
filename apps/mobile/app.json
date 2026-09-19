@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "VarshaRaksha",
+    "slug": "varsharaksha",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#0a3d91"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0a3d91"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA"
+      ]
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Used to attach your location to flood reports."
+      }
+    },
+    "plugins": [
+      "expo-font",
+      "expo-asset"
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "varsharaksha",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": ["apps/web", "server"],
+  "scripts": {
+    "web": "npm --workspace apps/web run dev",
+    "server": "npm --workspace server run dev",
+    "mobile": "npm --prefix apps/mobile start",
+    "build:web": "npm --workspace apps/web run build",
+    "start:server": "npm --workspace server start"
+  }
+}

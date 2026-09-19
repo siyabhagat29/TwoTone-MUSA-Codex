@@ -1,0 +1,135 @@
+{
+  "zones": [
+    {
+      "id": "Z-01",
+      "name": "Station Road",
+      "ward": "Ward 72",
+      "lat": 19.132,
+      "lng": 72.848,
+      "risk": 63,
+      "cause": "Blocked drain",
+      "waterLevel": 68,
+      "rainfall": 0.1,
+      "reports": 2,
+      "trend": "falling",
+      "temperature": 29,
+      "humidity": 78
+    },
+    {
+      "id": "Z-02",
+      "name": "Market Lane",
+      "ward": "Ward 72",
+      "lat": 19.129,
+      "lng": 72.852,
+      "risk": 0,
+      "cause": "Normal drainage",
+      "waterLevel": 0,
+      "rainfall": 0.1,
+      "reports": 0,
+      "trend": "stable",
+      "temperature": 29,
+      "humidity": 78
+    },
+    {
+      "id": "Z-03",
+      "name": "Temple Street",
+      "ward": "Ward 73",
+      "lat": 19.125,
+      "lng": 72.844,
+      "risk": 0,
+      "cause": "Normal drainage",
+      "waterLevel": 0,
+      "rainfall": 0.1,
+      "reports": 0,
+      "trend": "stable",
+      "temperature": 29,
+      "humidity": 78
+    },
+    {
+      "id": "Z-04",
+      "name": "Lake View Road",
+      "ward": "Ward 73",
+      "lat": 19.121,
+      "lng": 72.855,
+      "risk": 0,
+      "cause": "Normal drainage",
+      "waterLevel": 0,
+      "rainfall": 0.1,
+      "reports": 0,
+      "trend": "stable",
+      "temperature": 29.2,
+      "humidity": 76
+    }
+  ],
+  "incidents": [
+    {
+      "id": "INC-1002",
+      "zoneId": "Z-01",
+      "reporter": "Pooja Kulkarni",
+      "role": "Vendor",
+      "time": "02:22 PM",
+      "status": "Dispatched",
+      "severity": 92,
+      "cause": "Blocked drain",
+      "waterLevel": 90,
+      "lat": 19.132,
+      "lng": 72.848,
+      "address": "Swami Vivekanand Road, Mumbai Zone 3",
+      "note": "Water now waist-deep near Station Road market; severe clogged drain",
+      "photo": true,
+      "photoUrl": "attached",
+      "gps": true,
+      "duplicateOf": null,
+      "createdAt": "2026-09-19T08:52:04.933Z"
+    },
+    {
+      "id": "INC-1001",
+      "zoneId": "Z-01",
+      "reporter": "Aarav Mehta",
+      "role": "Resident",
+      "time": "02:18 PM",
+      "status": "Verified",
+      "severity": 56,
+      "cause": "Blocked drain",
+      "waterLevel": 45,
+      "lat": 19.132,
+      "lng": 72.848,
+      "address": "Swami Vivekanand Road, Mumbai Zone 3",
+      "note": "Water rising rapidly near blocked storm drain",
+      "photo": true,
+      "photoUrl": "attached",
+      "gps": true,
+      "duplicateOf": null,
+      "createdAt": "2026-09-19T08:48:44.875Z"
+    }
+  ],
+  "alerts": [
+    {
+      "id": "ALT-0163",
+      "zoneId": "Z-01",
+      "zoneName": "Station Road",
+      "level": "ORANGE",
+      "title": "Elevated flood risk at Station Road",
+      "message": "Station Road is showing risk score 63/100. Likely cause: Blocked drain. Live rain: 0.1 mm, water level: 68 cm.",
+      "eta": "20 min",
+      "channels": [
+        "App",
+        "SMS"
+      ],
+      "createdAt": "2026-09-19T08:55:13.663Z"
+    }
+  ],
+  "dispatches": [
+    {
+      "id": "DSP-71",
+      "incident": "INC-1002",
+      "team": "Municipal Drainage Crew",
+      "reason": "Severe blocked drain",
+      "channel": "Twilio + Operations Board",
+      "status": "En route",
+      "eta": "10 min",
+      "createdAt": "2026-09-19T08:52:22.744Z"
+    }
+  ],
+  "updatedAt": "2026-09-19T08:55:13.663Z"
+}
