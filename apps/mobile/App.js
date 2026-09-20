@@ -1022,14 +1022,16 @@ export default function App() {
       {role === "Shop Owner" && (
         <Modal visible={autoModalOpen} transparent animationType="slide">
           <View style={s.modalBack}>
-            <View style={[s.modal, { borderColor: RED, borderWidth: 2 }]}>
+            <View style={[s.modal, { borderColor: RED, borderWidth: 2, maxHeight: SCREEN_HEIGHT * 0.85 }]}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
                 <Ionicons name="warning" size={28} color={RED} />
                 <Text style={[s.modalTitle, { color: RED, flex: 1 }]}>{t.riskIncreasedTitle}</Text>
               </View>
               <Text style={s.modalSub}>{t.riskIncreasedSub}</Text>
-              <EmergencyChecklistView role={role} t={t} />
-              <TouchableOpacity style={[s.primary, { marginTop: 16 }]} onPress={() => setAutoModalOpen(false)}>
+              <ScrollView style={{ maxHeight: SCREEN_HEIGHT * 0.55 }} showsVerticalScrollIndicator={false}>
+                <EmergencyChecklistView role={role} t={t} userProfile={userProfile} />
+              </ScrollView>
+              <TouchableOpacity style={[s.primary, { marginTop: 14 }]} onPress={() => setAutoModalOpen(false)}>
                 <Text style={s.primaryText}>{t.acknowledge}</Text>
               </TouchableOpacity>
             </View>
@@ -1040,15 +1042,20 @@ export default function App() {
       {/* Manual Emergency Checklist Modal */}
       <Modal visible={checklistOpen} transparent animationType="slide">
         <View style={s.modalBack}>
-          <View style={s.modal}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <Text style={s.modalTitle}>📋 {t.emergencyChecklist}</Text>
-              <TouchableOpacity onPress={() => setChecklistOpen(false)}>
-                <Ionicons name="close-circle" size={24} color={MUTED} />
+          <View style={[s.modal, { maxHeight: SCREEN_HEIGHT * 0.85, paddingBottom: 24 }]}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <View>
+                <Text style={s.modalTitle}>📋 {t.emergencyChecklist}</Text>
+                <Text style={{ fontSize: 10, color: MUTED, marginTop: 1 }}>
+                  Phased flood defense & life safety action protocol
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setChecklistOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close-circle" size={26} color={MUTED} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={{ maxHeight: SCREEN_HEIGHT * 0.6 }}>
-              <EmergencyChecklistView role={role} t={t} />
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+              <EmergencyChecklistView role={role} t={t} userProfile={userProfile} />
             </ScrollView>
           </View>
         </View>
@@ -1835,19 +1842,24 @@ function Home({
         <Ionicons name="chevron-forward" size={22} color={BLUE} />
       </TouchableOpacity>
 
-      {/* Quick Action Utilities Row - Only visible for Shop Owner role */}
-      {role === "Shop Owner" && (
-        <View style={{ flexDirection: "row", gap: 10, marginTop: 12, marginBottom: 18 }}>
-          <TouchableOpacity style={s.quickActionCard} onPress={onOpenChecklist}>
-            <Ionicons name="clipboard-outline" size={20} color={BLUE} />
-            <Text style={s.quickActionText}>{t.emergencyChecklist}</Text>
-          </TouchableOpacity>
+      {/* Quick Action Utilities Row - Available for all citizens & merchants */}
+      <View style={{ flexDirection: "row", gap: 10, marginTop: 12, marginBottom: 18 }}>
+        <TouchableOpacity style={s.quickActionCard} onPress={onOpenChecklist}>
+          <Ionicons name="clipboard-outline" size={20} color={BLUE} />
+          <Text style={s.quickActionText}>📋 {t.emergencyChecklist}</Text>
+        </TouchableOpacity>
+        {role === "Shop Owner" ? (
           <TouchableOpacity style={s.quickActionCard} onPress={onOpenBuddy}>
             <Ionicons name="people-outline" size={20} color={BLUE} />
             <Text style={s.quickActionText}>{t.floodBuddy}</Text>
           </TouchableOpacity>
-        </View>
-      )}
+        ) : (
+          <TouchableOpacity style={s.quickActionCard} onPress={onNavigateToMap}>
+            <Ionicons name="navigate-outline" size={20} color={BLUE} />
+            <Text style={s.quickActionText}>Evacuation Map</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* 3. Dynamic Nearby Emergency Services & Relief Infrastructure Header */}
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4, marginBottom: 6 }}>
@@ -2055,50 +2067,282 @@ function Home({
   );
 }
 
-// Emergency Checklist Component
-function EmergencyChecklistView({ t }) {
+// Phased & Categorized Emergency Checklist Component with Live Progress & Role Toggle
+function EmergencyChecklistView({ role, t, userProfile }) {
+  const initialTab = (role === "Resident" || userProfile?.role === "Resident") ? "resident" : "shop";
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [checked, setChecked] = useState({});
 
   const toggleCheck = (id) => {
     setChecked((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const items = [
-    { id: "p1", section: t.checkP1_sec, text: t.checkP1_txt },
-    { id: "p2", section: t.checkP2_sec, text: t.checkP2_txt },
-    { id: "p3", section: t.checkP3_sec, text: t.checkP3_txt },
-    { id: "s1", section: t.checkS1_sec, text: t.checkS1_txt },
-    { id: "s2", section: t.checkS2_sec, text: t.checkS2_txt },
-    { id: "s3", section: t.checkS3_sec, text: t.checkS3_txt },
-    { id: "s4", section: t.checkS4_sec, text: t.checkS4_txt },
-    { id: "f1", section: t.checkF1_sec, text: t.checkF1_txt },
-    { id: "f2", section: t.checkF2_sec, text: t.checkF2_txt }
+  const clearAll = () => {
+    setChecked({});
+  };
+
+  // Phase 1: Immediate Life & People Safety (Priority 1)
+  const peopleItems = [
+    {
+      id: "p1",
+      icon: "walk",
+      title: "1. Evacuate to Upper Floor or High Ground",
+      desc: "Move family, staff, and customers above ground stormwater level immediately.",
+      badge: "CRITICAL",
+      badgeColor: RED
+    },
+    {
+      id: "p2",
+      icon: "people",
+      title: "2. Protect Children, Elderly & Pets",
+      desc: "Keep vulnerable members away from open storm drains, submerged potholes, and fast street flow.",
+      badge: "HIGH",
+      badgeColor: ORANGE
+    },
+    {
+      id: "p3",
+      icon: "battery-charging",
+      title: "3. Charge Phones & Keep Power Banks Accessible",
+      desc: "Keep primary phone charged for emergency Twilio SOS broadcasts (+1 765 563 5185).",
+      badge: "ESSENTIAL",
+      badgeColor: BLUE
+    }
   ];
 
-  return (
-    <View style={{ paddingVertical: 8 }}>
-      {items.map((item) => {
-        const isDone = Boolean(checked[item.id]);
-        return (
-          <TouchableOpacity
-            key={item.id}
-            style={[s.checkItem, isDone && { backgroundColor: "#ECFDF5", borderColor: "#A7F3D0" }]}
-            onPress={() => toggleCheck(item.id)}
-          >
-            <Ionicons
-              name={isDone ? "checkbox" : "square-outline"}
-              size={22}
-              color={isDone ? GREEN : MUTED}
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={[s.checkSection, isDone && { color: GREEN }]}>{item.section}</Text>
-              <Text style={[s.checkText, isDone && { textDecorationLine: "line-through", color: MUTED }]}>
-                {item.text}
+  // Phase 2: Property & Stock Defense (Shopkeeper-specific)
+  const shopItems = [
+    {
+      id: "s1",
+      icon: "cube",
+      title: "4. Elevate Stock at Least 3 Feet Off Floor",
+      desc: "Move dry goods, electronics, textiles, and inventory to upper shelves, tables, or lofts.",
+      badge: "INVENTORY",
+      badgeColor: ORANGE
+    },
+    {
+      id: "s2",
+      icon: "flash-off",
+      title: "5. Cut Off Main Electrical Circuit Breaker",
+      desc: "Turn off the main shop breaker and unplug all ground-level electrical appliances safely.",
+      badge: "ELECTRICAL",
+      badgeColor: RED
+    },
+    {
+      id: "s3",
+      icon: "shield",
+      title: "6. Deploy Flood Barrier Boards & Sandbags",
+      desc: "Install doorway flood barriers and securely lock roll-down shutter against water pressure.",
+      badge: "BARRIER",
+      badgeColor: BLUE
+    },
+    {
+      id: "s4",
+      icon: "briefcase",
+      title: "7. Safeguard Cash, GST Invoices & POS Devices",
+      desc: "Seal tax registers, cash drawer, and digital POS payment devices inside sealed waterproof bags.",
+      badge: "DOCUMENTS",
+      badgeColor: GREEN
+    }
+  ];
+
+  // Phase 2: Resident / Household Defense (Resident-specific)
+  const residentItems = [
+    {
+      id: "r1",
+      icon: "flash-off",
+      title: "4. Shut Off Main Power Breaker & Gas Valve",
+      desc: "Prevent electrical short-circuits and gas leaks before street water enters the premises.",
+      badge: "SAFETY",
+      badgeColor: RED
+    },
+    {
+      id: "r2",
+      icon: "document-text",
+      title: "5. Seal Vital IDs, Papers & Prescriptions",
+      desc: "Pack Aadhaar cards, passports, property deeds, cash, and prescription medications in waterproof bags.",
+      badge: "VITAL DOCS",
+      badgeColor: GREEN
+    },
+    {
+      id: "r3",
+      icon: "water",
+      title: "6. Store 48-Hour Drinking Water & Dry Rations",
+      desc: "Fill clean bottles, thermoses, and pots with drinking water before municipal lines are contaminated.",
+      badge: "SUPPLIES",
+      badgeColor: BLUE
+    },
+    {
+      id: "r4",
+      icon: "medkit",
+      title: "7. Prepare Emergency Go-Bag (Torch & Whistle)",
+      desc: "Keep a whistle (to signal rescue squads), waterproof flashlight, first-aid kit, and footwear ready.",
+      badge: "GO-BAG",
+      badgeColor: ORANGE
+    }
+  ];
+
+  // Phase 3: Active Stormwater Hazard Protocol (Universal - Priority 3)
+  const safetyItems = [
+    {
+      id: "f1",
+      icon: "warning",
+      title: "8. Never Walk or Drive Through Moving Floodwater",
+      desc: "Just 6 inches of fast water can knock down an adult; 12 inches can sweep away small cars.",
+      badge: "HAZARD",
+      badgeColor: RED
+    },
+    {
+      id: "f2",
+      icon: "radio",
+      title: "9. Monitor VarshaRaksha Radar & Ward Sirens",
+      desc: "Keep track of live radar telemetry, Ward Emergency Control directives, and nearest public shelters.",
+      badge: "MONITOR",
+      badgeColor: BLUE
+    }
+  ];
+
+  const currentPropertyItems = activeTab === "shop" ? shopItems : residentItems;
+  const allCurrentItems = [...peopleItems, ...currentPropertyItems, ...safetyItems];
+
+  const totalCount = allCurrentItems.length;
+  const completedCount = allCurrentItems.filter((i) => checked[i.id]).length;
+  const progressPercent = Math.round((completedCount / totalCount) * 100);
+
+  const renderCheckCard = (item) => {
+    const isDone = Boolean(checked[item.id]);
+    return (
+      <TouchableOpacity
+        key={item.id}
+        style={[s.checklistCardItem, isDone && s.checklistCardItemDone]}
+        onPress={() => toggleCheck(item.id)}
+        activeOpacity={0.7}
+      >
+        <View style={[s.checkItemCheckbox, isDone && s.checkItemCheckboxDone]}>
+          {isDone ? (
+            <Ionicons name="checkmark" size={16} color="#fff" />
+          ) : (
+            <Ionicons name={item.icon || "ellipse-outline"} size={16} color={BLUE} />
+          )}
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
+            <Text style={[s.checkItemTitle, isDone && s.checkItemTitleDone]}>
+              {item.title}
+            </Text>
+            <View style={[s.checkTagPill, { backgroundColor: item.badgeColor ? item.badgeColor + "18" : "#E2E8F0" }]}>
+              <Text style={[s.checkTagPillText, { color: item.badgeColor || MUTED }]}>
+                {item.badge}
               </Text>
             </View>
-          </TouchableOpacity>
-        );
-      })}
+          </View>
+
+          <Text style={[s.checkItemDesc, isDone && s.checkItemDescDone]}>
+            {item.desc}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <View style={{ paddingVertical: 4 }}>
+      {/* 1. Header Role Switcher Pills */}
+      <View style={s.checklistRoleToggleRow}>
+        <TouchableOpacity
+          style={[s.checklistRoleTab, activeTab === "shop" && s.checklistRoleTabActive]}
+          onPress={() => setActiveTab("shop")}
+        >
+          <Text style={{ fontSize: 13 }}>🏪</Text>
+          <Text style={[s.checklistRoleTabText, activeTab === "shop" && s.checklistRoleTabTextActive]}>
+            Shop Owner Defense
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[s.checklistRoleTab, activeTab === "resident" && s.checklistRoleTabActive]}
+          onPress={() => setActiveTab("resident")}
+        >
+          <Text style={{ fontSize: 13 }}>🏠</Text>
+          <Text style={[s.checklistRoleTabText, activeTab === "resident" && s.checklistRoleTabTextActive]}>
+            Resident & Household
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 2. Progress Summary Card */}
+      <View style={s.checklistProgressCard}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Ionicons name="shield-checkmark" size={18} color={completedCount === totalCount ? GREEN : BLUE} />
+            <Text style={s.checklistProgressTitle}>
+              Preparedness: {completedCount} of {totalCount} Done ({progressPercent}%)
+            </Text>
+          </View>
+          {completedCount > 0 && (
+            <TouchableOpacity onPress={clearAll}>
+              <Text style={{ fontSize: 10, color: RED, fontWeight: "800" }}>Reset All</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Visual Progress Bar */}
+        <View style={s.checklistProgressBarTrack}>
+          <View
+            style={[
+              s.checklistProgressBarFill,
+              { width: `${progressPercent}%`, backgroundColor: completedCount === totalCount ? GREEN : BLUE }
+            ]}
+          />
+        </View>
+
+        {completedCount === totalCount && (
+          <View style={s.checklistSuccessMsg}>
+            <Ionicons name="checkmark-done-circle" size={16} color="#166534" />
+            <Text style={s.checklistSuccessMsgText}>
+              All vital flood safety preparations are in place!
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* 3. Group 1: Life & People Safety */}
+      <View style={s.checkGroupCard}>
+        <View style={s.checkGroupHeader}>
+          <View style={[s.checkGroupBadge, { backgroundColor: "#FEE2E2" }]}>
+            <Text style={[s.checkGroupBadgeText, { color: RED }]}>PHASE 1</Text>
+          </View>
+          <Text style={s.checkGroupTitle}>🚨 People & Life Safety</Text>
+          <Text style={s.checkGroupSub}>Highest Priority</Text>
+        </View>
+        {peopleItems.map(renderCheckCard)}
+      </View>
+
+      {/* 4. Group 2: Property & Stock Defense */}
+      <View style={s.checkGroupCard}>
+        <View style={s.checkGroupHeader}>
+          <View style={[s.checkGroupBadge, { backgroundColor: "#FEF3C7" }]}>
+            <Text style={[s.checkGroupBadgeText, { color: "#B45309" }]}>PHASE 2</Text>
+          </View>
+          <Text style={s.checkGroupTitle}>
+            {activeTab === "shop" ? "🏪 Shop Stock & Assets" : "🏠 Household & Valuables"}
+          </Text>
+          <Text style={s.checkGroupSub}>Damage Control</Text>
+        </View>
+        {currentPropertyItems.map(renderCheckCard)}
+      </View>
+
+      {/* 5. Group 3: Active Water Hazards */}
+      <View style={s.checkGroupCard}>
+        <View style={s.checkGroupHeader}>
+          <View style={[s.checkGroupBadge, { backgroundColor: "#E0F2FE" }]}>
+            <Text style={[s.checkGroupBadgeText, { color: BLUE }]}>PHASE 3</Text>
+          </View>
+          <Text style={s.checkGroupTitle}>🌊 Active Flood Safety Protocol</Text>
+          <Text style={s.checkGroupSub}>Ongoing Caution</Text>
+        </View>
+        {safetyItems.map(renderCheckCard)}
+      </View>
     </View>
   );
 }
@@ -4568,6 +4812,174 @@ const s = StyleSheet.create({
     fontSize: 11,
     fontWeight: "800",
     color: RED
+  },
+
+  // Phased Emergency Checklist Styles
+  checklistRoleToggleRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12
+  },
+  checklistRoleTab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#CBD5E1"
+  },
+  checklistRoleTabActive: {
+    backgroundColor: "#EFF6FF",
+    borderColor: BLUE
+  },
+  checklistRoleTabText: {
+    fontSize: 10.5,
+    fontWeight: "700",
+    color: MUTED
+  },
+  checklistRoleTabTextActive: {
+    color: BLUE,
+    fontWeight: "900"
+  },
+  checklistProgressCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 14,
+    elevation: 2
+  },
+  checklistProgressTitle: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: NAVY
+  },
+  checklistProgressBarTrack: {
+    height: 7,
+    borderRadius: 7,
+    backgroundColor: "#E2E8F0",
+    overflow: "hidden"
+  },
+  checklistProgressBarFill: {
+    height: "100%",
+    borderRadius: 7
+  },
+  checklistSuccessMsg: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#DCFCE7",
+    padding: 7,
+    borderRadius: 8,
+    marginTop: 8
+  },
+  checklistSuccessMsgText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#166534"
+  },
+  checkGroupCard: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 12
+  },
+  checkGroupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9"
+  },
+  checkGroupBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 5
+  },
+  checkGroupBadgeText: {
+    fontSize: 8,
+    fontWeight: "900"
+  },
+  checkGroupTitle: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: NAVY,
+    flex: 1
+  },
+  checkGroupSub: {
+    fontSize: 9,
+    color: MUTED,
+    fontWeight: "600"
+  },
+  checklistCardItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 8,
+    backgroundColor: "#F8FAFC"
+  },
+  checklistCardItemDone: {
+    backgroundColor: "#F0FDF4",
+    borderColor: "#BBF7D0"
+  },
+  checkItemCheckbox: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1.5,
+    borderColor: "#BFDBFE",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1
+  },
+  checkItemCheckboxDone: {
+    backgroundColor: GREEN,
+    borderColor: GREEN
+  },
+  checkItemTitle: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: NAVY,
+    flex: 1,
+    marginRight: 6
+  },
+  checkItemTitleDone: {
+    color: "#166534",
+    textDecorationLine: "line-through"
+  },
+  checkItemDesc: {
+    fontSize: 9.5,
+    color: MUTED,
+    lineHeight: 14,
+    marginTop: 1
+  },
+  checkItemDescDone: {
+    color: "#4ADE80",
+    textDecorationLine: "line-through"
+  },
+  checkTagPill: {
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4
+  },
+  checkTagPillText: {
+    fontSize: 7.5,
+    fontWeight: "900"
   }
 });
 

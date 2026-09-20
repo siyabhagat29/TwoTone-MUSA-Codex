@@ -12,12 +12,12 @@
       "reports": 6,
       "trend": "stable",
       "temperature": 28.6,
-      "humidity": 78,
+      "humidity": 79,
       "totalTodayRain": 0.4,
-      "tempC": 29.2,
+      "tempC": 29,
       "riverDischarge": 4.06,
       "dischargeRatio": 0.99,
-      "lastUpdated": "2026-09-20T10:07:40.690Z",
+      "lastUpdated": "2026-09-20T10:25:40.712Z",
       "cause": "Surface Runoff Accumulation",
       "causeCode": "MIXED_RUNOFF",
       "riskLevel": "ORANGE"
@@ -34,12 +34,12 @@
       "reports": 5,
       "trend": "stable",
       "temperature": 28.6,
-      "humidity": 78,
+      "humidity": 79,
       "totalTodayRain": 0.4,
-      "tempC": 29.2,
+      "tempC": 29,
       "riverDischarge": 2.03,
       "dischargeRatio": 1.01,
-      "lastUpdated": "2026-09-20T10:07:40.908Z",
+      "lastUpdated": "2026-09-20T10:25:40.848Z",
       "cause": "Surface Runoff Accumulation",
       "causeCode": "MIXED_RUNOFF",
       "riskLevel": "GREEN"
@@ -56,12 +56,12 @@
       "reports": 1,
       "trend": "stable",
       "temperature": 28.6,
-      "humidity": 78,
+      "humidity": 79,
       "totalTodayRain": 0.4,
-      "tempC": 29.2,
+      "tempC": 29,
       "riverDischarge": 4.06,
       "dischargeRatio": 0.99,
-      "lastUpdated": "2026-09-20T10:07:41.062Z",
+      "lastUpdated": "2026-09-20T10:25:40.984Z",
       "cause": "Surface Runoff Accumulation",
       "causeCode": "MIXED_RUNOFF",
       "riskLevel": "GREEN"
@@ -80,10 +80,10 @@
       "temperature": 28.8,
       "humidity": 77,
       "totalTodayRain": 1,
-      "tempC": 29.2,
+      "tempC": 29.1,
       "riverDischarge": 2.03,
       "dischargeRatio": 1.01,
-      "lastUpdated": "2026-09-20T10:07:41.203Z",
+      "lastUpdated": "2026-09-20T10:25:41.121Z",
       "cause": "Surface Runoff Accumulation",
       "causeCode": "MIXED_RUNOFF",
       "riskLevel": "ORANGE"
@@ -1481,7 +1481,7 @@
       "station": "Ward 73 Control Outpost",
       "phone": "+91-98200-55663",
       "status": "En route",
-      "currentIncidentId": "SOS-2024",
+      "currentIncidentId": "INC-1004",
       "lat": 19.1235,
       "lng": 72.851,
       "capacity": "All-Terrain Intervention Truck",
@@ -1976,5 +1976,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-09-20T10:08:12.904Z"
+  "updatedAt": "2026-09-20T10:25:41.121Z"
 }

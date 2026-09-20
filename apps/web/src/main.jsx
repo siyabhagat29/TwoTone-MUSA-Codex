@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route, NavLink, useLocation } from "react-router-dom";
 import {
-  Activity, AlertTriangle, BarChart3, Bell, BrainCircuit, ChevronRight, CloudRain,
+  Activity, AlertTriangle, Bell, BrainCircuit, ChevronRight, CloudRain,
   Database, FileText, Gauge, Home, Layers3, Map, Menu, Radio, Route as RouteIcon,
   Settings, ShieldCheck, Siren, Users, Wrench, X, Zap, Send, RefreshCw, CheckCircle2,
   Droplets, ShieldAlert, Sparkles, Truck, Sliders, ChevronDown, ChevronUp, Download, Eye, AlertCircle,
@@ -782,8 +782,6 @@ const nav = [
   ["Team Tracker", "/resources", Truck],
   ["Smart Dispatch", "/dispatch", Send],
   ["Chronic Blockages", "/drainage", Wrench],
-  ["Alerts", "/alerts", Bell],
-  ["Analytics", "/analytics", BarChart3],
   ["Data Sources", "/sources", Database]
 ];
 
@@ -2183,99 +2181,6 @@ function Drainage({ zones, incidents, chronicBlockages, notify, onGenerateReport
   );
 }
 
-// Alerts Page
-function Alerts({ alerts, notify }) {
-  return (
-    <div className="content">
-      <PageHeader
-        eyebrow="ALERT MANAGEMENT"
-        title="Live Alerts & Notifications"
-        sub="Real-time warnings generated automatically when risk thresholds (Score ≥ 45) are crossed."
-      />
-      <div className="alert-grid">
-        {alerts.length === 0 ? (
-          <div style={{ gridColumn: "1/-1", padding: "40px", textAlign: "center", color: "#8a9ba8", background: "#fff", borderRadius: "14px" }}>
-            No active flood alerts. When rainfall increases or citizens submit flood reports, alerts trigger here automatically.
-          </div>
-        ) : (
-          alerts.map((a) => (
-            <div className="panel alert-card" key={a.id}>
-              <div className="alert-card-top">
-                <span className={`level ${a.level.toLowerCase()}`}>{a.level}</span>
-                <span>{a.id}</span>
-              </div>
-              <h3>{a.title}</h3>
-              <p>{a.message}</p>
-              <div className="alert-meta">
-                <span><Map size={14} />{a.zoneName || a.zoneId}</span>
-                <span><Gauge size={14} />ETA {a.eta}</span>
-              </div>
-              <div className="channel-row">
-                {a.channels.map((c) => (
-                  <span key={c}>{c}</span>
-                ))}
-              </div>
-              <button className="ghost full" onClick={() => notify(`${a.id} acknowledged by ward admin.`)}>
-                Acknowledge Alert
-              </button>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Analytics Page
-function Analytics({ zones, incidents, resources }) {
-  return (
-    <div className="content">
-      <PageHeader eyebrow="DECISION SUPPORT" title="Flood Risk & Response Analytics" sub="Live evaluation of ground reports, rainfall divergence, and response times." />
-      <div className="analytics-grid">
-        <section className="panel">
-          <div className="panel-head">
-            <div>
-              <h3>Ward Rainfall & Risk Distribution</h3>
-              <span>Live Open-Meteo calibration</span>
-            </div>
-          </div>
-          <div style={{ padding: "20px" }}>
-            {zones.map((z) => (
-              <div key={z.id} style={{ marginBottom: "16px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginBottom: "4px" }}>
-                  <span><b>{z.name}</b> ({z.ward})</span>
-                  <span>Risk: <b>{z.risk}/100</b> · Rain: <b>{z.rainfall} mm</b></span>
-                </div>
-                <div style={{ height: "8px", background: "#f1f5f9", borderRadius: "8px", overflow: "hidden" }}>
-                  <div
-                    style={{
-                      height: "100%",
-                      width: `${Math.max(5, z.risk)}%`,
-                      background: z.risk >= 75 ? "#ef4444" : z.risk >= 45 ? "#f59e0b" : "#10b981",
-                      borderRadius: "8px"
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-        <section className="panel">
-          <div className="panel-head">
-            <div>
-              <h3>Operational Summary</h3>
-              <span>Active dataset</span>
-            </div>
-          </div>
-          <div className="big-number">{incidents.length}</div>
-          <div style={{ padding: "0 20px 20px", fontSize: "11px", color: "#64748b" }}>
-            Total real-time citizen reports in persistent database ({resources.length} active response teams).
-          </div>
-        </section>
-      </div>
-    </div>
-  );
-}
 
 // Live Data Sources Probe Page
 function Sources({ notify }) {
@@ -2888,11 +2793,6 @@ function App() {
                   onGenerateReport={handleGenerateReport}
                 />
               }
-            />
-            <Route path="/alerts" element={<Alerts alerts={alerts} notify={notify} />} />
-            <Route
-              path="/analytics"
-              element={<Analytics zones={zones} incidents={incidents} resources={resources} />}
             />
             <Route path="/sources" element={<Sources notify={notify} />} />
             <Route path="/settings" element={<SettingsPage notify={notify} />} />
