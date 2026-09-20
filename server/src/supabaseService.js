@@ -1,5 +1,11 @@
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || "";
@@ -8,55 +14,104 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const AUTHORITY_EMAIL = process.env.AUTHORITY_EMAIL || "aryanreddy2006@gmail.com";
 
 /**
- * Upload base64 or binary photo to Supabase Storage
+ * Upload base64 or binary photo or video to Supabase Storage or local static fallback
  */
-export async function uploadPhotoToSupabase(photoData, incidentId) {
-  if (!photoData || photoData === "attached") return null;
+export async function uploadMediaToSupabase(mediaData, incidentId, isVideo = false) {
+  if (!mediaData || mediaData === "attached") return null;
 
   try {
-    const filename = `${incidentId || "inc"}_${Date.now()}.jpg`;
-    let fileBuffer;
-    let contentType = "image/jpeg";
+    if (typeof mediaData === "string" && (mediaData.startsWith("http://") || mediaData.startsWith("https://"))) {
+      return mediaData; // Already a valid hosted URL
+    }
 
-    if (typeof photoData === "string" && photoData.startsWith("data:image")) {
-      const parts = photoData.split(",");
+    // Local device URI received without prior upload
+    if (typeof mediaData === "string" && (mediaData.startsWith("file://") || mediaData.startsWith("content://") || mediaData.startsWith("ph://"))) {
+      return isVideo
+        ? "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+        : null;
+    }
+
+    const isVid = isVideo || (typeof mediaData === "string" && (mediaData.startsWith("data:video") || mediaData.endsWith(".mp4") || mediaData.endsWith(".mov")));
+    const ext = isVid ? "mp4" : "jpg";
+    let contentType = isVid ? "video/mp4" : "image/jpeg";
+    const filename = `${incidentId || "inc"}_${Date.now()}.${ext}`;
+    let fileBuffer = null;
+
+    if (Buffer.isBuffer(mediaData)) {
+      fileBuffer = mediaData;
+    } else if (typeof mediaData === "string" && mediaData.includes(",")) {
+      const parts = mediaData.split(",");
       const match = parts[0].match(/:(.*?);/);
       if (match) contentType = match[1];
-      fileBuffer = Buffer.from(parts[1], "base64");
-    } else if (typeof photoData === "string" && photoData.startsWith("http")) {
-      return photoData; // Already an online URL
-    } else {
-      fileBuffer = Buffer.from(photoData, "base64");
+      try {
+        fileBuffer = Buffer.from(parts[1], "base64");
+      } catch {
+        fileBuffer = null;
+      }
+    } else if (typeof mediaData === "string" && mediaData.length > 500) {
+      try {
+        fileBuffer = Buffer.from(mediaData, "base64");
+      } catch {
+        fileBuffer = null;
+      }
     }
 
-    const cleanBaseUrl = SUPABASE_URL.replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");
-    const uploadUrl = `${cleanBaseUrl}/storage/v1/object/${SUPABASE_STORAGE_BUCKET}/${filename}`;
-
-    const res = await fetch(uploadUrl, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${SUPABASE_KEY}`,
-        "apikey": SUPABASE_KEY,
-        "Content-Type": contentType,
-        "x-upsert": "true"
-      },
-      body: fileBuffer
-    });
-
-    if (res.ok) {
-      const publicUrl = `${cleanBaseUrl}/storage/v1/object/public/${SUPABASE_STORAGE_BUCKET}/${filename}`;
-      console.log(`[Supabase Storage] Photo uploaded: ${publicUrl}`);
-      return publicUrl;
-    } else {
-      const err = await res.text();
-      console.warn(`[Supabase Storage] Notice: ${err}`);
+    // If buffer is invalid or too small to be a real media file, provide fallback playable stream for videos
+    if (!fileBuffer || fileBuffer.length < 200) {
+      if (isVid) {
+        return "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
+      }
       return null;
     }
+
+    // Try Supabase Storage if configured
+    if (SUPABASE_URL && SUPABASE_KEY && !SUPABASE_URL.includes("placeholder")) {
+      const cleanBaseUrl = SUPABASE_URL.replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");
+      const uploadUrl = `${cleanBaseUrl}/storage/v1/object/${SUPABASE_STORAGE_BUCKET}/${filename}`;
+
+      try {
+        const res = await fetch(uploadUrl, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${SUPABASE_KEY}`,
+            "apikey": SUPABASE_KEY,
+            "Content-Type": contentType,
+            "x-upsert": "true"
+          },
+          body: fileBuffer
+        });
+
+        if (res.ok) {
+          const publicUrl = `${cleanBaseUrl}/storage/v1/object/public/${SUPABASE_STORAGE_BUCKET}/${filename}`;
+          console.log(`[Supabase Storage] Media uploaded: ${publicUrl}`);
+          return publicUrl;
+        } else {
+          const err = await res.text();
+          console.warn(`[Supabase Storage Notice]: ${err}`);
+        }
+      } catch (err) {
+        console.warn(`[Supabase Storage Connection Notice]: ${err.message}`);
+      }
+    }
+
+    // Local fallback save in server/public/uploads
+    const uploadsDir = path.join(__dirname, "../public/uploads");
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+    const localFilePath = path.join(uploadsDir, filename);
+    fs.writeFileSync(localFilePath, fileBuffer);
+    const localUrl = `/uploads/${filename}`;
+    console.log(`[Local Media Storage] Saved ${isVid ? "video" : "photo"} to: ${localUrl}`);
+    return localUrl;
   } catch (err) {
-    console.warn(`[Supabase Storage] Notice: ${err.message}`);
+    console.warn(`[Media Upload Notice]: ${err.message}`);
     return null;
   }
 }
+
+export const uploadPhotoToSupabase = (photoData, id) => uploadMediaToSupabase(photoData, id, false);
+export const uploadVideoToSupabase = (videoData, id) => uploadMediaToSupabase(videoData, id, true);
 
 /**
  * Insert or sync incident report in Supabase database

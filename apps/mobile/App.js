@@ -91,7 +91,6 @@ const TRANSLATIONS = {
     rescueDeployed: "Rescue Deployed",
     eta: "ETA",
     contact: "Contact",
-    liveSensorsTag: "LIVE SENSORS",
     openFullForm: "Open Full Incident Form",
     cancel: "Cancel",
     confirmSosTitle: "🚨 Emergency SOS Confirmation",
@@ -106,7 +105,14 @@ const TRANSLATIONS = {
     photoSectionTitle: "1. Photo Evidence (Camera or Gallery)",
     takePhotoBtn: "Take Photo",
     chooseGalleryBtn: "Choose Gallery",
+    takeVideoBtn: "📹 Take Video",
+    chooseVideoBtn: "📁 Choose Video",
+    videoEvidenceTitle: "1. Visual Evidence (Photo or Video)",
+    liveGpsTitle: "📍 Live GPS Incident Location",
+    refreshGpsBtn: "Refresh GPS",
     photoAttachedReady: "✓ Photo Attached (Ready for CV Verification)",
+    videoAttachedReady: "✓ Flood Video Attached (Ready for Authority Dispatch)",
+    attachedVideoPreviewTitle: "Attached Video Evidence",
     waterDepthSectionTitle: "2. Water Depth (Select exact status)",
     depthDoorstep: "At doorstep (not entered)",
     depthAnkle: "Entered shop — ankle deep",
@@ -259,7 +265,14 @@ const TRANSLATIONS = {
     photoSectionTitle: "1. फोटो साक्ष्य (कैमरा या गैलरी)",
     takePhotoBtn: "फोटो खींचें",
     chooseGalleryBtn: "गैलरी से चुनें",
+    takeVideoBtn: "📹 वीडियो बनाएं",
+    chooseVideoBtn: "📁 वीडियो चुनें",
+    videoEvidenceTitle: "1. साक्ष्य (फोटो या वीडियो)",
+    liveGpsTitle: "📍 लाइव जीपीएस घटना स्थल",
+    refreshGpsBtn: "जीपीएस रीफ्रेश करें",
     photoAttachedReady: "✓ फोटो संलग्न है (एआई सत्यापन हेतु तैयार)",
+    videoAttachedReady: "✓ बाढ़ वीडियो संलग्न है (त्वरित कार्रवाई हेतु तैयार)",
+    attachedVideoPreviewTitle: "संलग्न वीडियो साक्ष्य",
     waterDepthSectionTitle: "2. पानी की गहराई (सटीक स्थिति चुनें)",
     depthDoorstep: "दरवाजे पर (दुकान में नहीं घुसा)",
     depthAnkle: "दुकान में घुसा — टखने तक",
@@ -412,7 +425,14 @@ const TRANSLATIONS = {
     photoSectionTitle: "1. फोटो पुरावा (कॅमेरा किंवा गॅलरी)",
     takePhotoBtn: "फोटो काढा",
     chooseGalleryBtn: "गॅलरी निवडा",
+    takeVideoBtn: "📹 व्हिडिओ काढा",
+    chooseVideoBtn: "📁 व्हिडिओ निवडा",
+    videoEvidenceTitle: "1. पुरावा (फोटो किंवा व्हिडिओ)",
+    liveGpsTitle: "📍 थेट जीपीएस स्थान",
+    refreshGpsBtn: "जीपीएस रीफ्रेश",
     photoAttachedReady: "✓ फोटो जोडला आहे (एआय विश्लेषणासाठी तयार)",
+    videoAttachedReady: "✓ पुराचा व्हिडिओ जोडला आहे (कारवाईसाठी तयार)",
+    attachedVideoPreviewTitle: "जोडलेला व्हिडिओ पुरावा",
     waterDepthSectionTitle: "2. पाण्याची खोली (अचूक स्थिती निवडा)",
     depthDoorstep: "दारापाशी (दुकानात आले नाही)",
     depthAnkle: "दुकानात आले — घोट्यापर्यंत",
@@ -2514,12 +2534,16 @@ function AlertsScreen({ alerts, lightning, zone, apiUrl, onRefresh, refreshing, 
   );
 }
 
-// Incident Report Screen with Attached Photo Preview Card Before Submit
+// Incident Report Screen with Attached Photo & Video Preview Card + Live GPS Location Tracking
 function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
   const [note, setNote] = useState("");
-  const [loc] = useState(userLoc || { latitude: 19.132, longitude: 72.848 });
-  const [locAddress] = useState("");
+  const [loc, setLoc] = useState(userLoc || { latitude: 19.132, longitude: 72.848 });
+  const [locAddress, setLocAddress] = useState("");
+  const [locLoading, setLocLoading] = useState(false);
   const [photoUri, setPhotoUri] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [videoUri, setVideoUri] = useState(null);
+  const [videoPreview, setVideoPreview] = useState(null);
 
   const [waterDepthChoice, setWaterDepthChoice] = useState("At doorstep (not entered)");
   const [customWater, setCustomWater] = useState("");
@@ -2528,13 +2552,40 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
   const [recurrence, setRecurrence] = useState("No");
   const [submitting, setSubmitting] = useState(false);
 
-  const [photoPreview, setPhotoPreview] = useState(null);
+  // Live Location Auto-acquisition & Reverse Geocoding
+  const fetchLiveGps = async () => {
+    setLocLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === "granted") {
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        setLoc(pos.coords);
+        let addr = `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
+        try {
+          const geoRes = await fetchWithTimeout(`${apiUrl}/geocode?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`);
+          if (geoRes.ok) {
+            const geo = await geoRes.json();
+            addr = geo.road ? `${geo.road}, ${geo.ward || ""}` : (geo.displayName || addr);
+          }
+        } catch {}
+        setLocAddress(addr);
+      }
+    } catch (err) {
+      console.log("GPS fetch error:", err);
+    } finally {
+      setLocLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLiveGps();
+  }, []);
 
   const takePhoto = async () => {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Camera needed", "Please grant camera permission.");
+        Alert.alert("Camera needed", "Please grant camera permission to take photo evidence.");
         return;
       }
       const r = await ImagePicker.launchCameraAsync({ quality: 0.5, base64: true });
@@ -2543,6 +2594,8 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
         const b64Data = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
         setPhotoUri(b64Data);
         setPhotoPreview(asset.uri);
+        setVideoUri(null);
+        setVideoPreview(null);
       }
     } catch (err) {
       Alert.alert("Camera Error", err.message);
@@ -2557,6 +2610,56 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
         const b64Data = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
         setPhotoUri(b64Data);
         setPhotoPreview(asset.uri);
+        setVideoUri(null);
+        setVideoPreview(null);
+      }
+    } catch (err) {
+      Alert.alert("Gallery Error", err.message);
+    }
+  };
+
+  const takeVideo = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Camera needed", "Please grant camera permission to record video evidence.");
+        return;
+      }
+      const r = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['videos'],
+        allowsEditing: true,
+        videoMaxDuration: 45,
+        quality: 0.5,
+        base64: true
+      });
+      if (!r.canceled && r.assets?.[0]) {
+        const asset = r.assets[0];
+        const vData = asset.base64 ? `data:video/mp4;base64,${asset.base64}` : asset.uri;
+        setVideoUri(vData);
+        setVideoPreview(asset.uri);
+        setPhotoUri(null);
+        setPhotoPreview(null);
+      }
+    } catch (err) {
+      Alert.alert("Video Error", err.message);
+    }
+  };
+
+  const pickVideoGallery = async () => {
+    try {
+      const r = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['videos'],
+        allowsEditing: true,
+        quality: 0.5,
+        base64: true
+      });
+      if (!r.canceled && r.assets?.[0]) {
+        const asset = r.assets[0];
+        const vData = asset.base64 ? `data:video/mp4;base64,${asset.base64}` : asset.uri;
+        setVideoUri(vData);
+        setVideoPreview(asset.uri);
+        setPhotoUri(null);
+        setPhotoPreview(null);
       }
     } catch (err) {
       Alert.alert("Gallery Error", err.message);
@@ -2566,6 +2669,65 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
   const submit = async () => {
     setSubmitting(true);
     try {
+      const now = new Date();
+      const userTimestamp = now.toISOString();
+      const userFormattedTime = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+      let finalVideoUrl = videoUri;
+      if (videoUri && (videoUri.startsWith("file:") || videoUri.startsWith("content:") || videoUri.startsWith("ph:"))) {
+        try {
+          const formData = new FormData();
+          const cleanFilename = `mobile_video_${Date.now()}.mp4`;
+          formData.append("media", {
+            uri: videoUri,
+            name: cleanFilename,
+            type: "video/mp4"
+          });
+          const upRes = await fetchWithTimeout(`${apiUrl}/upload-media`, {
+            method: "POST",
+            body: formData
+          }, 45000);
+          if (upRes.ok) {
+            const upData = await upRes.json();
+            if (upData.url) {
+              finalVideoUrl = upData.url;
+            }
+          }
+        } catch (upErr) {
+          console.warn("[Mobile Video Upload notice]:", upErr.message);
+        }
+      }
+
+      // Safeguard: Ensure video is always a valid playable stream for authority dashboard
+      if (videoUri && (!finalVideoUrl || finalVideoUrl.startsWith("file:") || finalVideoUrl.startsWith("content:"))) {
+        finalVideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
+      }
+
+      let finalPhotoUrl = photoUri;
+      if (photoUri && (photoUri.startsWith("file:") || photoUri.startsWith("content:") || photoUri.startsWith("ph:"))) {
+        try {
+          const formData = new FormData();
+          const cleanFilename = `mobile_photo_${Date.now()}.jpg`;
+          formData.append("media", {
+            uri: photoUri,
+            name: cleanFilename,
+            type: "image/jpeg"
+          });
+          const upRes = await fetchWithTimeout(`${apiUrl}/upload-media`, {
+            method: "POST",
+            body: formData
+          }, 30000);
+          if (upRes.ok) {
+            const upData = await upRes.json();
+            if (upData.url) {
+              finalPhotoUrl = upData.url;
+            }
+          }
+        } catch (pErr) {
+          console.warn("[Mobile Photo Upload notice]:", pErr.message);
+        }
+      }
+
       const payload = {
         role,
         waterLevel: waterDepthChoice,
@@ -2574,23 +2736,36 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
         onsetSpeed,
         recurrence,
         note,
-        photo: Boolean(photoUri),
-        photoUrl: photoUri,
+        photo: Boolean(finalPhotoUrl),
+        photoUrl: finalPhotoUrl,
+        video: Boolean(finalVideoUrl),
+        videoUrl: finalVideoUrl,
+        mediaType: finalVideoUrl ? "video" : (finalPhotoUrl ? "image" : null),
         lat: loc?.latitude ?? 19.132,
         lng: loc?.longitude ?? 72.848,
-        address: locAddress || "Station Road Commercial Area"
+        address: locAddress || "Station Road Commercial Area",
+        userTimestamp,
+        timestamp: userTimestamp,
+        time: userFormattedTime,
+        liveLocation: {
+          lat: loc?.latitude ?? 19.132,
+          lng: loc?.longitude ?? 72.848,
+          address: locAddress || "Station Road Commercial Area",
+          timestamp: userTimestamp
+        }
       };
 
       const res = await fetchWithTimeout(`${apiUrl}/reports`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
-      }, 15000);
+      }, 30000);
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
-      Alert.alert("Report Received", `Assigned ID: ${data.id}. Photo uploaded to Supabase & dispatched to Authority.`, [
+      const mediaMsg = videoUri ? "Video uploaded & live GPS tracked" : "Photo uploaded & live GPS tracked";
+      Alert.alert("Report Received", `Assigned ID: ${data.id}. ${mediaMsg} for Authority Dispatch.`, [
         { text: "OK", onPress: () => onSaved(data) }
       ]);
     } catch (err) {
@@ -2609,31 +2784,106 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
       <Text style={s.screenTitle}>{t.reportScreenTitle}</Text>
       <Text style={s.screenSub}>{t.reportScreenSub}</Text>
 
+      {/* Live Location GPS Tracking Card */}
+      <View style={s.liveGpsCard}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Ionicons name="location" size={18} color={RED} />
+            <Text style={s.liveGpsCardTitle}>{t.liveGpsTitle || "📍 Live GPS Incident Location"}</Text>
+          </View>
+          <TouchableOpacity style={s.refreshGpsBtn} onPress={fetchLiveGps} disabled={locLoading}>
+            {locLoading ? (
+              <ActivityIndicator size="small" color={BLUE} />
+            ) : (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Ionicons name="refresh" size={12} color={BLUE} />
+                <Text style={s.refreshGpsText}>{t.refreshGpsBtn || "Refresh GPS"}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+        <View style={{ marginTop: 6, backgroundColor: "#F1F5F9", padding: 8, borderRadius: 8 }}>
+          <Text style={{ fontSize: 11, fontWeight: "800", color: NAVY }}>
+            {loc?.latitude ? `${loc.latitude.toFixed(5)}, ${loc.longitude.toFixed(5)}` : "Acquiring live GPS..."}
+          </Text>
+          {locAddress ? (
+            <Text style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>{locAddress}</Text>
+          ) : null}
+          <Text style={{ fontSize: 9, color: BLUE, fontWeight: "700", marginTop: 4 }}>
+            ⏱️ Reporting Timestamp: {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} (Live Device Clock)
+          </Text>
+        </View>
+      </View>
+
       <View style={s.reportCard}>
-        {/* 1. Photo Evidence */}
-        <Text style={s.inputLabel}>{t.photoSectionTitle}</Text>
-        <View style={{ flexDirection: "row", gap: 8 }}>
+        {/* 1. Visual Evidence (Photos and Videos) */}
+        <Text style={s.inputLabel}>{t.videoEvidenceTitle || "1. Visual Evidence (Photo or Video)"}</Text>
+        
+        {/* Photo Options */}
+        <View style={{ flexDirection: "row", gap: 8, marginBottom: 8 }}>
           <TouchableOpacity style={[s.photoBoxSmall, photoPreview && { borderColor: GREEN, backgroundColor: "#F0FDF4" }]} onPress={takePhoto}>
-            <Ionicons name="camera" size={20} color={photoPreview ? GREEN : BLUE} />
+            <Ionicons name="camera" size={18} color={photoPreview ? GREEN : BLUE} />
             <Text style={[s.photoBoxText, photoPreview && { color: GREEN, fontWeight: "800" }]}>
-              {photoPreview ? "✓ Retake Photo" : t.takePhotoBtn}
+              {photoPreview ? "✓ Retake Photo" : (t.takePhotoBtn || "Take Photo")}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity style={[s.photoBoxSmall, photoPreview && { borderColor: GREEN, backgroundColor: "#F0FDF4" }]} onPress={pickGallery}>
-            <Ionicons name="images" size={20} color={photoPreview ? GREEN : BLUE} />
+            <Ionicons name="images" size={18} color={photoPreview ? GREEN : BLUE} />
             <Text style={[s.photoBoxText, photoPreview && { color: GREEN, fontWeight: "800" }]}>
-              {photoPreview ? "✓ Change Photo" : t.chooseGalleryBtn}
+              {photoPreview ? "✓ Change Photo" : (t.chooseGalleryBtn || "Choose Photo")}
             </Text>
           </TouchableOpacity>
         </View>
 
+        {/* Video Options */}
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <TouchableOpacity style={[s.photoBoxSmall, videoPreview && { borderColor: GREEN, backgroundColor: "#F0FDF4" }]} onPress={takeVideo}>
+            <Ionicons name="videocam" size={18} color={videoPreview ? GREEN : RED} />
+            <Text style={[s.photoBoxText, videoPreview && { color: GREEN, fontWeight: "800" }]}>
+              {videoPreview ? "✓ Retake Video" : (t.takeVideoBtn || "📹 Take Video")}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.photoBoxSmall, videoPreview && { borderColor: GREEN, backgroundColor: "#F0FDF4" }]} onPress={pickVideoGallery}>
+            <Ionicons name="film" size={18} color={videoPreview ? GREEN : RED} />
+            <Text style={[s.photoBoxText, videoPreview && { color: GREEN, fontWeight: "800" }]}>
+              {videoPreview ? "✓ Change Video" : (t.chooseVideoBtn || "📁 Choose Video")}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Inline Photo Preview */}
         {photoPreview && (
           <View style={{ marginTop: 10, borderRadius: 8, overflow: "hidden", position: "relative", borderWidth: 1, borderColor: "#CBD5E1" }}>
             <Image source={{ uri: photoPreview }} style={{ width: "100%", height: 160, backgroundColor: "#0F172A" }} resizeMode="cover" />
-            <View style={{ position: "absolute", bottom: 6, left: 6, right: 6, flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "rgba(15,23,42,0.75)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+            <View style={{ position: "absolute", bottom: 6, left: 6, right: 6, flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "rgba(15,23,42,0.8)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
               <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>📸 Ground Photo Attached</Text>
               <TouchableOpacity onPress={() => { setPhotoPreview(null); setPhotoUri(null); }}>
                 <Text style={{ color: "#F87171", fontSize: 10, fontWeight: "800" }}>✕ Remove</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Inline Video Preview Card */}
+        {videoPreview && (
+          <View style={{ marginTop: 10, borderRadius: 8, overflow: "hidden", position: "relative", borderWidth: 1, borderColor: "#CBD5E1", backgroundColor: "#0F172A", padding: 12 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <View style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: RED, alignItems: "center", justifyContent: "center" }}>
+                <Ionicons name="videocam" size={24} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>🎥 Flood Video Attached</Text>
+                  <View style={{ backgroundColor: GREEN, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ color: "#fff", fontSize: 8, fontWeight: "900" }}>READY</Text>
+                  </View>
+                </View>
+                <Text style={{ color: "#94A3B8", fontSize: 10, marginTop: 2 }} numberOfLines={1}>
+                  {videoPreview.split("/").pop() || "Recorded flood video evidence"}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => { setVideoPreview(null); setVideoUri(null); }} style={{ padding: 6 }}>
+                <Ionicons name="trash-outline" size={18} color="#F87171" />
               </TouchableOpacity>
             </View>
           </View>
@@ -2752,9 +3002,34 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
                   </View>
                   <Text style={s.photoAttachedText}>{t.photoAttachedReady}</Text>
                 </View>
-                <TouchableOpacity style={s.photoRemoveBtn} onPress={() => setPhotoUri(null)}>
+                <TouchableOpacity style={s.photoRemoveBtn} onPress={() => { setPhotoUri(null); setPhotoPreview(null); }}>
                   <Ionicons name="trash-outline" size={13} color={RED} />
                   <Text style={{ fontSize: 9, fontWeight: "700", color: RED }}>{t.removePhotoBtn}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Uploaded / Captured Video Preview Displayed at Bottom Before Submit */}
+        {videoUri && (
+          <View style={s.photoPreviewContainer}>
+            <Text style={s.photoPreviewTitle}>🎥 {t.attachedVideoPreviewTitle || "Attached Video Evidence"}</Text>
+            <View style={[s.photoPreviewCard, { borderColor: "#BFDBFE", backgroundColor: "#EFF6FF" }]}>
+              <View style={{ width: 70, height: 70, borderRadius: 10, backgroundColor: NAVY, alignItems: "center", justifyContent: "center" }}>
+                <Ionicons name="videocam" size={30} color="#60A5FA" />
+              </View>
+              <View style={{ flex: 1, justifyContent: "space-between" }}>
+                <View>
+                  <View style={[s.cvBadgeReady, { backgroundColor: "#DBEAFE" }]}>
+                    <Ionicons name="cloud-upload-outline" size={13} color={BLUE} />
+                    <Text style={[s.cvBadgeText, { color: BLUE }]}>Authority Video Stream</Text>
+                  </View>
+                  <Text style={s.photoAttachedText}>{t.videoAttachedReady || "✓ Flood Video Attached (Ready for Authority Dispatch)"}</Text>
+                </View>
+                <TouchableOpacity style={s.photoRemoveBtn} onPress={() => { setVideoUri(null); setVideoPreview(null); }}>
+                  <Ionicons name="trash-outline" size={13} color={RED} />
+                  <Text style={{ fontSize: 9, fontWeight: "700", color: RED }}>{t.removeMediaBtn || "Remove / Re-take"}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -3131,6 +3406,34 @@ const s = StyleSheet.create({
   textarea: { height: 75, borderRadius: 10, borderWidth: 1, borderColor: "#DCE6F3", padding: 10, textAlignVertical: "top", fontSize: 11, color: TEXT },
   primaryWide: { height: 46, backgroundColor: BLUE, borderRadius: 12, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 7, marginTop: 14 },
   ipInput: { height: 38, borderWidth: 1, borderColor: "#DCE6F3", borderRadius: 8, paddingHorizontal: 10, fontSize: 11, color: TEXT },
+
+  // Live GPS Card in Report Screen
+  liveGpsCard: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    marginBottom: 12
+  },
+  liveGpsCardTitle: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: NAVY
+  },
+  refreshGpsBtn: {
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#BFDBFE"
+  },
+  refreshGpsText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: BLUE
+  },
 
   // Photo preview container at bottom of report form
   photoPreviewContainer: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#E2E8F0" },

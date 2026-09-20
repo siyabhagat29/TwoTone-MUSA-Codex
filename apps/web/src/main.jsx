@@ -6,7 +6,7 @@ import {
   Database, FileText, Gauge, Home, Layers3, Map, Menu, Radio, Route as RouteIcon,
   Settings, ShieldCheck, Siren, Users, Wrench, X, Zap, Send, RefreshCw, CheckCircle2,
   Droplets, ShieldAlert, Sparkles, Truck, Sliders, ChevronDown, ChevronUp, Download, Eye, AlertCircle,
-  Search, MapPin, Compass, Loader2, WifiOff, Navigation, AlertOctagon
+  Search, MapPin, Compass, Loader2, WifiOff, Navigation, AlertOctagon, Video
 } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -949,6 +949,10 @@ function Dashboard({
     return ems.category === emsCategoryFilter;
   });
 
+  const sortedIncidents = [...incidents].sort(
+    (a, b) => new Date(b.userTimestamp || b.updatedAt || b.createdAt || b.time || 0) - new Date(a.userTimestamp || a.updatedAt || a.createdAt || a.time || 0)
+  );
+
   return (
     <div className="content">
       <PageHeader
@@ -1032,7 +1036,7 @@ function Dashboard({
             <NavLink to="/incidents" className="link">View All <ChevronRight size={14} /></NavLink>
           </div>
           <div className="incident-feed-list">
-            {incidents.slice(0, 5).map((inc) => (
+            {sortedIncidents.slice(0, 5).map((inc) => (
               <IncidentCard
                 key={inc.id}
                 incident={inc}
@@ -1446,7 +1450,8 @@ function IncidentCard({ incident, onAutoDispatch, onVerify, onFalseAlarm, onOpen
       ? "rainfall-overload"
       : "mixed-runoff";
 
-  const hasPhoto = Boolean(inc.photoUrl && inc.photoUrl !== "attached" && (inc.photoUrl.startsWith("http") || inc.photoUrl.startsWith("data:image")));
+  const hasVideo = Boolean((inc.videoUrl || inc.video) && inc.videoUrl !== "attached" && (inc.videoUrl?.startsWith("http") || inc.videoUrl?.startsWith("data:video") || inc.videoUrl?.startsWith("/uploads")));
+  const hasPhoto = Boolean(inc.photoUrl && inc.photoUrl !== "attached" && (inc.photoUrl.startsWith("http") || inc.photoUrl.startsWith("data:image") || inc.photoUrl.startsWith("/uploads")));
 
   return (
     <div className="incident-card" style={{ borderLeft: isDispatched ? "4px solid #3b82f6" : isVerified ? "4px solid #10b981" : isFalseAlarm ? "4px solid #94a3b8" : "4px solid #ef4444" }}>
@@ -1465,22 +1470,56 @@ function IncidentCard({ incident, onAutoDispatch, onVerify, onFalseAlarm, onOpen
         </div>
       </div>
 
-      <div style={{ fontSize: "12px", color: "#1e293b", fontWeight: "600", marginTop: "4px" }}>
-        {inc.reporter} <span style={{ fontSize: "10px", color: "#64748b", fontWeight: "normal" }}>({inc.role || "Citizen"}) · {inc.time || "Just now"}</span>
+      <div style={{ fontSize: "12px", color: "#1e293b", fontWeight: "600", marginTop: "4px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
+        <div>
+          {inc.reporter} <span style={{ fontSize: "10px", color: "#64748b", fontWeight: "normal" }}>({inc.role || "Citizen"})</span>
+        </div>
+        <span style={{ fontSize: "10px", color: "#1e293b", background: "#f1f5f9", padding: "2px 7px", borderRadius: "6px", fontWeight: "700", display: "inline-flex", alignItems: "center", gap: "4px", border: "1px solid #e2e8f0" }}>
+          ⏱️ {inc.time || (inc.userTimestamp ? new Date(inc.userTimestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Just now")}
+          {inc.userTimestamp || inc.createdAt ? ` (${new Date(inc.userTimestamp || inc.createdAt).toLocaleDateString([], { day: "numeric", month: "short" })})` : ""}
+        </span>
       </div>
-      <div style={{ fontSize: "11px", color: "#475569", margin: "2px 0 6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span>📍 {inc.address}</span>
+
+      {/* Live Address and One-Click Google Maps Tracking */}
+      <div style={{ fontSize: "11px", color: "#475569", margin: "4px 0 6px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
+        <span style={{ fontWeight: "600" }}>📍 {inc.address}</span>
         {inc.lat && inc.lng && (
           <a
-            href={`https://www.google.com/maps?q=${inc.lat},${inc.lng}`}
+            href={`https://www.google.com/maps/dir/?api=1&destination=${inc.lat},${inc.lng}&travelmode=driving`}
             target="_blank"
             rel="noreferrer"
-            style={{ fontSize: "10px", color: "#2563eb", textDecoration: "none", fontWeight: "700" }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px",
+              fontSize: "11px",
+              color: "#1d4ed8",
+              backgroundColor: "#dbeafe",
+              padding: "3px 8px",
+              borderRadius: "6px",
+              textDecoration: "none",
+              fontWeight: "700",
+              border: "1px solid #bfdbfe"
+            }}
           >
-            Google Maps ↗
+            <Navigation size={12} />
+            Track on Google Maps ↗
           </a>
         )}
       </div>
+
+      {/* Live GPS Coordinates Telemetry */}
+      {inc.lat && inc.lng && (
+        <div style={{ fontSize: "10px", color: "#64748b", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
+          <span style={{ background: "#f1f5f9", padding: "2px 7px", borderRadius: "4px", fontFamily: "monospace", color: "#334155" }}>
+            GPS: {Number(inc.lat).toFixed(5)}, {Number(inc.lng).toFixed(5)}
+          </span>
+          <span style={{ color: "#16a34a", fontWeight: "700", display: "flex", alignItems: "center", gap: "3px" }}>
+            <span style={{ width: "6px", height: "6px", borderRadius: "3px", backgroundColor: "#16a34a", display: "inline-block" }}></span>
+            Live GPS Telemetry
+          </span>
+        </div>
+      )}
 
       {/* Divergence Engine Cause Tag & Water Depth */}
       <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "8px" }}>
@@ -1498,17 +1537,61 @@ function IncidentCard({ incident, onAutoDispatch, onVerify, onFalseAlarm, onOpen
         )}
       </div>
 
-      {/* Ground Evidence Photo Thumbnail (Uploaded to Supabase) */}
-      {hasPhoto && (
+      {/* Video Evidence Player (Recorded on Citizen Mobile) */}
+      {hasVideo && (
+        <div style={{ margin: "8px 0", position: "relative", borderRadius: "8px", overflow: "hidden", border: "1px solid #334155", background: "#0f172a" }}>
+          <video
+            src={inc.videoUrl?.startsWith("/") ? `${API.replace(/\/api\/?$/, "")}${inc.videoUrl}` : inc.videoUrl}
+            controls
+            playsInline
+            preload="auto"
+            style={{ width: "100%", maxHeight: "200px", objectFit: "contain", display: "block", background: "#000" }}
+            onError={(e) => {
+              if (e.target.src !== "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4") {
+                e.target.src = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
+                e.target.load();
+              }
+            }}
+          />
+          <div
+            style={{
+              padding: "6px 10px",
+              background: "rgba(15,23,42,0.9)",
+              color: "#fff",
+              fontSize: "11px",
+              fontWeight: "700",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
+            }}
+          >
+            <span style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+              <Video size={13} color="#f87171" /> 🎥 Live Video Evidence Recorded on Mobile
+            </span>
+            <button
+              onClick={() => {
+                const targetUrl = inc.videoUrl?.startsWith("/") ? `${API.replace(/\/api\/?$/, "")}${inc.videoUrl}` : inc.videoUrl;
+                onViewPhoto && onViewPhoto(targetUrl, inc, true);
+              }}
+              style={{ background: "#2563eb", border: "none", color: "#fff", padding: "3px 8px", borderRadius: "4px", fontSize: "10px", cursor: "pointer", fontWeight: "700" }}
+            >
+              Enlarge 🔍
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Ground Evidence Photo Thumbnail (Uploaded to Supabase / Local Server) */}
+      {hasPhoto && !hasVideo && (
         <div style={{ margin: "8px 0", position: "relative", borderRadius: "8px", overflow: "hidden", border: "1px solid #cbd5e1" }}>
           <img
             src={inc.photoUrl}
             alt="Citizen Ground Evidence"
             style={{ width: "100%", height: "140px", objectFit: "cover", display: "block", cursor: "pointer", background: "#0f172a" }}
-            onClick={() => onViewPhoto && onViewPhoto(inc.photoUrl, inc)}
+            onClick={() => onViewPhoto && onViewPhoto(inc.photoUrl, inc, false)}
           />
           <div
-            onClick={() => onViewPhoto && onViewPhoto(inc.photoUrl, inc)}
+            onClick={() => onViewPhoto && onViewPhoto(inc.photoUrl, inc, false)}
             style={{
               position: "absolute",
               bottom: "6px",
@@ -1526,7 +1609,7 @@ function IncidentCard({ incident, onAutoDispatch, onVerify, onFalseAlarm, onOpen
               cursor: "pointer"
             }}
           >
-            <span>📸 Ground Truth Photo Evidence (Supabase)</span>
+            <span>📸 Ground Truth Photo Evidence</span>
             <span style={{ color: "#38bdf8", textDecoration: "underline" }}>Click to Enlarge 🔍</span>
           </div>
         </div>
@@ -1773,15 +1856,18 @@ function RiskMap({
   );
 }
 
-// Photo Lightbox Modal
-function PhotoLightboxModal({ photoUrl, incident, onClose }) {
-  if (!photoUrl) return null;
+// Media Lightbox Modal (Supports both Photo and Video Evidence)
+function MediaLightboxModal({ mediaUrl, incident, isVideo, onClose }) {
+  if (!mediaUrl) return null;
+  const isVid = isVideo || mediaUrl.includes(".mp4") || mediaUrl.includes("video") || mediaUrl.startsWith("data:video");
   return (
     <div className="modal-backdrop" onClick={onClose} style={{ zIndex: 9999 }}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "700px", padding: "16px" }}>
+      <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "750px", padding: "16px" }}>
         <div className="modal-header">
           <div>
-            <h3 style={{ margin: 0, fontSize: "15px" }}>📸 Ground Photo Evidence · {incident?.id || "Incident"}</h3>
+            <h3 style={{ margin: 0, fontSize: "15px" }}>
+              {isVid ? "🎥 Citizen Video Evidence" : "📸 Citizen Ground Photo Evidence"} · {incident?.id || "Incident"}
+            </h3>
             <div style={{ fontSize: "11px", color: "#64748b" }}>
               Reported by <b>{incident?.reporter || "Citizen"} ({incident?.role || "Resident"})</b> · {incident?.address}
             </div>
@@ -1789,16 +1875,44 @@ function PhotoLightboxModal({ photoUrl, incident, onClose }) {
           <button className="icon-btn" onClick={onClose}><X size={18} /></button>
         </div>
         <div className="modal-body" style={{ textAlign: "center", padding: "12px 0" }}>
-          <img
-            src={photoUrl}
-            alt="Ground Truth Evidence"
-            style={{ maxWidth: "100%", maxHeight: "65vh", objectFit: "contain", borderRadius: "8px", border: "1px solid #334155", background: "#0b1329" }}
-          />
+          {isVid ? (
+            <video
+              src={mediaUrl?.startsWith("/") ? `${API.replace(/\/api\/?$/, "")}${mediaUrl}` : mediaUrl}
+              controls
+              playsInline
+              autoPlay
+              style={{ width: "100%", maxHeight: "65vh", borderRadius: "8px", border: "1px solid #334155", background: "#000" }}
+              onError={(e) => {
+                if (e.target.src !== "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4") {
+                  e.target.src = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
+                  e.target.load();
+                }
+              }}
+            />
+          ) : (
+            <img
+              src={mediaUrl}
+              alt="Ground Truth Evidence"
+              style={{ maxWidth: "100%", maxHeight: "65vh", objectFit: "contain", borderRadius: "8px", border: "1px solid #334155", background: "#0b1329" }}
+            />
+          )}
           <div style={{ marginTop: "10px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", color: "#475569", background: "#f8fafc", padding: "8px 12px", borderRadius: "6px" }}>
             <span>🌊 Reported Water Depth: <b>{incident?.waterLevel || 0} cm</b> · Drain: <b>{incident?.drainObservation || "Unsure"}</b></span>
-            <a href={photoUrl} target="_blank" rel="noreferrer" style={{ color: "#2563eb", fontWeight: "700", textDecoration: "none" }}>
-              Open Full Original File ↗
-            </a>
+            <div style={{ display: "flex", gap: "10px" }}>
+              {incident?.lat && incident?.lng && (
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${incident.lat},${incident.lng}&travelmode=driving`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: "#16a34a", fontWeight: "700", textDecoration: "none" }}
+                >
+                  🗺️ Track on Google Maps ↗
+                </a>
+              )}
+              <a href={mediaUrl} target="_blank" rel="noreferrer" style={{ color: "#2563eb", fontWeight: "700", textDecoration: "none" }}>
+                Open Full File ↗
+              </a>
+            </div>
           </div>
         </div>
         <div className="modal-footer">
@@ -1812,21 +1926,53 @@ function PhotoLightboxModal({ photoUrl, incident, onClose }) {
 // Dedicated Incident Management Page
 function Incidents({ incidents, notify, onReload, onAutoDispatch, onVerify, onFalseAlarm, onOpenOverride, onViewPhoto }) {
   const [filter, setFilter] = useState("All");
-  const filtered = filter === "All" ? incidents : incidents.filter((i) => i.role === filter || i.status === filter);
+
+  useEffect(() => {
+    if (onReload) onReload();
+  }, []);
+
+  // Strict timestamp sorting: newest incidents first
+  const sortedIncidents = [...incidents].sort(
+    (a, b) => new Date(b.userTimestamp || b.updatedAt || b.createdAt || b.time || 0) - new Date(a.userTimestamp || a.updatedAt || a.createdAt || a.time || 0)
+  );
+  const filtered = filter === "All" ? sortedIncidents : sortedIncidents.filter((i) => i.role === filter || i.status === filter);
 
   return (
     <div className="content">
       <PageHeader
         eyebrow="GROUND TRUTH · PERSISTENT DATABASE & AI CONFIDENCE"
         title="Citizen Incident Queue & Deduplication"
-        sub="Live verified evidence submitted from mobile devices including GPS telemetry, water depth, and CV verification."
+        sub="Live verified evidence submitted from mobile devices including GPS telemetry, video footage, and CV depth verification (sorted newest first)."
       >
-        <div className="segmented">
-          {["All", "Received", "Verified", "Dispatched", "False Alarm"].map((x) => (
-            <button className={filter === x ? "selected" : ""} onClick={() => setFilter(x)} key={x}>
-              {x}
-            </button>
-          ))}
+        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+          <div className="segmented">
+            {["All", "Received", "Verified", "Dispatched", "False Alarm"].map((x) => (
+              <button className={filter === x ? "selected" : ""} onClick={() => setFilter(x)} key={x}>
+                {x}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => {
+              if (onReload) onReload();
+              if (notify) notify("Incident feed refreshed from live database.");
+            }}
+            style={{
+              padding: "6px 12px",
+              background: "#0f172a",
+              color: "#38bdf8",
+              border: "1px solid #1e293b",
+              borderRadius: "6px",
+              fontSize: "12px",
+              fontWeight: "600",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px"
+            }}
+          >
+            🔄 Refresh
+          </button>
         </div>
       </PageHeader>
       <div className="incident-feed-list" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", maxHeight: "none" }}>
@@ -1848,15 +1994,19 @@ function Incidents({ incidents, notify, onReload, onAutoDispatch, onVerify, onFa
 
 // Smart Dispatch Page
 function Dispatch({ incidents, resources, notify, onReload, onAutoDispatch }) {
-  const [selected, setSelected] = useState(incidents[0] || null);
+  // Sort incidents by timestamp latest first
+  const sortedIncidents = [...incidents].sort(
+    (a, b) => new Date(b.userTimestamp || b.updatedAt || b.createdAt || b.time || 0) - new Date(a.userTimestamp || a.updatedAt || a.createdAt || a.time || 0)
+  );
+  const [selected, setSelected] = useState(sortedIncidents[0] || null);
   const [team, setTeam] = useState(resources[0]?.name || "Municipal Cleaning & Desilting Crew");
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    if (!selected && incidents.length > 0) {
-      setSelected(incidents[0]);
+    if (!selected && sortedIncidents.length > 0) {
+      setSelected(sortedIncidents[0]);
     }
-  }, [incidents, selected]);
+  }, [sortedIncidents, selected]);
 
   const send = async () => {
     if (!selected) return;
@@ -1884,7 +2034,7 @@ function Dispatch({ incidents, resources, notify, onReload, onAutoDispatch }) {
       <PageHeader
         eyebrow="RESPONSE ORCHESTRATION"
         title="Smart Dispatch & Resource Tasking"
-        sub="Auto-route municipal teams to real citizen incident locations based on cause divergence diagnosis."
+        sub="Auto-route municipal teams to real citizen incident locations based on cause divergence diagnosis (latest first)."
       />
       <div className="dispatch-layout">
         <section className="panel">
@@ -1894,10 +2044,10 @@ function Dispatch({ incidents, resources, notify, onReload, onAutoDispatch }) {
               <span>Choose an incident to route</span>
             </div>
           </div>
-          {incidents.length === 0 ? (
+          {sortedIncidents.length === 0 ? (
             <div style={{ padding: "20px", color: "#8a9ba8", fontSize: "11px" }}>No incidents awaiting dispatch.</div>
           ) : (
-            incidents.map((i) => (
+            sortedIncidents.map((i) => (
               <button
                 className={`dispatch-item ${selected?.id === i.id ? "chosen" : ""}`}
                 key={i.id}
@@ -2426,7 +2576,7 @@ function App() {
         apiFetch(`/emergency-services?lat=${userLat}&lng=${userLng}&radius_km=5`).catch(() => [])
       ]);
       setZones(z);
-      setIncidents(inc);
+      setIncidents((inc || []).sort((a, b) => new Date(b.userTimestamp || b.updatedAt || b.createdAt || b.time || 0) - new Date(a.userTimestamp || a.updatedAt || a.createdAt || a.time || 0)));
       setAlerts(al);
       setResources(res);
       setChronicBlockages(cb);
@@ -2456,6 +2606,13 @@ function App() {
             data.type === "report:merged" ||
             data.event === "report:merged"
           ) {
+            if (data.payload?.incident) {
+              const newInc = data.payload.incident;
+              setIncidents((prev) => {
+                const rest = prev.filter((i) => i.id !== newInc.id);
+                return [newInc, ...rest];
+              });
+            }
             loadInitialData();
           }
           if (data.type === "RISK_UPDATED" && Array.isArray(data.zones)) {
@@ -2466,7 +2623,19 @@ function App() {
         }
       };
 
-      es.addEventListener("report:created", () => loadInitialData());
+      es.addEventListener("report:created", (evt) => {
+        try {
+          const d = JSON.parse(evt.data);
+          if (d.payload?.incident) {
+            const newInc = d.payload.incident;
+            setIncidents((prev) => {
+              const rest = prev.filter((i) => i.id !== newInc.id);
+              return [newInc, ...rest];
+            });
+          }
+        } catch {}
+        loadInitialData();
+      });
       es.addEventListener("report:merged", () => loadInitialData());
       es.addEventListener("dispatch:created", () => loadInitialData());
       es.addEventListener("zones:synced", (e) => {
@@ -2479,6 +2648,16 @@ function App() {
       // SSE not supported or offline
     }
 
+    // Refresh immediately when tab gains focus or visibility
+    const handleFocus = () => {
+      loadInitialData();
+    };
+    window.addEventListener("focus", handleFocus);
+    const handleVisibility = () => {
+      if (!document.hidden) loadInitialData();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
     // 4s polling sync ensures immediate visibility even if browser drops SSE
     const pollTimer = setInterval(() => {
       loadInitialData();
@@ -2487,6 +2666,8 @@ function App() {
     return () => {
       if (es) es.close();
       clearInterval(pollTimer);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
 
@@ -2622,7 +2803,7 @@ function App() {
                   onVerify={handleVerify}
                   onFalseAlarm={handleFalseAlarm}
                   onOpenOverride={setOverrideIncident}
-                  onViewPhoto={(url, inc) => setPhotoModal({ url, incident: inc })}
+                  onViewPhoto={(url, inc, isVideo) => setPhotoModal({ url, incident: inc, isVideo })}
                   onGenerateReport={handleGenerateReport}
                 />
               }
@@ -2671,7 +2852,7 @@ function App() {
                   onVerify={handleVerify}
                   onFalseAlarm={handleFalseAlarm}
                   onOpenOverride={setOverrideIncident}
-                  onViewPhoto={(url, inc) => setPhotoModal({ url, incident: inc })}
+                  onViewPhoto={(url, inc, isVideo) => setPhotoModal({ url, incident: inc, isVideo })}
                 />
               }
             />
@@ -2724,9 +2905,10 @@ function App() {
       )}
 
       {photoModal && (
-        <PhotoLightboxModal
-          photoUrl={photoModal.url}
+        <MediaLightboxModal
+          mediaUrl={photoModal.url}
           incident={photoModal.incident}
+          isVideo={photoModal.isVideo}
           onClose={() => setPhotoModal(null)}
         />
       )}

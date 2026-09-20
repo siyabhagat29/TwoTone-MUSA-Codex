@@ -45,3 +45,6 @@ Thumbs.db
 scratch/
 test_*.js
 test_*.mjs
+server/public/uploads/*
+!server/public/uploads/.gitkeep
+

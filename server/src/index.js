@@ -1,8 +1,13 @@
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import multer from "multer";
 import dotenv from "dotenv";
 import { store } from "./store.js";
+import { uploadMediaToSupabase } from "./supabaseService.js";
 import {
   fetchLiveWeather,
   fetchFloodMetrics,
@@ -17,9 +22,34 @@ import {
 import { scoreRisk, classifyCause, encodeGeohash, hashEvidence, getAutoRoutedTeam } from "./engine.js";
 
 dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const UPLOADS_DIR = path.join(__dirname, "../public/uploads");
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
+// Configure multer for native binary video and photo multipart uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, UPLOADS_DIR);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || (file.mimetype.includes("video") ? ".mp4" : ".jpg");
+    const uniqueName = `upload_${Date.now()}_${Math.random().toString(36).substring(2, 8)}${ext}`;
+    cb(null, uniqueName);
+  }
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 100 * 1024 * 1024 } // 100MB
+});
+
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "15mb" }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use("/uploads", express.static(UPLOADS_DIR));
 app.use(morgan("dev"));
 
 // Initial weather sync on startup and recurring background sync every 60s
@@ -238,6 +268,35 @@ app.post("/api/weather/sync", async (_, res) => {
   try {
     const zones = await store.syncLiveWeatherData();
     res.json({ success: true, zones, alerts: store.getAlerts() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Dedicated Media Upload Endpoint for Videos & Photos (Multipart binary streaming)
+app.post("/api/upload-media", upload.single("media"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No media file uploaded" });
+    }
+    const filename = req.file.filename;
+    const isVideo = req.file.mimetype.startsWith("video/") || filename.endsWith(".mp4") || filename.endsWith(".mov");
+
+    let publicUrl = null;
+    try {
+      const fileBuffer = fs.readFileSync(req.file.path);
+      publicUrl = await uploadMediaToSupabase(fileBuffer, `upload_${Date.now()}`, isVideo);
+    } catch (e) {
+      console.warn("[upload-media Supabase notice]:", e.message);
+    }
+
+    const finalUrl = publicUrl || `/uploads/${filename}`;
+    res.status(201).json({
+      success: true,
+      url: finalUrl,
+      filename,
+      mediaType: isVideo ? "video" : "photo"
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
