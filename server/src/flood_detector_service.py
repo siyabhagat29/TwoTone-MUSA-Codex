@@ -16,9 +16,13 @@ from typing import Optional, Dict, Any
 
 # Suppress TF verbose logging
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras.applications.mobilenet import preprocess_input
+try:
+    import keras
+    from keras.applications.mobilenet import preprocess_input
+except (ImportError, AttributeError):
+    import tensorflow as tf
+    from tensorflow import keras
+    from tensorflow.keras.applications.mobilenet import preprocess_input
 from PIL import Image
 import cv2
 import uvicorn
@@ -152,73 +156,90 @@ def health():
         "model_path": str(MODEL_PATH)
     }
 
-@app.post("/predict")
-async def predict_media(
-    file: Optional[UploadFile] = File(None),
-    body: Optional[PredictPathRequest] = Body(None)
-):
+@app.post("/predict-path")
+def predict_from_path(req: PredictPathRequest):
     if model is None:
         raise HTTPException(status_code=503, detail="Flood model is not loaded")
+    
+    target_path = None
+    if req.filePath:
+        p = Path(req.filePath)
+        if not p.is_absolute():
+            p = (WORKSPACE_ROOT / req.filePath).resolve()
+        if p.exists():
+            target_path = str(p)
+    
+    if not target_path and req.url:
+        url = req.url
+        if "/uploads/" in url:
+            upload_name = url.split("/uploads/")[-1].split("?")[0]
+            local_candidate = WORKSPACE_ROOT / "server" / "public" / "uploads" / upload_name
+            if local_candidate.exists():
+                target_path = str(local_candidate)
+        elif url.startswith("file://"):
+            local_candidate = Path(url.replace("file://", ""))
+            if local_candidate.exists():
+                target_path = str(local_candidate)
+
+    if not target_path or not os.path.exists(target_path):
+        raise HTTPException(status_code=404, detail=f"File could not be found locally: {req.filePath or req.url}")
 
     start_time = time.time()
-    temp_file = None
-    target_path = None
-    media_type = "image"
+    filename = Path(target_path).name.lower()
+    is_video = any(filename.endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv", ".webm"])
+    media_type = "video" if is_video else "image"
 
     try:
-        if file is not None:
-            filename = file.filename.lower()
-            is_video = any(filename.endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv", ".webm"]) or file.content_type.startswith("video/")
-            media_type = "video" if is_video else "image"
-
-            # Write uploaded bytes to a temporary file
-            suffix = Path(filename).suffix or (".mp4" if is_video else ".jpg")
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                temp_file = tmp.name
-                content = await file.read()
-                tmp.write(content)
-            target_path = temp_file
-
-        elif body and body.filePath:
-            resolved_path = Path(body.filePath)
-            if not resolved_path.is_absolute():
-                resolved_path = (WORKSPACE_ROOT / body.filePath).resolve()
-            
-            if not resolved_path.exists():
-                raise HTTPException(status_code=404, detail=f"File not found at: {resolved_path}")
-            
-            target_path = str(resolved_path)
-            filename = resolved_path.name.lower()
-            is_video = any(filename.endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv", ".webm"])
-            media_type = "video" if is_video else "image"
-
-        elif body and body.url:
-            # Check if url points to local uploads
-            url = body.url
-            if "/uploads/" in url:
-                upload_name = url.split("/uploads/")[-1].split("?")[0]
-                local_candidate = WORKSPACE_ROOT / "server" / "public" / "uploads" / upload_name
-                if local_candidate.exists():
-                    target_path = str(local_candidate)
-                    is_video = any(upload_name.lower().endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv", ".webm"])
-                    media_type = "video" if is_video else "image"
-            if not target_path:
-                raise HTTPException(status_code=400, detail="Cannot resolve remote URL locally without downloading")
-        else:
-            raise HTTPException(status_code=400, detail="Must provide either 'file' multipart or 'filePath' / 'url' in body")
-
-        # Run evaluation based on media type
         if media_type == "video":
             result = evaluate_video_file(target_path)
         else:
             pil_img = Image.open(target_path).convert("RGB")
             img_np = np.array(pil_img)
             result = evaluate_image_array(img_np)
+        
+        elapsed = round(time.time() - start_time, 3)
+        result["media_type"] = media_type
+        result["inference_seconds"] = elapsed
+        print(f"🔍 [FloodAI PredictPath] {media_type.upper()} {Path(target_path).name} -> {result['label']} (conf: {result['confidence']}, elapsed: {elapsed}s)")
+        return result
+    except Exception as e:
+        print(f"❌ [FloodAI Error]: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/predict")
+async def predict_media(
+    file: Optional[UploadFile] = File(None)
+):
+    if model is None:
+        raise HTTPException(status_code=503, detail="Flood model is not loaded")
+
+    if not file:
+        raise HTTPException(status_code=400, detail="Must provide 'file' multipart. For JSON paths, use /predict-path")
+
+    start_time = time.time()
+    temp_file = None
+    filename = file.filename.lower()
+    is_video = any(filename.endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv", ".webm"]) or file.content_type.startswith("video/")
+    media_type = "video" if is_video else "image"
+
+    try:
+        suffix = Path(filename).suffix or (".mp4" if is_video else ".jpg")
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            temp_file = tmp.name
+            content = await file.read()
+            tmp.write(content)
+
+        if media_type == "video":
+            result = evaluate_video_file(temp_file)
+        else:
+            pil_img = Image.open(temp_file).convert("RGB")
+            img_np = np.array(pil_img)
+            result = evaluate_image_array(img_np)
 
         elapsed = round(time.time() - start_time, 3)
         result["media_type"] = media_type
         result["inference_seconds"] = elapsed
-        print(f"🔍 [FloodAI Result] {media_type.upper()} -> {result['label']} (conf: {result['confidence']}, elapsed: {elapsed}s)")
+        print(f"🔍 [FloodAI Predict] {media_type.upper()} -> {result['label']} (conf: {result['confidence']}, elapsed: {elapsed}s)")
         return result
 
     except HTTPException:

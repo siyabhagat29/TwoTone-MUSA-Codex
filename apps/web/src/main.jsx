@@ -1460,7 +1460,12 @@ function IncidentCard({ incident, onAutoDispatch, onVerify, onFalseAlarm, onOpen
           <b>{inc.id}</b>
           <span className={`status ${inc.status?.toLowerCase().replace(" ", "-")}`}>{inc.status}</span>
         </div>
-        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+          {inc.aiVerified && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "10px", fontWeight: "800", background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", padding: "2px 7px", borderRadius: "6px" }}>
+              🤖 AI Flood Model: Verified {inc.aiFloodConfidence ? `(${(inc.aiFloodConfidence * 100).toFixed(0)}%)` : ""}
+            </span>
+          )}
           {/* CV Confidence Score */}
           <span className={`cv-badge ${inc.cvConfidence >= 80 ? "high" : ""}`}>
             <Sparkles size={11} />

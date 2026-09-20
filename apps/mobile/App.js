@@ -136,6 +136,8 @@ const TRANSLATIONS = {
     attachedPhotoPreviewTitle: "Attached Photo Evidence",
     cvReadyBadge: "AI Water Depth Verification Ready",
     removePhotoBtn: "Remove / Re-take",
+    noFloodPopupTitle: "No Flooding Detected",
+    noFloodPopupMsg: "There is no flooding detected in the uploaded visual evidence. Incident report cannot be filed.",
 
     // Map Screen
     mapScreenTitle: "🗺️ Live Hyperlocal GIS Map",
@@ -296,6 +298,8 @@ const TRANSLATIONS = {
     attachedPhotoPreviewTitle: "संलग्न फोटो साक्ष्य",
     cvReadyBadge: "एआई जल गहराई विश्लेषण हेतु तैयार",
     removePhotoBtn: "फोटो हटाएं / बदलें",
+    noFloodPopupTitle: "बाढ़ का पता नहीं चला",
+    noFloodPopupMsg: "अपलोड किए गए साक्ष्य में बाढ़ का पता नहीं चला है, रिपोर्ट दर्ज नहीं की जा सकती।",
 
     // Map Screen
     mapScreenTitle: "🗺️ लाइव हाइपरलोकल जीआईएस नक्शा",
@@ -456,6 +460,8 @@ const TRANSLATIONS = {
     attachedPhotoPreviewTitle: "जोडलेला फोटो पुरावा",
     cvReadyBadge: "एआय पाण्याची खोली विश्लेषणासाठी तयार",
     removePhotoBtn: "फोटो काढा / बदला",
+    noFloodPopupTitle: "पूर आढळला नाही",
+    noFloodPopupMsg: "अपलोड केलेल्या पुराव्यामध्ये कोणताही पूर आढळला नाही, तक्रार नोंदवता येणार नाही.",
 
     // Map Screen
     mapScreenTitle: "🗺️ थेट हायपरलोकल जीआयएस नकाशा",
@@ -2520,6 +2526,10 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
   const [photoPreview, setPhotoPreview] = useState(null);
   const [videoUri, setVideoUri] = useState(null);
   const [videoPreview, setVideoPreview] = useState(null);
+  const [aiVerifying, setAiVerifying] = useState(false);
+  const [aiResult, setAiResult] = useState(null);
+  const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState(null);
+  const [uploadedVideoUrl, setUploadedVideoUrl] = useState(null);
 
   const [waterDepthChoice, setWaterDepthChoice] = useState("At doorstep (not entered)");
   const [customWater, setCustomWater] = useState("");
@@ -2557,6 +2567,50 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
     fetchLiveGps();
   }, []);
 
+  // Pre-verification with Keras Flood Detection AI
+  const runAiVerification = async (uri, isVideo = false) => {
+    if (!uri) return null;
+    setAiVerifying(true);
+    setAiResult(null);
+    try {
+      const formData = new FormData();
+      const filename = isVideo ? `scan_video_${Date.now()}.mp4` : `scan_photo_${Date.now()}.jpg`;
+      formData.append("media", {
+        uri,
+        name: filename,
+        type: isVideo ? "video/mp4" : "image/jpeg"
+      });
+      const res = await fetchWithTimeout(`${apiUrl}/upload-media`, {
+        method: "POST",
+        body: formData
+      }, 35000);
+      if (res.ok) {
+        const data = await res.json();
+        if (isVideo) {
+          if (data.url) setUploadedVideoUrl(data.url);
+        } else {
+          if (data.url) setUploadedPhotoUrl(data.url);
+        }
+        if (data.aiVerification) {
+          setAiResult(data.aiVerification);
+          if (data.aiVerification.is_flooding === false) {
+            Alert.alert(
+              t.noFloodPopupTitle || "No Flooding Detected",
+              t.noFloodPopupMsg || "There is no flooding detected, report cannot be filed.",
+              [{ text: "OK" }]
+            );
+          }
+          return data.aiVerification;
+        }
+      }
+    } catch (e) {
+      console.warn("[AI Verification pre-check notice]:", e.message);
+    } finally {
+      setAiVerifying(false);
+    }
+    return null;
+  };
+
   const takePhoto = async () => {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -2572,6 +2626,8 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
         setPhotoPreview(asset.uri);
         setVideoUri(null);
         setVideoPreview(null);
+        setUploadedVideoUrl(null);
+        runAiVerification(asset.uri, false);
       }
     } catch (err) {
       Alert.alert("Camera Error", err.message);
@@ -2588,6 +2644,8 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
         setPhotoPreview(asset.uri);
         setVideoUri(null);
         setVideoPreview(null);
+        setUploadedVideoUrl(null);
+        runAiVerification(asset.uri, false);
       }
     } catch (err) {
       Alert.alert("Gallery Error", err.message);
@@ -2615,6 +2673,8 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
         setVideoPreview(asset.uri);
         setPhotoUri(null);
         setPhotoPreview(null);
+        setUploadedPhotoUrl(null);
+        runAiVerification(asset.uri, true);
       }
     } catch (err) {
       Alert.alert("Video Error", err.message);
@@ -2636,6 +2696,8 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
         setVideoPreview(asset.uri);
         setPhotoUri(null);
         setPhotoPreview(null);
+        setUploadedPhotoUrl(null);
+        runAiVerification(asset.uri, true);
       }
     } catch (err) {
       Alert.alert("Gallery Error", err.message);
@@ -2643,14 +2705,28 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
   };
 
   const submit = async () => {
+    // 1. Check if prior AI scan explicitly determined NO flooding
+    if (aiResult && aiResult.is_flooding === false) {
+      Alert.alert(
+        t.noFloodPopupTitle || "No Flooding Detected",
+        t.noFloodPopupMsg || "There is no flooding detected, report cannot be filed.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
     setSubmitting(true);
     try {
       const now = new Date();
       const userTimestamp = now.toISOString();
       const userFormattedTime = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-      let finalVideoUrl = videoUri;
-      if (videoUri && (videoUri.startsWith("file:") || videoUri.startsWith("content:") || videoUri.startsWith("ph:"))) {
+      let finalVideoUrl = uploadedVideoUrl || videoUri;
+      let finalPhotoUrl = uploadedPhotoUrl || photoUri;
+      let verifiedAi = aiResult;
+
+      // Upload and run model on video if not yet done
+      if (videoUri && !uploadedVideoUrl && (videoUri.startsWith("file:") || videoUri.startsWith("content:") || videoUri.startsWith("ph:"))) {
         try {
           const formData = new FormData();
           const cleanFilename = `mobile_video_${Date.now()}.mp4`;
@@ -2667,6 +2743,11 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
             const upData = await upRes.json();
             if (upData.url) {
               finalVideoUrl = upData.url;
+              setUploadedVideoUrl(upData.url);
+            }
+            if (upData.aiVerification) {
+              verifiedAi = upData.aiVerification;
+              setAiResult(verifiedAi);
             }
           }
         } catch (upErr) {
@@ -2679,8 +2760,8 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
         finalVideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
       }
 
-      let finalPhotoUrl = photoUri;
-      if (photoUri && (photoUri.startsWith("file:") || photoUri.startsWith("content:") || photoUri.startsWith("ph:"))) {
+      // Upload and run model on photo if not yet done
+      if (photoUri && !uploadedPhotoUrl && (photoUri.startsWith("file:") || photoUri.startsWith("content:") || photoUri.startsWith("ph:"))) {
         try {
           const formData = new FormData();
           const cleanFilename = `mobile_photo_${Date.now()}.jpg`;
@@ -2697,11 +2778,27 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
             const upData = await upRes.json();
             if (upData.url) {
               finalPhotoUrl = upData.url;
+              setUploadedPhotoUrl(upData.url);
+            }
+            if (upData.aiVerification) {
+              verifiedAi = upData.aiVerification;
+              setAiResult(verifiedAi);
             }
           }
         } catch (pErr) {
           console.warn("[Mobile Photo Upload notice]:", pErr.message);
         }
+      }
+
+      // STRICT CHECK: If AI model detected NO flooding, reject report immediately
+      if (verifiedAi && verifiedAi.is_flooding === false) {
+        setSubmitting(false);
+        Alert.alert(
+          t.noFloodPopupTitle || "No Flooding Detected",
+          t.noFloodPopupMsg || "There is no flooding detected, report cannot be filed.",
+          [{ text: "OK" }]
+        );
+        return;
       }
 
       const payload = {
@@ -2717,6 +2814,7 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
         video: Boolean(finalVideoUrl),
         videoUrl: finalVideoUrl,
         mediaType: finalVideoUrl ? "video" : (finalPhotoUrl ? "image" : null),
+        aiVerification: verifiedAi,
         lat: loc?.latitude ?? 19.132,
         lng: loc?.longitude ?? 72.848,
         address: locAddress || "Station Road Commercial Area",
@@ -2737,10 +2835,22 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
         body: JSON.stringify(payload)
       }, 30000);
 
+      // If backend rejected report due to no flooding detected:
+      if (res.status === 422) {
+        const errData = await res.json().catch(() => ({}));
+        setSubmitting(false);
+        Alert.alert(
+          t.noFloodPopupTitle || "No Flooding Detected",
+          errData.message || t.noFloodPopupMsg || "There is no flooding detected, report cannot be filed.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
-      const mediaMsg = videoUri ? "Video uploaded & live GPS tracked" : "Photo uploaded & live GPS tracked";
+      const mediaMsg = videoUri ? "Video uploaded & AI flood verified" : "Photo uploaded & AI flood verified";
       Alert.alert("Report Received", `Assigned ID: ${data.id}. ${mediaMsg} for Authority Dispatch.`, [
         { text: "OK", onPress: () => onSaved(data) }
       ]);
@@ -2833,7 +2943,7 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
             <Image source={{ uri: photoPreview }} style={{ width: "100%", height: 160, backgroundColor: "#0F172A" }} resizeMode="cover" />
             <View style={{ position: "absolute", bottom: 6, left: 6, right: 6, flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "rgba(15,23,42,0.8)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
               <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>📸 Ground Photo Attached</Text>
-              <TouchableOpacity onPress={() => { setPhotoPreview(null); setPhotoUri(null); }}>
+              <TouchableOpacity onPress={() => { setPhotoPreview(null); setPhotoUri(null); setAiResult(null); }}>
                 <Text style={{ color: "#F87171", fontSize: 10, fontWeight: "800" }}>✕ Remove</Text>
               </TouchableOpacity>
             </View>
@@ -2858,10 +2968,52 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
                   {videoPreview.split("/").pop() || "Recorded flood video evidence"}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => { setVideoPreview(null); setVideoUri(null); }} style={{ padding: 6 }}>
+              <TouchableOpacity onPress={() => { setVideoPreview(null); setVideoUri(null); setAiResult(null); }} style={{ padding: 6 }}>
                 <Ionicons name="trash-outline" size={18} color="#F87171" />
               </TouchableOpacity>
             </View>
+          </View>
+        )}
+
+        {/* AI Flood Verification Status Banner */}
+        {(photoPreview || videoPreview) && (
+          <View style={{ marginTop: 8 }}>
+            {aiVerifying && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#EFF6FF", borderWidth: 1, borderColor: "#BFDBFE", padding: 10, borderRadius: 8 }}>
+                <ActivityIndicator size="small" color={BLUE} />
+                <Text style={{ fontSize: 11, color: BLUE, fontWeight: "700" }}>
+                  🤖 AI model scanning visual evidence for active flooding...
+                </Text>
+              </View>
+            )}
+
+            {!aiVerifying && aiResult && aiResult.is_flooding && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#F0FDF4", borderWidth: 1, borderColor: "#86EFAC", padding: 10, borderRadius: 8 }}>
+                <Ionicons name="checkmark-circle" size={20} color="#16A34A" />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 12, color: "#166534", fontWeight: "800" }}>
+                    ✅ AI Flood Verified ({(aiResult.confidence * 100).toFixed(0)}% Confidence)
+                  </Text>
+                  <Text style={{ fontSize: 10, color: "#15803D", marginTop: 2 }}>
+                    Flooding patterns confirmed by fine-tuned MobileNet model. Ready to submit.
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {!aiVerifying && aiResult && !aiResult.is_flooding && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#FEF2F2", borderWidth: 1, borderColor: "#FECACA", padding: 10, borderRadius: 8 }}>
+                <Ionicons name="close-circle" size={20} color="#DC2626" />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 12, color: "#991B1B", fontWeight: "800" }}>
+                    ⚠️ No Flooding Detected
+                  </Text>
+                  <Text style={{ fontSize: 10, color: "#B91C1C", marginTop: 2 }}>
+                    Our AI model did not detect flooding in this evidence. Report cannot be filed.
+                  </Text>
+                </View>
+              </View>
+            )}
           </View>
         )}
 
