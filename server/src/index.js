@@ -20,6 +20,8 @@ import {
   fetchNearbyLiveShelters
 } from "./weatherService.js";
 import { scoreRisk, classifyCause, encodeGeohash, hashEvidence, getAutoRoutedTeam } from "./engine.js";
+import { agentRegistry, coordinateIncident, simulateWhatIf, executeSingleAgent } from "./agents/orchestrator.js";
+import { coordinationStore } from "./agents/coordinationStore.js";
 
 dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
@@ -57,6 +59,160 @@ store.syncLiveWeatherData().catch((err) => console.warn("[init] Weather sync war
 setInterval(() => {
   store.syncLiveWeatherData().catch((err) => console.warn("[bg-sync] Weather sync warning:", err.message));
 }, 60000);
+
+// Multi-agent orchestration APIs
+app.get("/api/agents/status", (_, res) => {
+  res.json({
+    architecture: "sequential-supervisor-multi-agent",
+    supervisor: "VarshaRaksha Coordination Supervisor",
+    agents: agentRegistry.map((agent) => ({ ...agent, status: "ready" })),
+    capabilities: ["evidence verification", "risk scoring", "cause diagnosis", "resource allocation", "safe routing", "notification planning", "audit trail"]
+  });
+});
+
+app.get("/api/agents/runs", (req, res) => {
+  res.json(coordinationStore.list(req.query.limit));
+});
+
+app.delete("/api/agents/runs", (_, res) => {
+  coordinationStore.clear();
+  res.json({ success: true, message: "Agent run history cleared" });
+});
+
+app.get("/api/agents/runs/:runId", (req, res) => {
+  const run = coordinationStore.get(req.params.runId);
+  if (!run) return res.status(404).json({ error: "Run not found" });
+  res.json(run);
+});
+
+app.post("/api/agents/runs/:runId/action", (req, res) => {
+  const { action, teamId, team, reason, user = "Ward Authority Admin" } = req.body || {};
+  const run = coordinationStore.get(req.params.runId);
+  if (!run) return res.status(404).json({ error: "Run not found" });
+
+  const now = new Date().toISOString();
+  let updatedRun;
+  let dispatchResult = null;
+
+  if (action === "approve") {
+    // Human approval: trigger dispatch if incident exists or if recommended resource is present
+    const recTeam = run.decision?.resource?.recommended;
+    if (run.incidentId) {
+      try {
+        dispatchResult = store.addDispatch({
+          incidentId: run.incidentId,
+          team: recTeam?.name || "Emergency Response Team",
+          teamId: recTeam?.id || "TEAM-01",
+          reason: `Approved by ${user} via Multi-Agent Supervisor. Risk: ${run.decision?.risk?.score}/100`,
+          eta: "10-15 mins",
+          isOverride: false
+        });
+      } catch (err) {
+        console.warn("[agent-action] Auto-dispatch failed:", err.message);
+      }
+    }
+    updatedRun = coordinationStore.update(req.params.runId, {
+      audit: {
+        approvalStatus: "approved",
+        approvedAt: now,
+        approvedBy: user,
+        dispatchId: dispatchResult?.id || null
+      }
+    });
+  } else if (action === "override") {
+    const chosenTeam = team || "Specialized Response Unit";
+    if (run.incidentId) {
+      try {
+        dispatchResult = store.overrideDispatch({
+          incidentId: run.incidentId,
+          team: chosenTeam,
+          teamId: teamId || "OVERRIDE-01",
+          reason: reason || `Manual override by ${user}`,
+          force: true
+        });
+      } catch (err) {
+        console.warn("[agent-action] Override dispatch failed:", err.message);
+      }
+    }
+    updatedRun = coordinationStore.update(req.params.runId, {
+      decision: {
+        ...run.decision,
+        resource: {
+          ...run.decision?.resource,
+          recommended: { id: teamId || "OVERRIDE-01", name: chosenTeam, status: "Overridden" }
+        }
+      },
+      audit: {
+        approvalStatus: "overridden",
+        approvedAt: now,
+        approvedBy: user,
+        overrideReason: reason || "Designated alternate team by authority admin",
+        dispatchId: dispatchResult?.id || null
+      }
+    });
+  } else if (action === "false_alarm") {
+    if (run.incidentId) {
+      store.markFalseAlarm(run.incidentId, reason || `Flagged as false alarm by ${user} via multi-agent console.`);
+    }
+    updatedRun = coordinationStore.update(req.params.runId, {
+      audit: {
+        approvalStatus: "false_alarm",
+        actedAt: now,
+        actedBy: user,
+        falseAlarmReason: reason || "Ground check verified no flood risk"
+      }
+    });
+  } else if (action === "acknowledge") {
+    updatedRun = coordinationStore.update(req.params.runId, {
+      audit: {
+        approvalStatus: "acknowledged",
+        actedAt: now,
+        actedBy: user
+      }
+    });
+  } else {
+    return res.status(400).json({ error: `Unknown action: ${action}` });
+  }
+
+  res.json({ success: true, run: updatedRun, dispatch: dispatchResult });
+});
+
+app.post("/api/agents/:agentId/execute", (req, res) => {
+  try {
+    const result = executeSingleAgent(req.params.agentId, req.body || {}, { resources: store.getResources() });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/agents/analyze", async (req, res) => {
+  try {
+    const result = await coordinateIncident(req.body || {}, { resources: store.getResources() });
+    res.status(200).json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/incidents/:id/coordinate", async (req, res) => {
+  try {
+    const incident = store.getIncidents().find((item) => item.id === req.params.id);
+    if (!incident) return res.status(404).json({ error: "Incident not found" });
+    const result = await coordinateIncident({ ...incident, ...req.body, incidentId: incident.id }, { resources: store.getResources() });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/simulations/what-if", (req, res) => {
+  try {
+    res.json({ scenarios: simulateWhatIf(req.body || {}, { resources: store.getResources() }) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Health
 app.get("/api/health", (_, res) => {
@@ -384,7 +540,13 @@ app.post("/api/reports", async (req, res) => {
       aiFloodConfidence: aiVerification?.confidence || null,
       aiVerification
     });
-    res.status(201).json(report);
+    let agentOrchestration = null;
+    try {
+      agentOrchestration = await coordinateIncident(report, { resources: store.getResources() });
+    } catch (agentErr) {
+      console.warn("[multi-agent] Report orchestration warning:", agentErr.message);
+    }
+    res.status(201).json({ ...report, agentOrchestration });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

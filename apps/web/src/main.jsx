@@ -6,7 +6,8 @@ import {
   Database, FileText, Gauge, Home, Layers3, Map, Menu, Radio, Route as RouteIcon,
   Settings, ShieldCheck, Siren, Users, Wrench, X, Zap, Send, RefreshCw, CheckCircle2,
   Droplets, ShieldAlert, Sparkles, Truck, Sliders, ChevronDown, ChevronUp, Download, Eye, AlertCircle,
-  Search, MapPin, Compass, Loader2, WifiOff, Navigation, AlertOctagon, Video
+  Search, MapPin, Compass, Loader2, WifiOff, Navigation, AlertOctagon, Video,
+  Play, Check, Copy, RotateCcw, Info
 } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -782,7 +783,8 @@ const nav = [
   ["Team Tracker", "/resources", Truck],
   ["Smart Dispatch", "/dispatch", Send],
   ["Chronic Blockages", "/drainage", Wrench],
-  ["Data Sources", "/sources", Database]
+  ["Data Sources", "/sources", Database],
+  ["Multi-Agent Control", "/multi-agent", BrainCircuit]
 ];
 
 function Sidebar({ open }) {
@@ -2277,7 +2279,1071 @@ function SettingsPage({ notify }) {
   );
 }
 
-// Top-level Application Component
+
+const DAG_STAGES = [
+  { id: "observation-agent", name: "Observation", phase: "Perception", icon: Eye },
+  { id: "evidence-agent", name: "Evidence Check", phase: "Verification", icon: CheckCircle2 },
+  { id: "risk-agent", name: "Risk Scoring", phase: "Assessment", icon: AlertTriangle },
+  { id: "cause-agent", name: "Cause Diagnosis", phase: "Reasoning", icon: BrainCircuit },
+  { id: "resource-agent", name: "Resource Match", phase: "Dispatch", icon: Truck },
+  { id: "route-agent", name: "Safety Routing", phase: "Evacuation", icon: RouteIcon },
+  { id: "notification-agent", name: "Notifications", phase: "Broadcast", icon: Bell },
+  { id: "audit-agent", name: "Audit Guardrail", phase: "Governance", icon: ShieldCheck }
+];
+
+const AGENT_ICONS = {
+  "observation-agent": Eye,
+  "evidence-agent": CheckCircle2,
+  "risk-agent": AlertTriangle,
+  "cause-agent": BrainCircuit,
+  "resource-agent": Truck,
+  "route-agent": RouteIcon,
+  "notification-agent": Bell,
+  "audit-agent": ShieldCheck
+};
+
+function MultiAgentOps({ incidents: propIncidents = [], resources: propResources = [], zones: propZones = [], notify, onReload }) {
+  const [status, setStatus] = useState(null);
+  const [runs, setRuns] = useState([]);
+  const [incidents, setIncidents] = useState(propIncidents);
+  const [resources, setResources] = useState(propResources);
+  const [selectedIncident, setSelectedIncident] = useState("");
+  const [analysis, setAnalysis] = useState(null);
+  const [simulation, setSimulation] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [stepperMode, setStepperMode] = useState(true);
+  const [activeDagStep, setActiveDagStep] = useState(-1);
+  const [activeTab, setActiveTab] = useState("decision"); // decision | trace | candidates | audit
+  const [copied, setCopied] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState("all"); // all | red | pending
+  const [overrideTeamId, setOverrideTeamId] = useState("");
+
+  const [scenario, setScenario] = useState({
+    rainfall: 82,
+    waterLevel: 46,
+    reports: 14,
+    note: "Severe waterlogging at subway entrance. 3 vehicles immobilized. Inflow overflowing roadside drains.",
+    blockedDrainSignal: true,
+    lat: 19.1197,
+    lng: 72.8468,
+    vulnerablePeople: 6,
+    onsetSpeed: "0–10 min",
+    drainPenalty: 15
+  });
+
+  // Sync props if provided
+  useEffect(() => {
+    if (propIncidents && propIncidents.length > 0) setIncidents(propIncidents);
+  }, [propIncidents]);
+
+  useEffect(() => {
+    if (propResources && propResources.length > 0) setResources(propResources);
+  }, [propResources]);
+
+  // Load backend status and runs
+  const load = useCallback(async () => {
+    try {
+      const [agentStatus, agentRuns, incidentList] = await Promise.all([
+        apiFetch("/agents/status"),
+        apiFetch("/agents/runs?limit=15"),
+        propIncidents.length ? Promise.resolve(propIncidents) : apiFetch("/incidents").catch(() => [])
+      ]);
+      setStatus(agentStatus);
+      setRuns(agentRuns || []);
+      if (!propIncidents.length) setIncidents(incidentList || []);
+      // If we don't have an active analysis yet, load the latest run if available
+      if (agentRuns && agentRuns.length > 0 && !analysis) {
+        setAnalysis(agentRuns[0]);
+      }
+    } catch (err) {
+      console.error("[MultiAgentOps] Load error:", err);
+    }
+  }, [propIncidents, analysis]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+
+  // Handle Incident Selection with Auto-Fill
+  const handleSelectIncident = (incId) => {
+    setSelectedIncident(incId);
+    if (!incId) return;
+    const inc = incidents.find((i) => i.id === incId);
+    if (inc) {
+      setScenario({
+        lat: Number(inc.lat || 19.132),
+        lng: Number(inc.lng || 72.848),
+        rainfall: Number(inc.rainfallMm || inc.rainfall || 50),
+        waterLevel: Number(inc.water_level || inc.waterLevel || 30),
+        reports: Number(inc.reports || inc.reportCount || 3),
+        note: inc.note || inc.description || "Active incident reported by ground observer",
+        blockedDrainSignal: Boolean(inc.cause?.toLowerCase().includes("drain") || inc.blockedDrainSignal),
+        vulnerablePeople: Number(inc.vulnerablePeople || 2),
+        onsetSpeed: inc.onsetSpeed || "10–30 min",
+        drainPenalty: Number(inc.drainPenalty || 8)
+      });
+      if (notify) notify(`Auto-filled scenario parameters from incident ${inc.id}`);
+    }
+  };
+
+  // Execute Multi-Agent Orchestration with optional Stepper Animation
+  const runOrchestration = async () => {
+    setLoading(true);
+    setActiveDagStep(-1);
+    try {
+      if (stepperMode) {
+        // Animate through DAG nodes
+        for (let i = 0; i < DAG_STAGES.length; i++) {
+          setActiveDagStep(i);
+          await new Promise((res) => setTimeout(res, 260));
+        }
+      }
+
+      const payload = { ...scenario };
+      const result = selectedIncident
+        ? await apiFetch(`/incidents/${selectedIncident}/coordinate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          })
+        : await apiFetch("/agents/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+
+      setAnalysis(result);
+      setActiveTab("decision");
+      await load();
+      if (onReload) onReload();
+      if (notify) notify("Multi-agent orchestration completed!");
+    } catch (err) {
+      console.error("[MultiAgentOps] Orchestration error:", err);
+      if (notify) notify(`Orchestration failed: ${err.message}`);
+    } finally {
+      setLoading(false);
+      setActiveDagStep(-1);
+    }
+  };
+
+  // Run What-If Simulations
+  const runSimulation = async () => {
+    try {
+      const result = await apiFetch("/simulations/what-if", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(scenario)
+      });
+      setSimulation(result.scenarios || []);
+      setActiveTab("simulation");
+      if (notify) notify("Simulated 4 what-if scenarios based on current scenario parameters.");
+    } catch (err) {
+      if (notify) notify(`Simulation failed: ${err.message}`);
+    }
+  };
+
+  // Human-in-the-Loop Actions
+  const handleHumanAction = async (action, extra = {}) => {
+    if (!analysis?.runId) return;
+    try {
+      const res = await apiFetch(`/agents/runs/${analysis.runId}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ...extra })
+      });
+      if (res.run) {
+        setAnalysis(res.run);
+      }
+      await load();
+      if (onReload) onReload();
+      if (action === "approve") {
+        if (notify) notify(`Approved! Response unit dispatched: ${analysis.decision?.resource?.recommended?.name || "Team"}`);
+      } else if (action === "override") {
+        if (notify) notify(`Overridden! Alternate team assigned: ${extra.team || "Team"}`);
+      } else if (action === "false_alarm") {
+        if (notify) notify("Flagged as false alarm. Incident status updated.");
+      }
+    } catch (err) {
+      if (notify) notify(`Action failed: ${err.message}`);
+    }
+  };
+
+  // Copy Broadcast Alert to Clipboard
+  const handleCopyAlert = () => {
+    if (!analysis?.decision?.notification?.message) return;
+    navigator.clipboard.writeText(analysis.decision.notification.message);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+    if (notify) notify("Alert notification message copied to clipboard!");
+  };
+
+  // Export Trace JSON
+  const handleExportTrace = () => {
+    if (!analysis) return;
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(analysis, null, 2));
+    const dlAnchorElem = document.createElement("a");
+    dlAnchorElem.setAttribute("href", dataStr);
+    dlAnchorElem.setAttribute("download", `varsharaksha_trace_${analysis.runId || "run"}.json`);
+    dlAnchorElem.click();
+    if (notify) notify("Audit trace exported as JSON.");
+  };
+
+  // Clear Run History
+  const handleClearHistory = async () => {
+    if (!window.confirm("Are you sure you want to clear all coordination run history?")) return;
+    try {
+      await apiFetch("/agents/runs", { method: "DELETE" });
+      setRuns([]);
+      if (notify) notify("Agent coordination run history cleared.");
+    } catch (err) {
+      if (notify) notify(`Failed to clear runs: ${err.message}`);
+    }
+  };
+
+  // Filtered past runs
+  const filteredRuns = runs.filter((r) => {
+    if (historyFilter === "red") return r.decision?.risk?.label === "RED";
+    if (historyFilter === "pending") return r.audit?.approvalStatus === "pending_approval";
+    return true;
+  });
+
+  const isRed = analysis?.decision?.risk?.label === "RED";
+  const isOrange = analysis?.decision?.risk?.label === "ORANGE";
+  const approvalPending = analysis?.audit?.humanApprovalRequired && analysis?.audit?.approvalStatus === "pending_approval";
+  const isApproved = analysis?.audit?.approvalStatus === "approved";
+  const isOverridden = analysis?.audit?.approvalStatus === "overridden";
+
+  return (
+    <div className="page mac-container" style={{ paddingBottom: 60 }}>
+      {/* Top Header */}
+      <div className="page-header" style={{ marginBottom: 0 }}>
+        <div>
+          <div className="eyebrow" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981", display: "inline-block", boxShadow: "0 0 8px #10b981" }} />
+            SUPERVISOR ORCHESTRATION ENGINE · ONLINE
+          </div>
+          <h1 style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            Multi-Agent Control Center
+            <span style={{ fontSize: 13, fontWeight: 600, padding: "4px 10px", background: "#e0f2fe", color: "#0369a1", borderRadius: 20 }}>
+              Sequential + Explainable DAG
+            </span>
+          </h1>
+          <p className="muted" style={{ maxWidth: 840 }}>
+            An autonomous multi-agent pipeline providing verifiable consensus for perception, multi-modal evidence verification, hyperlocal risk scoring, cause diagnosis, resource routing, and tamper-evident audit logging.
+          </p>
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <button className="btn secondary" onClick={() => load()}>
+            <RefreshCw size={15} /> Refresh Telemetry
+          </button>
+          <button className="btn secondary" onClick={handleExportTrace} disabled={!analysis}>
+            <Download size={15} /> Export Trace
+          </button>
+        </div>
+      </div>
+
+      {/* Visual Workflow: Multi-Agent DAG Pipeline */}
+      <section className="mac-dag-panel">
+        <div className="mac-dag-header">
+          <div className="mac-dag-title">
+            <BrainCircuit size={22} color="#2563eb" />
+            <div>
+              <h3 style={{ margin: 0, fontSize: 16 }}>Multi-Agent Execution Pipeline</h3>
+              <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>
+                Click any agent node to inspect its bounded role, inputs, and real-time execution outputs.
+              </p>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#475569", display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={stepperMode}
+                onChange={(e) => setStepperMode(e.target.checked)}
+              />
+              Animated Stepper Mode
+            </label>
+            <span className="status-pill success" style={{ fontSize: 11 }}>Supervisor Active</span>
+          </div>
+        </div>
+
+        <div className="mac-dag-flow">
+          {DAG_STAGES.map((stage, idx) => {
+            const Icon = stage.icon;
+            const isStepActive = activeDagStep === idx;
+            const agentOutput = analysis?.agents?.find((a) => a.id === stage.id)?.output;
+            const isCompleted = Boolean(analysis && !loading);
+
+            // Compute helpful summary snippet
+            let snippet = stage.phase;
+            if (stage.id === "observation-agent" && agentOutput?.observation) {
+              snippet = `${agentOutput.observation.rainfall}mm · ${agentOutput.observation.waterLevel}cm`;
+            } else if (stage.id === "evidence-agent" && agentOutput?.confidence) {
+              snippet = `${agentOutput.confidence.confidence}% Conf · ${agentOutput.verification}`;
+            } else if (stage.id === "risk-agent" && agentOutput?.score != null) {
+              snippet = `Risk ${agentOutput.score}/100 (${agentOutput.label})`;
+            } else if (stage.id === "cause-agent" && agentOutput?.code) {
+              snippet = agentOutput.name || agentOutput.code;
+            } else if (stage.id === "resource-agent" && agentOutput?.recommended) {
+              snippet = agentOutput.recommended.name ? agentOutput.recommended.name.split(" ")[0] + " Unit" : "Recommended";
+            } else if (stage.id === "route-agent" && agentOutput?.evacuationRequired != null) {
+              snippet = agentOutput.evacuationRequired ? "Evacuate" : "Safe Corridors";
+            } else if (stage.id === "notification-agent" && agentOutput?.escalation) {
+              snippet = `${agentOutput.escalation} Tier`;
+            } else if (stage.id === "audit-agent" && agentOutput?.traceId) {
+              snippet = "Cryptographic Trace";
+            }
+
+            return (
+              <div
+                key={stage.id}
+                className={`mac-dag-node ${isStepActive ? "active-step" : ""} ${isCompleted ? "completed" : ""}`}
+                onClick={() => {
+                  setActiveTab("trace");
+                }}
+              >
+                <div className="mac-dag-node-top">
+                  <span className="mac-dag-node-step">0{idx + 1}</span>
+                  <div className="mac-dag-node-icon">
+                    <Icon size={14} />
+                  </div>
+                </div>
+                <div className="mac-dag-node-name" title={stage.name}>{stage.name}</div>
+                <div className="mac-dag-node-snippet" title={snippet}>{snippet}</div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Main Studio Grid: Orchestration Controls on Left, Decision Intelligence on Right */}
+      <div className="mac-studio-grid">
+        {/* Left Column: Input Studio & Spatial Context */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <section className="mac-card">
+            <div className="mac-card-title">
+              <div>
+                <h3>Orchestration Studio</h3>
+                <p>Simulate flood telemetry or coordinate with live municipal reports.</p>
+              </div>
+              <Zap size={20} color="#2563eb" />
+            </div>
+
+            {/* Existing Incident Picker */}
+            <div className="mac-form-group">
+              <label className="mac-form-label">
+                <span>Select Ground Incident</span>
+                {selectedIncident && (
+                  <span className="mac-form-badge" style={{ background: "#e0f2fe", color: "#0369a1" }}>
+                    Linked: {selectedIncident}
+                  </span>
+                )}
+              </label>
+              <select
+                className="mac-form-select"
+                value={selectedIncident}
+                onChange={(e) => handleSelectIncident(e.target.value)}
+              >
+                <option value="">-- Custom Simulation / Real-time Test --</option>
+                {incidents.slice(0, 25).map((inc) => (
+                  <option key={inc.id} value={inc.id}>
+                    {inc.id} · {inc.cause || "Active Incident"} · Water: {inc.water_level || inc.waterLevel || "?"}cm
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sliders for Rainfall & Water Level */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div className="mac-form-group">
+                <label className="mac-form-label">
+                  <span>Rainfall (mm)</span>
+                  <span
+                    className="mac-form-badge"
+                    style={{
+                      background: scenario.rainfall > 65 ? "#fee2e2" : scenario.rainfall > 35 ? "#fef3c7" : "#e0f2fe",
+                      color: scenario.rainfall > 65 ? "#b91c1c" : scenario.rainfall > 35 ? "#b45309" : "#0369a1"
+                    }}
+                  >
+                    {scenario.rainfall} mm
+                  </span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="140"
+                  value={scenario.rainfall}
+                  className="mac-range-slider"
+                  onChange={(e) => setScenario({ ...scenario, rainfall: Number(e.target.value) })}
+                />
+                <input
+                  type="number"
+                  className="mac-form-input"
+                  value={scenario.rainfall}
+                  onChange={(e) => setScenario({ ...scenario, rainfall: Number(e.target.value) })}
+                />
+              </div>
+
+              <div className="mac-form-group">
+                <label className="mac-form-label">
+                  <span>Water Depth (cm)</span>
+                  <span
+                    className="mac-form-badge"
+                    style={{
+                      background: scenario.waterLevel > 35 ? "#fee2e2" : scenario.waterLevel > 20 ? "#fef3c7" : "#e0f2fe",
+                      color: scenario.waterLevel > 35 ? "#b91c1c" : scenario.waterLevel > 20 ? "#b45309" : "#0369a1"
+                    }}
+                  >
+                    {scenario.waterLevel} cm
+                  </span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={scenario.waterLevel}
+                  className="mac-range-slider"
+                  onChange={(e) => setScenario({ ...scenario, waterLevel: Number(e.target.value) })}
+                />
+                <input
+                  type="number"
+                  className="mac-form-input"
+                  value={scenario.waterLevel}
+                  onChange={(e) => setScenario({ ...scenario, waterLevel: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+
+            {/* Reports & Drain Signal */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div className="mac-form-group">
+                <label className="mac-form-label">Ground Citizen Reports</label>
+                <input
+                  type="number"
+                  className="mac-form-input"
+                  min="1"
+                  max="50"
+                  value={scenario.reports}
+                  onChange={(e) => setScenario({ ...scenario, reports: Number(e.target.value) })}
+                />
+              </div>
+
+              <div className="mac-form-group">
+                <label className="mac-form-label">Drainage Obstruction Signal</label>
+                <select
+                  className="mac-form-select"
+                  value={scenario.blockedDrainSignal ? "yes" : "no"}
+                  onChange={(e) => setScenario({ ...scenario, blockedDrainSignal: e.target.value === "yes" })}
+                >
+                  <option value="yes">Detected / Blocked Culvert</option>
+                  <option value="no">Normal / Unblocked</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Vulnerable People & Onset Speed */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div className="mac-form-group">
+                <label className="mac-form-label">Vulnerable Citizens At Site</label>
+                <input
+                  type="number"
+                  className="mac-form-input"
+                  min="0"
+                  max="30"
+                  value={scenario.vulnerablePeople}
+                  onChange={(e) => setScenario({ ...scenario, vulnerablePeople: Number(e.target.value) })}
+                />
+              </div>
+
+              <div className="mac-form-group">
+                <label className="mac-form-label">Water Rise Onset Speed</label>
+                <select
+                  className="mac-form-select"
+                  value={scenario.onsetSpeed}
+                  onChange={(e) => setScenario({ ...scenario, onsetSpeed: e.target.value })}
+                >
+                  <option value="0–10 min">0–10 min (Flash Flood)</option>
+                  <option value="10–30 min">10–30 min (Rapid Rise)</option>
+                  <option value="Gradual">Gradual / Monitored</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Observation Notes */}
+            <div className="mac-form-group">
+              <label className="mac-form-label">Field Observation & NLP Notes</label>
+              <textarea
+                className="mac-form-textarea"
+                rows="3"
+                value={scenario.note}
+                onChange={(e) => setScenario({ ...scenario, note: e.target.value })}
+                placeholder="Citizen reports, waterlogging description, landmark notes..."
+              />
+            </div>
+
+            {/* Run Buttons */}
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
+              <button
+                className="btn primary"
+                style={{ flex: 1, minWidth: 200, padding: "12px 18px", fontSize: 14 }}
+                disabled={loading}
+                onClick={runOrchestration}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 size={16} className="spinner" />
+                    Running Agents...
+                  </>
+                ) : (
+                  <>
+                    <Play size={16} fill="white" /> Run Multi-Agent Analysis
+                  </>
+                )}
+              </button>
+              <button className="btn secondary" onClick={runSimulation} disabled={loading}>
+                <Activity size={16} /> What-If Matrix
+              </button>
+            </div>
+          </section>
+        </div>
+
+        {/* Right Column: Supervisor Decision Hub & Deep Dive */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {analysis ? (
+            <section className="mac-card">
+              {/* Human-in-the-Loop Action Banner */}
+              {approvalPending && (
+                <div className="mac-approval-banner">
+                  <div className="mac-approval-info">
+                    <AlertTriangle size={26} color="#e11d48" />
+                    <div>
+                      <strong style={{ color: "#9f1239", fontSize: 14 }}>
+                        Supervisor Guardrail: Human Approval Required
+                      </strong>
+                      <p style={{ margin: 0, fontSize: 12, color: "#881337" }}>
+                        Critical flood risk or high exposure detected. Verify recommendation before field deployment.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mac-approval-actions">
+                    <button
+                      className="btn primary"
+                      style={{ background: "#e11d48", borderColor: "#be123c" }}
+                      onClick={() => handleHumanAction("approve")}
+                    >
+                      <Check size={16} /> Approve & Dispatch {analysis.decision?.resource?.recommended?.name?.split(" ")[0] || "Team"}
+                    </button>
+                    <button
+                      className="btn secondary"
+                      onClick={() => handleHumanAction("false_alarm")}
+                    >
+                      Flag False Alarm
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {isApproved && (
+                <div className="mac-approval-banner approved">
+                  <div className="mac-approval-info">
+                    <CheckCircle2 size={24} color="#16a34a" />
+                    <div>
+                      <strong style={{ color: "#166534", fontSize: 14 }}>
+                        Authorized by Authority Admin
+                      </strong>
+                      <p style={{ margin: 0, fontSize: 12, color: "#14532d" }}>
+                        Dispatched unit: <b>{analysis.decision?.resource?.recommended?.name}</b> · Trace recorded in audit ledger.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="status-pill success">Dispatched</span>
+                </div>
+              )}
+
+              {isOverridden && (
+                <div className="mac-approval-banner approved">
+                  <div className="mac-approval-info">
+                    <Sliders size={24} color="#2563eb" />
+                    <div>
+                      <strong style={{ color: "#1e40af", fontSize: 14 }}>
+                        Manual Override Applied
+                      </strong>
+                      <p style={{ margin: 0, fontSize: 12, color: "#1e3a8a" }}>
+                        Assigned alternate unit: <b>{analysis.decision?.resource?.recommended?.name}</b>.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="status-pill" style={{ background: "#dbeafe", color: "#1e40af" }}>Overridden</span>
+                </div>
+              )}
+
+              {/* Decision Header */}
+              <div className="mac-card-title" style={{ marginBottom: 14 }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <h3>Supervisor Decision</h3>
+                    <span
+                      className="status-pill"
+                      style={{
+                        background: isRed ? "#fee2e2" : isOrange ? "#fef3c7" : "#dcfce7",
+                        color: isRed ? "#991b1b" : isOrange ? "#92400e" : "#166534",
+                        fontWeight: 700
+                      }}
+                    >
+                      {analysis.decision?.risk?.label || "NORMAL"} WARNING
+                    </span>
+                  </div>
+                  <p>Trace ID: {analysis.audit?.traceId} · Geohash: {analysis.audit?.geohash}</p>
+                </div>
+                <ShieldCheck size={26} color={isRed ? "#ef4444" : "#16a34a"} />
+              </div>
+
+              {/* KPI Summary Grid */}
+              <div className="mac-decision-kpis">
+                <div className={`mac-kpi-box ${isRed ? "red" : isOrange ? "orange" : "green"}`}>
+                  <span className="mac-kpi-label">Risk Score</span>
+                  <div className="mac-kpi-value">{analysis.decision?.risk?.score || 0}/100</div>
+                  <div className="mac-kpi-sub">
+                    Base: {analysis.decision?.risk?.baseScore || 0} + Boost: {analysis.decision?.risk?.exposureBoost || 0}
+                  </div>
+                </div>
+
+                <div className="mac-kpi-box">
+                  <span className="mac-kpi-label">Root Cause</span>
+                  <div className="mac-kpi-value" style={{ fontSize: 15, marginTop: 4 }}>
+                    {analysis.decision?.cause?.name || "Evaluating"}
+                  </div>
+                  <div className="mac-kpi-sub">{analysis.decision?.cause?.code}</div>
+                </div>
+
+                <div className="mac-kpi-box">
+                  <span className="mac-kpi-label">Top Recommended Unit</span>
+                  <div className="mac-kpi-value" style={{ fontSize: 15, marginTop: 4 }}>
+                    {analysis.decision?.resource?.recommended?.name || "Pending"}
+                  </div>
+                  <div className="mac-kpi-sub">
+                    {analysis.decision?.resource?.recommended?.distanceKm != null ? `${analysis.decision.resource.recommended.distanceKm} km away` : "Available"}
+                  </div>
+                </div>
+
+                <div className="mac-kpi-box">
+                  <span className="mac-kpi-label">Human Approval</span>
+                  <div className="mac-kpi-value" style={{ fontSize: 15, marginTop: 4 }}>
+                    {analysis.audit?.humanApprovalRequired ? "Required" : "Auto-Approved"}
+                  </div>
+                  <div className="mac-kpi-sub">Guardrail Protocol</div>
+                </div>
+              </div>
+
+              {/* Navigation Tabs for Deep Inspection */}
+              <div className="mac-tabs-nav">
+                <button
+                  className={`mac-tab-btn ${activeTab === "decision" ? "active" : ""}`}
+                  onClick={() => setActiveTab("decision")}
+                >
+                  <Eye size={14} /> Key Decisions
+                </button>
+                <button
+                  className={`mac-tab-btn ${activeTab === "candidates" ? "active" : ""}`}
+                  onClick={() => setActiveTab("candidates")}
+                >
+                  <Truck size={14} /> Ranked Response Teams ({analysis.decision?.resource?.candidates?.length || 0})
+                </button>
+                <button
+                  className={`mac-tab-btn ${activeTab === "trace" ? "active" : ""}`}
+                  onClick={() => setActiveTab("trace")}
+                >
+                  <BrainCircuit size={14} /> Agent Traces ({analysis.agents?.length || 0})
+                </button>
+                <button
+                  className={`mac-tab-btn ${activeTab === "audit" ? "active" : ""}`}
+                  onClick={() => setActiveTab("audit")}
+                >
+                  <FileText size={14} /> Cryptographic Proof & Ledger
+                </button>
+              </div>
+
+              {/* Tab 1: Key Decisions (Evacuation, Broadcast Alert, Root Cause) */}
+              {activeTab === "decision" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {/* Safety & Evacuation Advisory */}
+                  <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 14 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                      <b style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+                        <RouteIcon size={16} color="#2563eb" /> Safety Routing & Evacuation Policy
+                      </b>
+                      <span className={`status-pill ${analysis.decision?.route?.evacuationRequired ? "critical" : "success"}`}>
+                        {analysis.decision?.route?.evacuationRequired ? "Evacuation Triggered" : "Shelter in Place / Avoid Hotspots"}
+                      </span>
+                    </div>
+                    <p style={{ margin: "4px 0 0", fontSize: 13, color: "#334155" }}>
+                      {analysis.decision?.route?.advisory}
+                    </p>
+                    <div style={{ marginTop: 8, fontSize: 11, color: "#64748b" }}>
+                      Policy: <code>{analysis.decision?.route?.routePolicy}</code>
+                    </div>
+                  </div>
+
+                  {/* Broadcast Alert */}
+                  <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 12, padding: 14 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                      <b style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6, color: "#1e40af" }}>
+                        <Bell size={16} color="#2563eb" /> Synthesized Broadcast Notification
+                      </b>
+                      <button
+                        className="btn secondary"
+                        style={{ padding: "4px 10px", fontSize: 11, height: 28 }}
+                        onClick={handleCopyAlert}
+                      >
+                        {copied ? <Check size={12} /> : <Copy size={12} />} {copied ? "Copied!" : "Copy Alert"}
+                      </button>
+                    </div>
+                    <p style={{ margin: "4px 0 8px", fontSize: 13, color: "#1e3a8a", fontWeight: 500 }}>
+                      "{analysis.decision?.notification?.message}"
+                    </p>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <span className="status-pill" style={{ background: "#dbeafe", color: "#1e40af", fontSize: 11 }}>
+                        Escalation: {analysis.decision?.notification?.escalation}
+                      </span>
+                      {(analysis.decision?.notification?.channels || []).map((ch) => (
+                        <span key={ch} className="status-pill" style={{ fontSize: 11 }}>
+                          #{ch}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Explainability Checklist */}
+                  <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 14 }}>
+                    <b style={{ fontSize: 13, display: "block", marginBottom: 8 }}>Supervisor Rationale & Explainability:</b>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      {(analysis.audit?.explainability || []).map((exp, i) => (
+                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#334155" }}>
+                          <CheckCircle2 size={15} color="#10b981" />
+                          <span>{exp}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 2: Ranked Response Teams */}
+              {activeTab === "candidates" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>
+                      Resource Allocation Agent ranked <b>{analysis.decision?.resource?.candidates?.length || 0} teams</b> based on distance, equipment capability, and cause suitability.
+                    </p>
+                  </div>
+
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {(analysis.decision?.resource?.candidates || []).map((team, idx) => {
+                      const isTopMatch = team.id === analysis.decision?.resource?.recommended?.id;
+                      return (
+                        <div
+                          key={team.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 12,
+                            padding: "12px 16px",
+                            border: `1.5px solid ${isTopMatch ? "#3b82f6" : "#e2e8f0"}`,
+                            borderRadius: 12,
+                            background: isTopMatch ? "#eff6ff" : "#ffffff"
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                            <div
+                              style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: 8,
+                                background: isTopMatch ? "#2563eb" : "#f1f5f9",
+                                color: isTopMatch ? "#ffffff" : "#475569",
+                                display: "grid",
+                                placeItems: "center",
+                                fontWeight: 700,
+                                fontSize: 12
+                              }}
+                            >
+                              #{idx + 1}
+                            </div>
+                            <div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <b style={{ fontSize: 14 }}>{team.name}</b>
+                                {isTopMatch && (
+                                  <span className="status-pill success" style={{ fontSize: 10 }}>
+                                    Recommended
+                                  </span>
+                                )}
+                              </div>
+                              <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                                {team.station || team.type} · {team.distanceKm != null ? `${team.distanceKm} km away` : "Stationed nearby"} · Fit Score: <b>{team.allocationScore}/100</b>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            {!isTopMatch && (
+                              <button
+                                className="btn secondary"
+                                style={{ padding: "6px 12px", fontSize: 12 }}
+                                onClick={() => handleHumanAction("override", { teamId: team.id, team: team.name })}
+                              >
+                                Assign This Unit
+                              </button>
+                            )}
+                            {isTopMatch && !isApproved && (
+                              <button
+                                className="btn primary"
+                                style={{ padding: "6px 14px", fontSize: 12 }}
+                                onClick={() => handleHumanAction("approve")}
+                              >
+                                Dispatch Unit
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 3: Agent Traces (Deep Inspection) */}
+              {activeTab === "trace" && (
+                <div style={{ display: "grid", gap: 12 }}>
+                  {(analysis.agents || []).map((agent) => (
+                    <div
+                      key={agent.id}
+                      style={{
+                        border: "1px solid #e2e8f0",
+                        borderRadius: 12,
+                        padding: 14,
+                        background: "#ffffff"
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <CheckCircle2 size={16} color="#10b981" />
+                          <b style={{ fontSize: 14 }}>{agent.name || agent.id}</b>
+                        </div>
+                        <span className="status-pill success" style={{ fontSize: 10 }}>
+                          Completed in {agent.durationMs || 10}ms
+                        </span>
+                      </div>
+                      <pre className="mac-code-block" style={{ maxHeight: 180, fontSize: 11 }}>
+                        {JSON.stringify(agent.output, null, 2)}
+                      </pre>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Tab 4: Cryptographic Proof & Ledger */}
+              {activeTab === "audit" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ background: "#f8fafc", padding: 14, borderRadius: 12, border: "1px solid #e2e8f0" }}>
+                    <h4 style={{ margin: "0 0 10px", fontSize: 14 }}>Cryptographic & Audit Ledger Verification</h4>
+                    <div style={{ display: "grid", gap: 8, fontSize: 13 }}>
+                      <div><b>Trace ID:</b> <code>{analysis.audit?.traceId}</code></div>
+                      <div><b>Evidence SHA-256 Hash:</b> <code>{analysis.audit?.evidenceHash}</code></div>
+                      <div><b>Geohash Cell:</b> <code>{analysis.audit?.geohash}</code></div>
+                      <div><b>Execution Completed:</b> <code>{analysis.completedAt}</code></div>
+                      <div><b>Approval Status:</b> <span className="status-pill success">{analysis.audit?.approvalStatus || "auto_approved"}</span></div>
+                    </div>
+                  </div>
+
+                  <pre className="mac-code-block" style={{ maxHeight: 220 }}>
+                    {JSON.stringify(analysis.audit, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </section>
+          ) : (
+            <section className="mac-card" style={{ textAlign: "center", padding: 40 }}>
+              <BrainCircuit size={48} color="#94a3b8" style={{ margin: "0 auto 12px" }} />
+              <h3>No Orchestration Loaded</h3>
+              <p className="muted" style={{ maxWidth: 400, margin: "0 auto 16px" }}>
+                Select a preset scenario on the left or click "Run Multi-Agent Analysis" to launch the supervisor orchestration.
+              </p>
+              <button className="btn primary" onClick={runOrchestration}>
+                Run Multi-Agent Analysis Now
+              </button>
+            </section>
+          )}
+
+          {/* What-If Comparative Matrix (if generated) */}
+          {simulation && (
+            <section className="mac-card">
+              <div className="mac-card-title">
+                <div>
+                  <h3>What-If Scenario Comparisons</h3>
+                  <p>Hydrological divergence under spiked conditions.</p>
+                </div>
+                <Activity size={22} color="#2563eb" />
+              </div>
+
+              <div className="mac-whatif-grid">
+                {simulation.map((item) => (
+                  <div key={item.id} className="mac-whatif-card">
+                    <b style={{ fontSize: 13 }}>{item.label}</b>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span
+                        className="status-pill"
+                        style={{
+                          background: item.risk?.label === "RED" ? "#fee2e2" : item.risk?.label === "ORANGE" ? "#fef3c7" : "#dcfce7",
+                          color: item.risk?.label === "RED" ? "#991b1b" : item.risk?.label === "ORANGE" ? "#92400e" : "#166534"
+                        }}
+                      >
+                        {item.risk?.score}/100 · {item.risk?.label}
+                      </span>
+                    </div>
+                    <div className="muted" style={{ fontSize: 11 }}>
+                      Cause: <b>{item.cause?.name}</b>
+                    </div>
+                    <button
+                      className="btn secondary"
+                      style={{ padding: "5px 10px", fontSize: 11, marginTop: 4 }}
+                      onClick={() => {
+                        const patch = item.patch || {};
+                        setScenario((prev) => ({ ...prev, ...patch }));
+                        if (notify) notify(`Applied parameters from "${item.label}" scenario.`);
+                      }}
+                    >
+                      Load into Studio
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+
+      {/* Historical Coordination Runs Explorer */}
+      <section className="mac-card" style={{ marginTop: 10 }}>
+        <div className="mac-card-title">
+          <div>
+            <h3>Recent Coordination Traces</h3>
+            <p>Persistent trace audit log. Click any previous run to restore its full state and DAG.</p>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              className={`mac-preset-btn ${historyFilter === "all" ? "active" : ""}`}
+              onClick={() => setHistoryFilter("all")}
+            >
+              All ({runs.length})
+            </button>
+            <button
+              className={`mac-preset-btn ${historyFilter === "red" ? "active" : ""}`}
+              onClick={() => setHistoryFilter("red")}
+            >
+              High Risk
+            </button>
+            <button
+              className={`mac-preset-btn ${historyFilter === "pending" ? "active" : ""}`}
+              onClick={() => setHistoryFilter("pending")}
+            >
+              Pending Approval
+            </button>
+            {runs.length > 0 && (
+              <button className="btn secondary" style={{ fontSize: 11, padding: "5px 9px" }} onClick={handleClearHistory}>
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {filteredRuns.length === 0 ? (
+          <p className="muted" style={{ padding: 20, textAlign: "center" }}>
+            No matching coordination traces found.
+          </p>
+        ) : (
+          <div style={{ display: "grid", gap: 8 }}>
+            {filteredRuns.map((run) => {
+              const runIsRed = run.decision?.risk?.label === "RED";
+              const runIsActive = analysis?.runId === run.runId;
+              return (
+                <div
+                  key={run.runId}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "12px 16px",
+                    borderRadius: 12,
+                    border: `1.5px solid ${runIsActive ? "#2563eb" : "#e2e8f0"}`,
+                    background: runIsActive ? "#eff6ff" : "#ffffff",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease"
+                  }}
+                  onClick={() => {
+                    setAnalysis(run);
+                    setActiveTab("decision");
+                    if (notify) notify(`Restored coordination trace ${run.runId}`);
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 8,
+                        background: runIsRed ? "#fee2e2" : "#f1f5f9",
+                        color: runIsRed ? "#b91c1c" : "#2563eb",
+                        display: "grid",
+                        placeItems: "center"
+                      }}
+                    >
+                      <BrainCircuit size={16} />
+                    </div>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <b>{run.runId}</b>
+                        {run.incidentId && (
+                          <span className="status-pill" style={{ fontSize: 10 }}>
+                            {run.incidentId}
+                          </span>
+                        )}
+                        <span
+                          className="status-pill"
+                          style={{
+                            background: runIsRed ? "#fee2e2" : "#fef3c7",
+                            color: runIsRed ? "#991b1b" : "#92400e",
+                            fontSize: 10
+                          }}
+                        >
+                          {run.decision?.risk?.score || 0}/100 {run.decision?.risk?.label}
+                        </span>
+                      </div>
+                      <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                        Cause: {run.decision?.cause?.name || "Diagnosed"} · Team: {run.decision?.resource?.recommended?.name || "Recommended"} · Completed {new Date(run.completedAt).toLocaleTimeString()}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span className="status-pill success" style={{ fontSize: 11 }}>
+                      {run.audit?.approvalStatus || "COMPLETED"}
+                    </span>
+                    <ChevronRight size={16} color="#94a3b8" />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+    </div>
+  );
+}
+
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [zones, setZones] = useState([]);
@@ -2794,7 +3860,18 @@ function App() {
                 />
               }
             />
-            <Route path="/sources" element={<Sources notify={notify} />} />
+            <Route
+              path="/multi-agent"
+              element={
+                <MultiAgentOps
+                  incidents={incidents}
+                  resources={resources}
+                  zones={zones}
+                  notify={notify}
+                  onReload={loadInitialData}
+                />
+              }
+            />
             <Route path="/settings" element={<SettingsPage notify={notify} />} />
           </Routes>
         </main>

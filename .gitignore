@@ -48,3 +48,6 @@ test_*.mjs
 server/public/uploads/*
 !server/public/uploads/.gitkeep
 
+
+# Generated multi-agent trace history
+server/data/agent_runs.json

@@ -12,12 +12,12 @@
       "reports": 6,
       "trend": "stable",
       "temperature": 28.6,
-      "humidity": 79,
+      "humidity": 92,
       "totalTodayRain": 0.4,
-      "tempC": 29,
+      "tempC": 26.5,
       "riverDischarge": 4.06,
       "dischargeRatio": 0.99,
-      "lastUpdated": "2026-09-20T10:25:40.712Z",
+      "lastUpdated": "2026-09-20T17:02:42.737Z",
       "cause": "Surface Runoff Accumulation",
       "causeCode": "MIXED_RUNOFF",
       "riskLevel": "ORANGE"
@@ -34,12 +34,12 @@
       "reports": 5,
       "trend": "stable",
       "temperature": 28.6,
-      "humidity": 79,
+      "humidity": 92,
       "totalTodayRain": 0.4,
-      "tempC": 29,
+      "tempC": 26.5,
       "riverDischarge": 2.03,
       "dischargeRatio": 1.01,
-      "lastUpdated": "2026-09-20T10:25:40.848Z",
+      "lastUpdated": "2026-09-20T17:02:42.882Z",
       "cause": "Surface Runoff Accumulation",
       "causeCode": "MIXED_RUNOFF",
       "riskLevel": "GREEN"
@@ -56,12 +56,12 @@
       "reports": 1,
       "trend": "stable",
       "temperature": 28.6,
-      "humidity": 79,
+      "humidity": 92,
       "totalTodayRain": 0.4,
-      "tempC": 29,
+      "tempC": 26.5,
       "riverDischarge": 4.06,
       "dischargeRatio": 0.99,
-      "lastUpdated": "2026-09-20T10:25:40.984Z",
+      "lastUpdated": "2026-09-20T17:02:43.097Z",
       "cause": "Surface Runoff Accumulation",
       "causeCode": "MIXED_RUNOFF",
       "riskLevel": "GREEN"
@@ -78,12 +78,12 @@
       "reports": 1,
       "trend": "stable",
       "temperature": 28.8,
-      "humidity": 77,
-      "totalTodayRain": 1,
-      "tempC": 29.1,
+      "humidity": 91,
+      "totalTodayRain": 1.1,
+      "tempC": 26.7,
       "riverDischarge": 2.03,
       "dischargeRatio": 1.01,
-      "lastUpdated": "2026-09-20T10:25:41.121Z",
+      "lastUpdated": "2026-09-20T17:02:43.242Z",
       "cause": "Surface Runoff Accumulation",
       "causeCode": "MIXED_RUNOFF",
       "riskLevel": "ORANGE"
@@ -1976,5 +1976,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-09-20T10:25:41.121Z"
+  "updatedAt": "2026-09-20T17:02:43.242Z"
 }
