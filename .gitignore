@@ -51,3 +51,8 @@ server/public/uploads/*
 
 # Generated multi-agent trace history
 server/data/agent_runs.json
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo

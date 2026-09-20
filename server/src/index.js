@@ -324,11 +324,18 @@ app.get("/api/shelters", async (req, res) => {
   }
 });
 
-// Forward & Reverse Geocoding Endpoints
+// Forward & Reverse Geocoding Endpoints (Google Maps / OSM)
 app.get("/api/geocode/search", async (req, res) => {
   const query = req.query.q || req.query.query;
   if (!query) return res.status(400).json({ success: false, error: "q parameter is required", results: [] });
   const result = await forwardGeocode(query);
+  res.json(result);
+});
+
+app.get("/api/geocode/reverse", async (req, res) => {
+  const { lat, lng } = req.query;
+  if (!lat || !lng) return res.status(400).json({ success: false, error: "lat and lng parameters are required" });
+  const result = await reverseGeocode(parseFloat(lat), parseFloat(lng));
   res.json(result);
 });
 
@@ -429,21 +436,65 @@ app.post("/api/weather/sync", async (_, res) => {
   }
 });
 
+import { spawn } from "child_process";
+
 const FLOOD_AI_URL = process.env.FLOOD_AI_URL || "http://127.0.0.1:5002";
+let floodAiProc = null;
+
+function ensureFloodAiProcess() {
+  fetch(`${FLOOD_AI_URL}/health`)
+    .then((r) => r.json())
+    .then((data) => {
+      if (data && data.model_loaded) {
+        console.log("🌊 [FloodAI] Microservice verified running and model loaded.");
+      }
+    })
+    .catch(() => {
+      if (!floodAiProc) {
+        console.log("🌊 [FloodAI] Starting Python flood detection microservice on port 5002...");
+        const pythonCmd = process.platform === "win32" ? "python" : "python3";
+        const scriptPath = path.join(__dirname, "flood_detector_service.py");
+        floodAiProc = spawn(pythonCmd, [scriptPath], {
+          cwd: path.resolve(__dirname, "../../"),
+          stdio: "inherit",
+          shell: true,
+          env: { ...process.env, FORCE_COLOR: "1" }
+        });
+        floodAiProc.on("exit", (code) => {
+          floodAiProc = null;
+          console.warn(`[FloodAI] Process exited with code ${code}`);
+        });
+      }
+    });
+}
+
+// Check & start AI service on server boot and periodically
+ensureFloodAiProcess();
+setInterval(ensureFloodAiProcess, 30000);
 
 async function checkFloodAiMedia({ filePath, url }) {
-  try {
-    const res = await fetch(`${FLOOD_AI_URL}/predict-path`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filePath, url })
-    });
-    if (res.ok) {
-      return await res.json();
+  const urls = [FLOOD_AI_URL, "http://localhost:5002", "http://127.0.0.1:5002"];
+  const uniqueUrls = [...new Set(urls)];
+
+  for (const baseUrl of uniqueUrls) {
+    try {
+      const res = await fetch(`${baseUrl}/predict-path`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filePath, url })
+      });
+      if (res.ok) {
+        return await res.json();
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        console.warn(`[Flood AI HTTP ${res.status}]:`, errJson.detail || "Inference error");
+        return { error: errJson.detail || `AI service returned HTTP ${res.status}`, status: res.status };
+      }
+    } catch (err) {
+      // try next URL
     }
-  } catch (err) {
-    console.warn("[Flood AI notice]:", err.message);
   }
+  console.warn("[Flood AI notice]: Could not reach Python AI service on port 5002.");
   return null;
 }
 
@@ -454,17 +505,29 @@ app.post("/api/upload-media", upload.single("media"), async (req, res) => {
       return res.status(400).json({ error: "No media file uploaded" });
     }
     const filename = req.file.filename;
-    const isVideo = req.file.mimetype.startsWith("video/") || filename.endsWith(".mp4") || filename.endsWith(".mov");
+    const lowerFilename = filename.toLowerCase();
+    const videoExts = [".mp4", ".mov", ".avi", ".mkv", ".webm"];
+    const isVideo = req.file.mimetype.startsWith("video/") || videoExts.some((ext) => lowerFilename.endsWith(ext));
+
+    console.log(`[Upload] Received ${isVideo ? "VIDEO" : "PHOTO"} file: ${req.file.originalname} -> ${filename} (${req.file.size} bytes, ${req.file.mimetype})`);
 
     // Execute fine-tuned Keras flood detection model on the uploaded media
     let aiVerification = null;
     try {
       aiVerification = await checkFloodAiMedia({ filePath: req.file.path });
-      if (aiVerification) {
+      if (aiVerification && !aiVerification.error) {
         console.log(`🤖 [Flood AI] Evaluated ${filename}: ${aiVerification.label} (is_flooding: ${aiVerification.is_flooding}, conf: ${aiVerification.confidence})`);
       }
     } catch (aiErr) {
       console.warn("[upload-media AI check notice]:", aiErr.message);
+    }
+
+    if (aiVerification && aiVerification.error) {
+      return res.status(400).json({
+        success: false,
+        error: "DECODE_ERROR",
+        message: aiVerification.error
+      });
     }
 
     let publicUrl = null;
@@ -481,7 +544,15 @@ app.post("/api/upload-media", upload.single("media"), async (req, res) => {
       url: finalUrl,
       filename,
       mediaType: isVideo ? "video" : "photo",
-      aiVerification: aiVerification || { is_flooding: true, flood_detected: true, confidence: 0.92, label: "Flooding" }
+      aiVerification: aiVerification || {
+        type: isVideo ? "video" : "image",
+        media_type: isVideo ? "video" : "photo",
+        is_flooding: false,
+        flood_detected: false,
+        confidence: 0.50,
+        label: "Pending Verification",
+        reason: "Flood AI verification in progress"
+      }
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -494,7 +565,7 @@ app.post("/api/verify-flood-evidence", async (req, res) => {
     const { filePath, url } = req.body;
     const aiVerification = await checkFloodAiMedia({ filePath, url });
     if (!aiVerification) {
-      return res.json({ success: true, is_flooding: true, flood_detected: true, confidence: 0.90, label: "Flooding" });
+      return res.status(503).json({ success: false, error: "AI service unavailable" });
     }
     res.json({ success: true, ...aiVerification });
   } catch (err) {
@@ -579,6 +650,28 @@ app.post("/api/incidents/:id/dispatch", (req, res) => {
       isOverride: Boolean(req.body.isOverride)
     });
     res.status(201).json(dispatch);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Mark Incident Resolved
+app.post("/api/incidents/:id/resolve", (req, res) => {
+  try {
+    const incident = store.resolveIncident(req.params.id);
+    res.json({ success: true, incident });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update Incident Dispatch Lifecycle Progress (e.g. "en_route", "on_scene", "resolved")
+app.post("/api/incidents/:id/progress", (req, res) => {
+  try {
+    const stage = req.body.stage || "on_scene";
+    const incident = store.updateIncidentProgress(req.params.id, stage);
+    if (!incident) return res.status(404).json({ error: "Incident not found" });
+    res.json({ success: true, incident, stage });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

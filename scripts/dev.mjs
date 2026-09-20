@@ -41,7 +41,8 @@ function spawnService(name, cmd, args, cwd = process.cwd()) {
 spawnService("server", "npm", ["--workspace", "server", "run", "dev"]);
 
 // 2. Start Flood Detection AI microservice (Python Keras)
-spawnService("flood-ai", "python3", ["server/src/flood_detector_service.py"]);
+const pythonCmd = process.platform === "win32" ? "python" : "python3";
+spawnService("flood-ai", pythonCmd, ["server/src/flood_detector_service.py"]);
 
 // 3. Start web authority dashboard
 spawnService("web", "npm", ["--workspace", "apps/web", "run", "dev"]);

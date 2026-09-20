@@ -568,6 +568,12 @@ class Store {
     return this.alerts;
   }
 
+  getSosAlerts() {
+    return (this.sosAlerts || []).filter(
+      (s) => s.status !== "RESOLVED" && s.status !== "Dispatched" && !s.dispatched
+    );
+  }
+
   getDispatches() {
     return this.dispatches;
   }
@@ -811,12 +817,103 @@ class Store {
       timestamp: new Date().toISOString()
     };
 
-    rescueTeam.status = "En route";
-    rescueTeam.currentIncidentId = id;
+    // Compute next unique incident ID for administrator incident feed
+    const maxNum = this.incidents.reduce((max, inc) => {
+      const match = (inc.id || "").match(/INC-(\d+)/);
+      return match ? Math.max(max, parseInt(match[1], 10)) : max;
+    }, 1000);
+    const incidentId = `INC-${maxNum + 1}`;
 
+    const now = new Date();
+    const formattedTime = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    const userTimestamp = now.toISOString();
+
+    const sosIncident = {
+      id: incidentId,
+      sosId: id,
+      type: "SOS",
+      isSos: true,
+      zoneId: "ZONE-01",
+      reporter: sos.userName,
+      role: sos.role,
+      userPhone: sos.userPhone,
+      emergencyNumber: sos.emergencyNumber,
+      time: formattedTime,
+      userTimestamp,
+      timestamp: userTimestamp,
+      status: "ACTIVE_SOS",
+      severity: 95,
+      cause: "🚨 Emergency Life-Safety SOS",
+      causeCode: "SOS_EMERGENCY",
+      causeDescription: `Immediate distress signal triggered by ${sos.userName} (${sos.role}). User Phone: ${sos.userPhone} · Emergency Contact: ${sos.emergencyNumber}`,
+      recommendedTeam: rescueTeam.name,
+      recommendedTeamId: rescueTeam.id,
+      routingRationale: `Immediate high-priority deployment of ${rescueTeam.name} to active GPS distress coordinate.`,
+      waterLevel: 55,
+      drainObservation: "Distress / Flooding",
+      onsetSpeed: "Immediate",
+      recurrence: "No",
+      lat: sos.lat,
+      lng: sos.lng,
+      geohash: "te7u8",
+      evidenceHash: `0xSOS${Date.now().toString(16)}`,
+      address: sos.address,
+      note: `EMERGENCY SOS BROADCAST: User ${sos.userName} triggered life-safety alarm at ${sos.address}. Contact: ${sos.userPhone}`,
+      photo: false,
+      photoUrl: null,
+      video: false,
+      videoUrl: null,
+      mediaType: "none",
+      gps: true,
+      liveGps: true,
+      liveLocation: {
+        latitude: sos.lat,
+        longitude: sos.lng,
+        address: sos.address,
+        capturedAt: userTimestamp
+      },
+      cvConfidence: 100,
+      cvConfidenceDecimal: 1.0,
+      aiVerified: true,
+      aiFloodConfidence: 1.0,
+      cvModelLabel: "EMERGENCY_SOS_DIRECT_DISPATCH",
+      cvStatus: "Verified",
+      mergedCount: 1,
+      mergedReports: [],
+      relatedIncidentId: null,
+      clusterCount: 1,
+      duplicateOf: null,
+      createdAt: userTimestamp,
+      updatedAt: userTimestamp
+    };
+
+    const alertId = `ALT-${Date.now().toString().slice(-4)}`;
+    const sosAlertItem = {
+      id: alertId,
+      sosId: id,
+      incidentId: incidentId,
+      title: `🚨 CRITICAL SOS: ${sos.userName}`,
+      description: `Immediate distress signal triggered at ${sos.address}. Contact: ${sos.userPhone} (Emergency: ${sos.emergencyNumber})`,
+      severity: "CRITICAL",
+      zoneId: "ZONE-01",
+      area: sos.address,
+      userPhone: sos.userPhone,
+      emergencyNumber: sos.emergencyNumber,
+      userName: sos.userName,
+      role: sos.role,
+      timestamp: userTimestamp,
+      type: "SOS",
+      isSos: true,
+      unread: true
+    };
+
+    this.incidents.unshift(sosIncident);
+    this.alerts.unshift(sosAlertItem);
     this.sosAlerts.unshift(sos);
     this.save();
-    this.emit("sos:triggered", { sos, team: rescueTeam });
+    this.emit("sos:triggered", { sos, team: rescueTeam, incident: sosIncident, alert: sosAlertItem });
+    this.emit("report:created", { incident: sosIncident, zoneId: "ZONE-01" });
+    this.emit("incident:created", { incident: sosIncident, zoneId: "ZONE-01" });
 
     // Asynchronously dispatch Twilio SMS alert from +1 765 563 5185 to verified test number +917738122051
     sendSosSms(sos).then((twResult) => {
@@ -1294,17 +1391,33 @@ class Store {
 
     if (incident) {
       incident.status = "Dispatched";
+      incident.dispatched = true;
       incident.assignedTeam = teamObj.name;
       incident.assignedDispatchId = id;
+      incident.originalSeverity = incident.originalSeverity || incident.severity || 85;
+      incident.severity = Math.max(15, Math.round(Number(incident.originalSeverity) * 0.35));
+      incident.mitigationStatus = "Resource Allocated";
+      incident.dispatchedAt = new Date().toISOString();
+      if (incident.zoneId) {
+        this.updateZoneMetrics(incident.zoneId);
+      }
     }
+
+    // Clear and remove any alerts or SOS entries from the active notification stack
+    const targetIncId = dispatchData.incidentId;
+    this.alerts = this.alerts.filter((a) => a.incidentId !== targetIncId && a.sosId !== targetIncId && a.id !== targetIncId);
+    this.sosAlerts = this.sosAlerts.filter((s) => s.incidentId !== targetIncId && s.id !== targetIncId);
 
     teamObj.status = "En route";
     teamObj.currentIncidentId = dispatchData.incidentId;
     teamObj.activeDispatchId = id;
     teamObj.eta = dispatch.eta;
 
+    this.recomputeAlerts();
+    this.syncResourceStatuses();
     this.save();
     this.emit("dispatch:created", { dispatch, team: teamObj, incident });
+    this.emit("incident:updated", { incident, action: "dispatched" });
     return dispatch;
   }
 
@@ -1324,8 +1437,19 @@ class Store {
 
     if (incident) {
       incident.status = "Dispatched";
+      incident.dispatched = true;
       incident.assignedTeam = teamObj.name;
+      incident.originalSeverity = incident.originalSeverity || incident.severity || 85;
+      incident.severity = Math.max(15, Math.round(Number(incident.originalSeverity) * 0.35));
+      incident.mitigationStatus = "Resource Allocated";
+      if (incident.zoneId) {
+        this.updateZoneMetrics(incident.zoneId);
+      }
     }
+
+    // Clear and remove any alerts or SOS entries from the active notification stack
+    this.alerts = this.alerts.filter((a) => a.incidentId !== incidentId && a.sosId !== incidentId && a.id !== incidentId);
+    this.sosAlerts = this.sosAlerts.filter((s) => s.incidentId !== incidentId && s.id !== incidentId);
 
     teamObj.status = "En route";
     teamObj.currentIncidentId = incidentId;
@@ -1334,6 +1458,73 @@ class Store {
     this.save();
     this.emit("dispatch:overridden", { incidentId, team: teamObj.name, existing });
     return existing || this.addDispatch({ ...overrideData, isOverride: true });
+  }
+
+  resolveIncident(incidentId) {
+    const inc = this.incidents.find((i) => i.id === incidentId);
+    if (inc) {
+      inc.status = "Resolved";
+      inc.dispatched = true;
+      inc.originalSeverity = inc.originalSeverity || inc.severity;
+      inc.severity = 0;
+      inc.resolvedAt = new Date().toISOString();
+      const dispatch = this.dispatches.find((d) => d.incident === incidentId && d.status !== "Completed");
+      if (dispatch) dispatch.status = "Completed";
+      if (inc.assignedTeam) {
+        const teamObj = this.resources.find((t) => t.name === inc.assignedTeam);
+        if (teamObj) {
+          teamObj.status = "Available";
+          teamObj.currentIncidentId = null;
+          teamObj.activeDispatchId = null;
+        }
+      }
+      if (inc.zoneId) {
+        this.updateZoneMetrics(inc.zoneId);
+      }
+      // Clear and remove any alerts or SOS entries from the active notification stack
+      this.alerts = this.alerts.filter((a) => a.incidentId !== incidentId && a.sosId !== incidentId && a.id !== incidentId);
+      this.sosAlerts = this.sosAlerts.filter((s) => s.incidentId !== incidentId && s.id !== incidentId);
+
+      this.recomputeAlerts();
+      this.syncResourceStatuses();
+      this.save();
+      this.emit("incident:updated", { incident: inc, action: "resolved" });
+      return inc;
+    }
+    return null;
+  }
+
+  updateIncidentProgress(incidentId, stage) {
+    const inc = this.incidents.find((i) => i.id === incidentId);
+    if (!inc) return null;
+
+    if (stage === "resolved") {
+      return this.resolveIncident(incidentId);
+    }
+
+    inc.dispatchProgress = stage;
+    if (stage === "on_scene" || stage === "reached") {
+      inc.status = "On Scene";
+      inc.mitigationStatus = "Squad On Scene / Operating";
+      inc.originalSeverity = inc.originalSeverity || inc.severity || 85;
+      inc.severity = Math.max(10, Math.round(Number(inc.originalSeverity) * 0.20));
+      if (inc.assignedTeam) {
+        const teamObj = this.resources.find((t) => t.name === inc.assignedTeam);
+        if (teamObj) teamObj.status = "On scene";
+      }
+    } else if (stage === "en_route" || stage === "dispatched") {
+      inc.status = "Dispatched";
+      inc.mitigationStatus = "Resource Allocated";
+      if (inc.assignedTeam) {
+        const teamObj = this.resources.find((t) => t.name === inc.assignedTeam);
+        if (teamObj) teamObj.status = "En route";
+      }
+    }
+
+    this.save();
+    this.emit("incident:updated", { incident: inc, action: "progress_updated", stage });
+    this.emit("dispatch:updated", { incident: inc, stage });
+    return inc;
   }
 
   generateChronicReport() {

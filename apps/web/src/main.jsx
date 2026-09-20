@@ -24,7 +24,80 @@ async function apiFetch(path, options = {}) {
   return await r.json();
 }
 
-// Leaflet Map Component with real OSM tiles, Rainfall Radar Overlay, Drainage GIS Layer, Live Team Pins, and Safest Route Highlighting
+// Haversine Distance Calculation (in kilometers) between two coordinates
+export function calcDistanceKm(lat1, lon1, lat2, lon2) {
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+  const nLat1 = Number(lat1);
+  const nLon1 = Number(lon1);
+  const nLat2 = Number(lat2);
+  const nLon2 = Number(lon2);
+  if (isNaN(nLat1) || isNaN(nLon1) || isNaN(nLat2) || isNaN(nLon2)) return null;
+  const R = 6371; // Earth radius in km
+  const dLat = ((nLat2 - nLat1) * Math.PI) / 180;
+  const dLon = ((nLon2 - nLon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((nLat1 * Math.PI) / 180) * Math.cos((nLat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c;
+  return Math.round(d * 10) / 10;
+}
+
+const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyA5U1kvO3XeQxEGkQfuNyiMBvcik27VvKQ";
+
+const MAP_LAYERS = {
+  "google-roadmap": {
+    name: "Google Maps (Roadmap)",
+    url: `https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${GOOGLE_MAPS_KEY}`,
+    options: { subdomains: ["0", "1", "2", "3"], maxZoom: 20, attribution: '&copy; <a href="https://maps.google.com" target="_blank">Google Maps</a>' }
+  },
+  "google-hybrid": {
+    name: "Google Satellite / Hybrid",
+    url: `https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&key=${GOOGLE_MAPS_KEY}`,
+    options: { subdomains: ["0", "1", "2", "3"], maxZoom: 20, attribution: '&copy; <a href="https://maps.google.com" target="_blank">Google Maps</a>' }
+  },
+  "google-terrain": {
+    name: "Google Terrain",
+    url: `https://mt{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}&key=${GOOGLE_MAPS_KEY}`,
+    options: { subdomains: ["0", "1", "2", "3"], maxZoom: 20, attribution: '&copy; <a href="https://maps.google.com" target="_blank">Google Maps</a>' }
+  },
+  "google-traffic": {
+    name: "Google Live Traffic",
+    url: `https://mt{s}.google.com/vt/lyrs=m,traffic&x={x}&y={y}&z={z}&key=${GOOGLE_MAPS_KEY}`,
+    options: { subdomains: ["0", "1", "2", "3"], maxZoom: 20, attribution: '&copy; <a href="https://maps.google.com" target="_blank">Google Maps</a>' }
+  },
+  "osm": {
+    name: "OpenStreetMap",
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    options: { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors' }
+  }
+};
+
+// Web Audio synthesizer for immediate emergency SOS chime alert (cross-browser, zero external files)
+function playSosEmergencyChime() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    const now = ctx.currentTime;
+    osc.frequency.setValueAtTime(880, now);
+    osc.frequency.setValueAtTime(1174.66, now + 0.12);
+    osc.frequency.setValueAtTime(880, now + 0.24);
+    osc.frequency.setValueAtTime(1174.66, now + 0.36);
+    gain.gain.setValueAtTime(0.35, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.7);
+  } catch (_) {}
+}
+
+// Leaflet Map Component with Google Maps API tiles, Rainfall Radar Overlay, Drainage GIS Layer, Live Team Pins, and Safest Route Highlighting
 function LeafletMap({
   zones = [],
   incidents = [],
@@ -44,6 +117,7 @@ function LeafletMap({
 }) {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
+  const tileLayerRef = useRef(null);
   const layersRef = useRef({
     zones: null,
     incidents: null,
@@ -55,6 +129,7 @@ function LeafletMap({
     user: null
   });
 
+  const [mapStyle, setMapStyle] = useState("google-roadmap");
   const [showRainfall, setShowRainfall] = useState(true);
   const [showDrainage, setShowDrainage] = useState(true);
   const [showTeams, setShowTeams] = useState(true);
@@ -81,14 +156,12 @@ function LeafletMap({
       const map = L.map(mapRef.current, {
         center,
         zoom,
-        zoomControl: true,
+        zoomControl: false,
         attributionControl: true
       });
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19
-      }).addTo(map);
+      const initialCfg = MAP_LAYERS["google-roadmap"];
+      tileLayerRef.current = L.tileLayer(initialCfg.url, initialCfg.options).addTo(map);
 
       layersRef.current.rainfall = L.layerGroup().addTo(map);
       layersRef.current.drainage = L.layerGroup().addTo(map);
@@ -102,6 +175,17 @@ function LeafletMap({
       mapInstance.current = map;
     }
   }, []);
+
+  // Update Base Tile Layer when mapStyle changes
+  useEffect(() => {
+    if (!mapInstance.current) return;
+    const cfg = MAP_LAYERS[mapStyle] || MAP_LAYERS["google-roadmap"];
+    if (tileLayerRef.current) {
+      mapInstance.current.removeLayer(tileLayerRef.current);
+    }
+    tileLayerRef.current = L.tileLayer(cfg.url, cfg.options).addTo(mapInstance.current);
+    tileLayerRef.current.bringToBack();
+  }, [mapStyle]);
 
   // Auto-resize Leaflet canvas on container width changes
   useEffect(() => {
@@ -223,52 +307,119 @@ function LeafletMap({
       marker.addTo(zoneLayer);
     });
 
-    // 4. CITIZEN INCIDENT REPORTS PINS
+    // 4. CITIZEN INCIDENT REPORTS & CRITICAL SOS EMERGENCY PINS
     incidents.forEach((inc) => {
       if (!inc.lat || !inc.lng) return;
+      const isSos = Boolean(inc.isSos || inc.type === "SOS" || inc.status === "ACTIVE_SOS" || inc.causeCode === "SOS_EMERGENCY");
       const isCritical = inc.waterLevel >= 40 || inc.severity >= 70;
       const markerColor = isCritical ? "#ef4444" : "#f97316";
 
-      const icon = L.divIcon({
-        className: "custom-incident-marker-container",
-        html: `<div class="custom-incident-marker" style="background:${markerColor};" title="${inc.reporter || "Citizen Report"}">⚠️</div>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14]
-      });
+      let icon;
+      if (isSos) {
+        icon = L.divIcon({
+          className: "custom-sos-marker-container",
+          html: `
+            <div class="custom-sos-marker-wrapper">
+              <div class="custom-sos-marker-pulse"></div>
+              <div class="custom-sos-marker" title="🚨 ACTIVE SOS DISTRESS: ${inc.reporter || "Citizen"}">🚨</div>
+            </div>
+          `,
+          iconSize: [48, 48],
+          iconAnchor: [24, 24]
+        });
+      } else {
+        icon = L.divIcon({
+          className: "custom-incident-marker-container",
+          html: `<div class="custom-incident-marker" style="background:${markerColor};" title="${inc.reporter || "Citizen Report"}">⚠️</div>`,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14]
+        });
+      }
 
-      const marker = L.marker([inc.lat, inc.lng], { icon });
-      marker.bindPopup(`
-        <div>
-          <b>${inc.reporter} (${inc.role})</b>
-          <div style="font-size:10px;color:#64748b;">${inc.address || "Street location"}</div>
-          <div style="font-size:10px;margin:4px 0;">Cause: <b>${inc.cause || "Flood Overload"}</b></div>
-        </div>
-      `);
+      const marker = L.marker([inc.lat, inc.lng], { icon, zIndexOffset: isSos ? 1000 : 0 });
+      if (isSos) {
+        marker.bindPopup(`
+          <div style="min-width: 210px;">
+            <div style="background:#ef4444;color:#fff;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:800;margin-bottom:6px;display:inline-block;letter-spacing:0.5px;">
+              🚨 ACTIVE LIFE-SAFETY SOS
+            </div>
+            <div style="font-size:13px;font-weight:800;color:#0f172a;">${inc.reporter} (${inc.role || "Citizen"})</div>
+            <div style="font-size:11px;color:#475569;margin:3px 0;">📍 ${inc.address || "Live Area"}</div>
+            <div style="font-size:10px;color:#94a3b8;margin-bottom:8px;">⏱️ ${inc.time || "Immediate"} · Severity 95</div>
+            <div style="display:flex;gap:6px;">
+              <a href="https://www.google.com/maps/dir/?api=1&destination=${inc.lat},${inc.lng}&travelmode=driving" target="_blank" rel="noreferrer" style="background:#1d4ed8;color:#fff;padding:4px 9px;border-radius:6px;font-size:10px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:3px;">
+                Track on Maps ↗
+              </a>
+            </div>
+          </div>
+        `);
+      } else {
+        marker.bindPopup(`
+          <div>
+            <b>${inc.reporter} (${inc.role || "Citizen"})</b>
+            <div style="font-size:10px;color:#64748b;">${inc.address || "Street location"}</div>
+            <div style="font-size:10px;margin:4px 0;">Cause: <b>${inc.cause || "Flood Overload"}</b></div>
+          </div>
+        `);
+      }
       marker.addTo(incLayer);
     });
 
-    // 5. LIVE RESOURCE TEAM PINS
+    // 5. LIVE RESOURCE TEAM PINS & ACTIVE DISPATCH TRACKING
     if (showTeams) {
       resources.forEach((team) => {
         if (!team.lat || !team.lng) return;
         const isEnRoute = team.status === "En route" || team.status === "Dispatched";
+        const isOnScene = team.status === "On scene" || team.status === "Reached";
         const teamIcon = L.divIcon({
           className: "custom-team-marker-container",
-          html: `<div class="custom-team-marker" style="background:${isEnRoute ? "#f59e0b" : "#0f172a"};" title="${team.name}">🚒</div>`,
-          iconSize: [30, 30],
-          iconAnchor: [15, 15]
+          html: `
+            <div style="position:relative;display:flex;align-items:center;justify-content:center;">
+              ${isEnRoute ? '<div style="position:absolute;inset:-6px;border-radius:50%;background:rgba(245,158,11,0.4);animation:pulse-ring 2s infinite ease-in-out;"></div>' : isOnScene ? '<div style="position:absolute;inset:-6px;border-radius:50%;background:rgba(16,185,129,0.4);animation:pulse-ring 2s infinite ease-in-out;"></div>' : ''}
+              <div class="custom-team-marker" style="background:${isEnRoute ? "#f59e0b" : isOnScene ? "#10b981" : "#0f172a"};box-shadow:0 3px 10px rgba(0,0,0,0.35);" title="${team.name}">
+                ${team.type?.includes("Boat") || team.name?.includes("Boat") ? "🚤" : team.type?.includes("Medical") || team.name?.includes("Medical") ? "🚑" : "🚒"}
+              </div>
+            </div>
+          `,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16]
         });
 
         const marker = L.marker([team.lat, team.lng], { icon: teamIcon });
         marker.bindPopup(`
-          <div>
-            <span class="map-badge ${isEnRoute ? "orange" : "green"}">${team.status.toUpperCase()}</span>
+          <div style="min-width: 200px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+              <span class="map-badge ${isEnRoute ? "orange" : isOnScene ? "green" : "green"}">${team.status.toUpperCase()}</span>
+              ${team.eta ? `<span style="font-size:10px;font-weight:700;color:#f59e0b;">⏱️ ${team.eta}</span>` : ""}
+            </div>
             <b>${team.name}</b>
-            <div style="font-size:10px;color:#64748b;">${team.station}</div>
-            <div style="font-size:10px;margin:4px 0;">Type: <b>${team.type}</b></div>
+            <div style="font-size:10px;color:#64748b;margin:2px 0;">📍 ${team.station}</div>
+            <div style="font-size:10px;margin:2px 0;">Type: <b>${team.type}</b></div>
+            ${team.currentIncidentId ? `<div style="font-size:10px;color:#2563eb;font-weight:700;margin-top:4px;">🎯 Assigned: ${team.currentIncidentId}</div>` : ""}
           </div>
         `);
         marker.addTo(teamLayer);
+
+        // Draw connecting dispatch route polyline if assigned to an active incident
+        if (team.currentIncidentId) {
+          const targetInc = incidents.find((i) => i.id === team.currentIncidentId);
+          if (targetInc && targetInc.lat && targetInc.lng) {
+            const dispatchLine = L.polyline(
+              [[team.lat, team.lng], [targetInc.lat, targetInc.lng]],
+              {
+                color: isOnScene ? "#10b981" : "#f59e0b",
+                weight: 4,
+                opacity: 0.9,
+                dashArray: isOnScene ? undefined : "7, 7"
+              }
+            );
+            dispatchLine.bindTooltip(
+              `🚒 <b>${team.name}</b> &rarr; <b>${targetInc.id}</b> (${isOnScene ? "Reached Site / Operating" : "En Route · ETA ~5 min"})`,
+              { sticky: true }
+            );
+            dispatchLine.addTo(teamLayer);
+          }
+        }
       });
     }
 
@@ -309,16 +460,16 @@ function LeafletMap({
               >
                 🗺️ Show Safest Evacuation Route
               </button>
-              {sh.maps_url && (
+              ${sh.maps_url || (sh.lat && sh.lng) ? `
                 <a
-                  href="${sh.maps_url}"
+                  href="${sh.maps_url || `https://www.google.com/maps/dir/?api=1&destination=${sh.lat},${sh.lng}&travelmode=driving`}"
                   target="_blank"
                   rel="noreferrer"
-                  style="font-size:10px;color:#2563eb;text-align:center;text-decoration:none;margin-top:2px;"
+                  style="font-size:10px;color:#2563eb;text-align:center;text-decoration:none;margin-top:4px;font-weight:600;"
                 >
                   External Google Maps &rarr;
                 </a>
-              )}
+              ` : ""}
             </div>
           </div>
         `);
@@ -416,37 +567,74 @@ function LeafletMap({
 
       {/* Floating Interactive Layer Controls */}
       <div className="map-layer-controls">
-        <button
-          className={`layer-btn ${showRainfall ? "active" : ""}`}
-          onClick={() => setShowRainfall(!showRainfall)}
-          title="Toggle Open-Meteo Rainfall Radar Layer"
-        >
-          <CloudRain size={13} />
-          Rainfall Radar {showRainfall ? "ON" : "OFF"}
-        </button>
-        <button
-          className={`layer-btn ${showDrainage ? "active" : ""}`}
-          onClick={() => setShowDrainage(!showDrainage)}
-          title="Toggle Drainage GIS Culvert Layer"
-        >
-          <Wrench size={13} />
-          Drainage Layer {showDrainage ? "ON" : "OFF"}
-        </button>
-        <button
-          className={`layer-btn ${showTeams ? "active" : ""}`}
-          onClick={() => setShowTeams(!showTeams)}
-          title="Toggle Municipal Response Team Pins"
-        >
-          <Truck size={13} />
-          Team Tracker {showTeams ? "ON" : "OFF"}
-        </button>
-        <button
-          className={`layer-btn ${showShelters ? "active" : ""}`}
-          onClick={() => setShowShelters(!showShelters)}
-          title="Toggle Evacuation Shelters & Relief Hubs"
-        >
-          🏕️ Shelters {showShelters ? "ON" : "OFF"} ({shelters.length})
-        </button>
+        <div className="map-style-segmented">
+          <button
+            className={`map-style-tab ${mapStyle === "google-roadmap" ? "active" : ""}`}
+            onClick={() => setMapStyle("google-roadmap")}
+            title="Google Maps Roadmap"
+          >
+            🗺️ Map
+          </button>
+          <button
+            className={`map-style-tab ${mapStyle === "google-hybrid" ? "active" : ""}`}
+            onClick={() => setMapStyle("google-hybrid")}
+            title="Google Satellite / Hybrid"
+          >
+            🛰️ Satellite
+          </button>
+          <button
+            className={`map-style-tab ${mapStyle === "google-terrain" ? "active" : ""}`}
+            onClick={() => setMapStyle("google-terrain")}
+            title="Google Topographic Terrain"
+          >
+            ⛰️ Terrain
+          </button>
+          <button
+            className={`map-style-tab ${mapStyle === "google-traffic" ? "active" : ""}`}
+            onClick={() => setMapStyle("google-traffic")}
+            title="Google Live Traffic"
+          >
+            🚦 Traffic
+          </button>
+        </div>
+
+        <div className="map-overlay-toggles">
+          <button
+            className={`layer-toggle-chip ${showRainfall ? "active" : ""}`}
+            onClick={() => setShowRainfall(!showRainfall)}
+            title="Toggle Open-Meteo Rainfall Radar Layer"
+          >
+            <CloudRain size={12} />
+            <span>Rainfall</span>
+            <span className={`toggle-status-dot ${showRainfall ? "on" : "off"}`} />
+          </button>
+          <button
+            className={`layer-toggle-chip ${showDrainage ? "active" : ""}`}
+            onClick={() => setShowDrainage(!showDrainage)}
+            title="Toggle Drainage Culvert Network"
+          >
+            <Wrench size={12} />
+            <span>Drainage</span>
+            <span className={`toggle-status-dot ${showDrainage ? "on" : "off"}`} />
+          </button>
+          <button
+            className={`layer-toggle-chip ${showTeams ? "active" : ""}`}
+            onClick={() => setShowTeams(!showTeams)}
+            title="Toggle Municipal Response Squads"
+          >
+            <Truck size={12} />
+            <span>Teams</span>
+            <span className={`toggle-status-dot ${showTeams ? "on" : "off"}`} />
+          </button>
+          <button
+            className={`layer-toggle-chip ${showShelters ? "active" : ""}`}
+            onClick={() => setShowShelters(!showShelters)}
+            title="Toggle Evacuation Shelters"
+          >
+            <span>🏕️ Shelters ({shelters.length})</span>
+            <span className={`toggle-status-dot ${showShelters ? "on" : "off"}`} />
+          </button>
+        </div>
       </div>
       <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
     </div>
@@ -461,7 +649,9 @@ export const MUMBAI_MARKET_HUBS = [
   { id: "MKT-05", name: "Malad West SV Road Market", ward: "P-North Ward", lat: 19.1860, lng: 72.8480, area: "SV Road Bazaar" },
   { id: "MKT-06", name: "Ghatkopar East MG Road Bazaar", ward: "N Ward", lat: 19.0860, lng: 72.9080, area: "MG Road Commercial" },
   { id: "MKT-07", name: "Borivali West Station Bazaar", ward: "R-Central Ward", lat: 19.2290, lng: 72.8570, area: "Borivali Station Road" },
-  { id: "MKT-08", name: "Mulund West Station Road Bazaar", ward: "T Ward", lat: 19.1721, lng: 72.9567, area: "Mulund Station Commercial" }
+  { id: "MKT-08", name: "Mulund West Station Road Bazaar", ward: "T Ward", lat: 19.1721, lng: 72.9567, area: "Mulund Station Commercial" },
+  { id: "MKT-09", name: "Colaba Causeway & Fort Commercial", ward: "A Ward", lat: 18.9180, lng: 72.8280, area: "Colaba & Fort Area" },
+  { id: "MKT-10", name: "Thane Station & Gokhale Road Bazaar", ward: "Thane Central", lat: 19.1860, lng: 72.9750, area: "Station Road Commercial" }
 ];
 
 export function LocationSearchBar({
@@ -783,7 +973,6 @@ const nav = [
   ["Team Tracker", "/resources", Truck],
   ["Smart Dispatch", "/dispatch", Send],
   ["Chronic Blockages", "/drainage", Wrench],
-  ["Data Sources", "/sources", Database],
   ["Multi-Agent Control", "/multi-agent", BrainCircuit]
 ];
 
@@ -832,7 +1021,7 @@ function Sidebar({ open }) {
   );
 }
 
-function Topbar({ onMenu, alertCount, onRefresh }) {
+function Topbar({ onMenu, alertCount, onRefresh, onToggleNotifications, hasActiveSos }) {
   const loc = useLocation();
   const title = loc.pathname === "/" ? "Ward Operations Command" : nav.find((x) => x[1] === loc.pathname)?.[0] || "Operations";
   return (
@@ -852,13 +1041,161 @@ function Topbar({ onMenu, alertCount, onRefresh }) {
         <button className="icon-btn" title="Refresh Live Data" onClick={onRefresh}>
           <RefreshCw size={18} />
         </button>
-        <button className="icon-btn badge-btn">
-          <Bell size={19} />
+        <button
+          className={`icon-btn badge-btn ${hasActiveSos ? "sos-ringing" : ""}`}
+          title="Notifications & Active Emergency Alerts"
+          onClick={onToggleNotifications}
+        >
+          <Bell size={19} color={hasActiveSos ? "#ef4444" : "currentColor"} />
           <em>{alertCount}</em>
         </button>
         <div className="top-avatar">WA</div>
       </div>
     </header>
+  );
+}
+
+// Slide-down interactive Notifications Drawer / Modal with live SOS emergencies
+function NotificationsDrawer({ isOpen, onClose, alerts = [], incidents = [], onAutoDispatch, onClearAlerts }) {
+  if (!isOpen) return null;
+
+  // Active unmitigated SOS alerts (removed from queue once resources are dispatched or incident is resolved)
+  const sosAlerts = incidents.filter(
+    (i) => (i.isSos || i.type === "SOS" || i.status === "ACTIVE_SOS" || i.causeCode === "SOS_EMERGENCY") &&
+           i.status !== "Dispatched" && i.status !== "Resolved" && i.status !== "RESOLVED" && !i.dispatched && !i.assignedTeam
+  );
+
+  const dispatchedIncidentIds = new Set(
+    incidents
+      .filter((i) => i.status === "Dispatched" || i.status === "Resolved" || i.status === "RESOLVED" || i.dispatched || i.assignedTeam)
+      .map((i) => i.id)
+  );
+
+  const regularAlerts = alerts.filter(
+    (a) => !a.isSos && a.type !== "SOS" && !a.dispatched && !dispatchedIncidentIds.has(a.incidentId) && !dispatchedIncidentIds.has(a.sosId)
+  );
+  const totalCount = sosAlerts.length + regularAlerts.length;
+
+  return (
+    <>
+      <div className="notifications-overlay" onClick={onClose} />
+      <div className="notifications-dropdown">
+        <div className="notifications-head">
+          <h3>
+            <Bell size={17} color={sosAlerts.length > 0 ? "#ef4444" : "#2563eb"} />
+            Emergency & System Notifications
+            {totalCount > 0 && <span className="badge-count">{totalCount}</span>}
+          </h3>
+          <div className="notifications-head-actions">
+            {alerts.length > 0 && (
+              <button onClick={onClearAlerts}>Clear All</button>
+            )}
+            <button onClick={onClose} title="Close Notifications" style={{ padding: "4px" }}>
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        <div className="notifications-body">
+          {totalCount === 0 ? (
+            <div style={{ padding: "30px 20px", textAlign: "center", color: "#64748b", fontSize: "12px" }}>
+              <div style={{ fontSize: "28px", marginBottom: "8px" }}>✅</div>
+              <b>No Active Emergencies</b>
+              <p style={{ marginTop: "4px", fontSize: "11px", color: "#94a3b8" }}>
+                All ward drainage, citizen distress channels, and weather corridors are operational.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* 1. Critical SOS Alerts with high urgency layout */}
+              {sosAlerts.map((sos) => (
+                <div key={sos.id} className="sos-alert-card">
+                  <div className="sos-card-header">
+                    <span className="sos-card-badge">
+                      <span className="pulsing-red-dot" />
+                      🚨 CRITICAL SOS TRIGGERED
+                    </span>
+                    <span style={{ fontSize: "10px", color: "#991b1b", fontWeight: "700" }}>
+                      ⏱️ {sos.time || "Immediate"}
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: "13px", fontWeight: "800", color: "#991b1b", margin: "4px 0 2px" }}>
+                    {sos.reporter || "Citizen"}
+                    {sos.role && <span style={{ fontSize: "10px", fontWeight: "normal", color: "#b91c1c" }}> ({sos.role})</span>}
+                  </div>
+
+                  <div style={{ fontSize: "11px", color: "#7f1d1d", display: "flex", flexDirection: "column", gap: "2px", margin: "4px 0 8px" }}>
+                    <div>📍 <b>Location:</b> {sos.address}</div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                    <button
+                      className="primary"
+                      onClick={() => {
+                        if (onAutoDispatch) onAutoDispatch(sos);
+                        onClose();
+                      }}
+                      style={{
+                        background: "#dc2626",
+                        borderColor: "#b91c1c",
+                        fontSize: "11px",
+                        padding: "6px 12px",
+                        borderRadius: "8px",
+                        flex: 1
+                      }}
+                    >
+                      <Send size={12} /> Dispatch Rescue Squad
+                    </button>
+                    {sos.lat && sos.lng && (
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${sos.lat},${sos.lng}&travelmode=driving`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          background: "#fee2e2",
+                          color: "#991b1b",
+                          border: "1px solid #fca5a5",
+                          padding: "6px 10px",
+                          borderRadius: "8px",
+                          fontSize: "11px",
+                          fontWeight: "700",
+                          textDecoration: "none",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px"
+                        }}
+                      >
+                        <Navigation size={12} /> Maps ↗
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {/* 2. Standard Alerts & Flood Advisories */}
+              {regularAlerts.map((alt) => (
+                <div
+                  key={alt.id}
+                  className={`regular-alert-card ${
+                    alt.severity === "CRITICAL" || alt.severity === "High"
+                      ? "critical"
+                      : "warning"
+                  }`}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <b style={{ fontSize: "12px", color: "#0f172a" }}>{alt.title || alt.headline || "Flood Advisory"}</b>
+                    <span style={{ fontSize: "9px", color: "#64748b", fontWeight: "700" }}>{alt.severity || "Warning"}</span>
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#475569" }}>{alt.description || alt.message}</div>
+                  {alt.area && <div style={{ fontSize: "10px", color: "#64748b" }}>📍 {alt.area}</div>}
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -994,8 +1331,8 @@ function Dashboard({
         <section className="panel map-panel">
           <div className="panel-head">
             <div>
-              <h3>Live OpenStreetMap Risk Map with Overlays</h3>
-              <span>Ward 72/73 · Real geographic coordinates</span>
+              <h3>Live Google Maps Risk Map with Overlays</h3>
+              <span>Ward 72/73 · Google Maps Platform & Real geographic coordinates</span>
             </div>
             <span style={{ fontSize: "11px", color: "#16a34a", fontWeight: "bold" }}>● Realtime SSE Connected</span>
           </div>
@@ -1019,10 +1356,12 @@ function Dashboard({
             />
           </div>
           <div className="map-legend">
-            <span><i className="legend red"></i>Critical (≥75)</span>
-            <span><i className="legend orange"></i>Elevated (≥45)</span>
-            <span><i className="legend green"></i>Normal (&lt;45)</span>
-            <span className="map-note">Click any shelter marker or card below to highlight safest road route</span>
+            <div className="map-legend-items">
+              <span className="legend-pill red"><span className="legend-dot red"></span>Critical (≥75)</span>
+              <span className="legend-pill orange"><span className="legend-dot orange"></span>Elevated (≥45)</span>
+              <span className="legend-pill green"><span className="legend-dot green"></span>Normal (&lt;45)</span>
+            </div>
+            <span className="map-note">🛡️ Click any shelter marker or card below to highlight safest road route</span>
           </div>
         </section>
 
@@ -1040,6 +1379,7 @@ function Dashboard({
               <IncidentCard
                 key={inc.id}
                 incident={inc}
+                resources={resources}
                 onAutoDispatch={onAutoDispatch}
                 onVerify={onVerify}
                 onFalseAlarm={onFalseAlarm}
@@ -1435,9 +1775,10 @@ function Dashboard({
 }
 
 // Individual Incident Card with Ground Photo Evidence preview, CV confidence, Divergence cause tag, duplicate merge drawer, and auto-dispatch
-function IncidentCard({ incident, onAutoDispatch, onVerify, onFalseAlarm, onOpenOverride, onViewPhoto }) {
+function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFalseAlarm, onOpenOverride, onViewPhoto }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const inc = incident;
+  const isSos = Boolean(inc.isSos || inc.type === "SOS" || inc.status === "ACTIVE_SOS" || inc.causeCode === "SOS_EMERGENCY");
   const isDispatched = inc.status === "Dispatched";
   const isVerified = inc.status === "Verified";
   const isFalseAlarm = inc.status === "False Alarm";
@@ -1453,8 +1794,51 @@ function IncidentCard({ incident, onAutoDispatch, onVerify, onFalseAlarm, onOpen
   const hasVideo = Boolean((inc.videoUrl || inc.video) && inc.videoUrl !== "attached" && (inc.videoUrl?.startsWith("http") || inc.videoUrl?.startsWith("data:video") || inc.videoUrl?.startsWith("/uploads")));
   const hasPhoto = Boolean(inc.photoUrl && inc.photoUrl !== "attached" && (inc.photoUrl.startsWith("http") || inc.photoUrl.startsWith("data:image") || inc.photoUrl.startsWith("/uploads")));
 
+  // Calculate nearest available emergency response resource
+  const nearestResource = (inc.lat && inc.lng && Array.isArray(resources) && resources.length > 0)
+    ? [...resources]
+        .map((r) => ({ ...r, distKm: calcDistanceKm(inc.lat, inc.lng, r.lat, r.lng) }))
+        .filter((r) => r.distKm != null)
+        .sort((a, b) => a.distKm - b.distKm)[0]
+    : null;
+
   return (
-    <div className="incident-card" style={{ borderLeft: isDispatched ? "4px solid #3b82f6" : isVerified ? "4px solid #10b981" : isFalseAlarm ? "4px solid #94a3b8" : "4px solid #ef4444" }}>
+    <div
+      className="incident-card"
+      style={{
+        borderLeft: isSos ? "5px solid #ef4444" : isDispatched ? "4px solid #3b82f6" : isVerified ? "4px solid #10b981" : isFalseAlarm ? "4px solid #94a3b8" : "4px solid #ef4444",
+        backgroundColor: isSos ? "#fff8f8" : "#ffffff",
+        boxShadow: isSos ? "0 4px 14px rgba(239, 68, 68, 0.12)" : undefined
+      }}
+    >
+      {/* High-Urgency SOS Banner if incident is an SOS distress signal */}
+      {isSos && (
+        <div
+          style={{
+            background: "linear-gradient(135deg, #dc2626, #b91c1c)",
+            color: "#ffffff",
+            padding: "6px 12px",
+            borderRadius: "8px",
+            marginBottom: "8px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            fontWeight: "800",
+            fontSize: "11px",
+            letterSpacing: "0.5px",
+            boxShadow: "0 2px 6px rgba(220, 38, 38, 0.35)"
+          }}
+        >
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            <span className="pulsing-red-dot" style={{ background: "#ffffff" }} />
+            🚨 ACTIVE LIFE-SAFETY SOS DISTRESS
+          </span>
+          <span style={{ fontSize: "10px", background: "rgba(255,255,255,0.25)", padding: "2px 7px", borderRadius: "10px", fontWeight: "700" }}>
+            Priority Alert
+          </span>
+        </div>
+      )}
+
       <div className="incident-card-header">
         <div className="incident-id-badge">
           <b>{inc.id}</b>
@@ -1471,7 +1855,7 @@ function IncidentCard({ incident, onAutoDispatch, onVerify, onFalseAlarm, onOpen
             <Sparkles size={11} />
             CV: {inc.cvConfidence || 88}% Confidence
           </span>
-          <RiskBadge score={inc.severity || 50} />
+          <RiskBadge score={inc.severity || (isSos ? 95 : 50)} />
         </div>
       </div>
 
@@ -1541,6 +1925,36 @@ function IncidentCard({ incident, onAutoDispatch, onVerify, onFalseAlarm, onOpen
           </span>
         )}
       </div>
+
+      {/* Nearest Available Resource Unit */}
+      {nearestResource && !isDispatched && (
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          background: "#f0fdf4",
+          border: "1px solid #bbf7d0",
+          borderRadius: "8px",
+          padding: "5px 10px",
+          marginBottom: "8px",
+          fontSize: "11px"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#166534", fontWeight: "700" }}>
+            <span>{nearestResource.type?.includes("Boat") ? "🚤" : nearestResource.type?.includes("Medical") ? "🚑" : "🚒"}</span>
+            <span>Nearest Unit: <b>{nearestResource.name}</b></span>
+          </div>
+          <span style={{
+            background: "#16a34a",
+            color: "#fff",
+            fontSize: "10px",
+            fontWeight: "800",
+            padding: "2px 8px",
+            borderRadius: "10px"
+          }}>
+            ⚡ {nearestResource.distKm} km away
+          </span>
+        </div>
+      )}
 
       {/* Video Evidence Player (Recorded on Citizen Mobile) */}
       {hasVideo && (
@@ -1710,9 +2124,20 @@ function ResourceCard({ team }) {
 }
 
 // Admin Manual Override Modal
-function OverrideModal({ incident, resources, onClose, onSubmit }) {
-  const [targetTeam, setTargetTeam] = useState(resources[0]?.name || "High-Volume Dewatering Pump Unit");
-  const [rationale, setRationale] = useState("Command center force reassignment");
+function OverrideModal({ incident, resources = [], onClose, onSubmit }) {
+  const sortedResources = [...resources].map((r) => {
+    const distKm = (incident?.lat && incident?.lng && r.lat && r.lng)
+      ? calcDistanceKm(incident.lat, incident.lng, r.lat, r.lng)
+      : null;
+    return { ...r, distKm };
+  }).sort((a, b) => {
+    if (a.distKm == null) return 1;
+    if (b.distKm == null) return -1;
+    return a.distKm - b.distKm;
+  });
+
+  const [targetTeam, setTargetTeam] = useState(sortedResources[0]?.name || resources[0]?.name || "High-Volume Dewatering Pump Unit");
+  const [rationale, setRationale] = useState("Command center force reassignment to closest squad");
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -1726,15 +2151,15 @@ function OverrideModal({ incident, resources, onClose, onSubmit }) {
             Reassign or force dispatch a specific municipal response team for <b>{incident.id}</b> ({incident.address}).
           </div>
           <label style={{ display: "grid", gap: "6px", fontSize: "11px", fontWeight: "bold" }}>
-            Select Override Team
+            Select Response Team (Sorted by Proximity to Incident)
             <select
               value={targetTeam}
               onChange={(e) => setTargetTeam(e.target.value)}
               style={{ padding: "8px", borderRadius: "8px", border: "1px solid #cbd5e1" }}
             >
-              {resources.map((r) => (
+              {sortedResources.map((r, idx) => (
                 <option key={r.id} value={r.name}>
-                  {r.name} ({r.status})
+                  {idx === 0 && r.distKm != null ? `⚡ [Nearest: ${r.distKm} km] ` : r.distKm != null ? `[${r.distKm} km] ` : ""}{r.name} ({r.status})
                 </option>
               ))}
             </select>
@@ -1835,6 +2260,14 @@ function RiskMap({
               onFalseAlarm={onFalseAlarm}
             />
           </div>
+          <div className="map-legend">
+            <div className="map-legend-items">
+              <span className="legend-pill red"><span className="legend-dot red"></span>Critical (≥75)</span>
+              <span className="legend-pill orange"><span className="legend-dot orange"></span>Elevated (≥45)</span>
+              <span className="legend-pill green"><span className="legend-dot green"></span>Normal (&lt;45)</span>
+            </div>
+            <span className="map-note">🛡️ Click any shelter marker or card below to highlight safest road route</span>
+          </div>
         </section>
         <section className="panel zone-list">
           <div className="panel-head">
@@ -1929,7 +2362,7 @@ function MediaLightboxModal({ mediaUrl, incident, isVideo, onClose }) {
 }
 
 // Dedicated Incident Management Page
-function Incidents({ incidents, notify, onReload, onAutoDispatch, onVerify, onFalseAlarm, onOpenOverride, onViewPhoto }) {
+function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch, onVerify, onFalseAlarm, onOpenOverride, onViewPhoto }) {
   const [filter, setFilter] = useState("All");
 
   useEffect(() => {
@@ -1985,6 +2418,7 @@ function Incidents({ incidents, notify, onReload, onAutoDispatch, onVerify, onFa
           <IncidentCard
             key={inc.id}
             incident={inc}
+            resources={resources}
             onAutoDispatch={onAutoDispatch}
             onVerify={onVerify}
             onFalseAlarm={onFalseAlarm}
@@ -1997,23 +2431,168 @@ function Incidents({ incidents, notify, onReload, onAutoDispatch, onVerify, onFa
   );
 }
 
-// Smart Dispatch Page
+// Mini Map Component for Smart Dispatch with live route & pulsing vectors
+function DispatchMiniMap({ incident, teamObj }) {
+  const mapRef = useRef(null);
+  const mapInst = useRef(null);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const incLat = Number(incident?.lat) || 19.132;
+    const incLng = Number(incident?.lng) || 72.848;
+    const teamLat = Number(teamObj?.lat) || incLat + 0.0035;
+    const teamLng = Number(teamObj?.lng) || incLng + 0.0025;
+
+    if (!mapInst.current) {
+      mapInst.current = L.map(mapRef.current, {
+        center: [(incLat + teamLat) / 2, (incLng + teamLng) / 2],
+        zoom: 15,
+        zoomControl: false,
+        attributionControl: false
+      });
+
+      L.tileLayer(`https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${GOOGLE_MAPS_KEY}`, {
+        subdomains: ["0", "1", "2", "3"],
+        maxZoom: 20
+      }).addTo(mapInst.current);
+    }
+
+    const map = mapInst.current;
+    map.eachLayer((layer) => {
+      if (layer instanceof L.Marker || layer instanceof L.Polyline) {
+        map.removeLayer(layer);
+      }
+    });
+
+    const isSos = incident?.isSos || incident?.type === "SOS" || incident?.causeCode === "SOS_EMERGENCY";
+    const isOnScene = incident?.status === "On Scene" || incident?.dispatchProgress === "on_scene";
+    const isDispatched = incident?.status === "Dispatched" || incident?.dispatchProgress === "en_route" || isOnScene;
+    const isResolved = incident?.status === "Resolved";
+
+    // 1. Incident marker
+    const incIcon = L.divIcon({
+      className: "mini-inc-icon",
+      html: `
+        <div style="position:relative;display:flex;align-items:center;justify-content:center;">
+          <div style="position:absolute;inset:-6px;border-radius:50%;background:${isSos ? "rgba(239,68,68,0.4)" : "rgba(245,158,11,0.4)"};animation:pulse-ring 2s infinite ease-in-out;"></div>
+          <div style="background:${isSos ? "#ef4444" : "#f59e0b"};color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:2px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,0.3);">
+            ${isSos ? "🚨" : "⚠️"}
+          </div>
+        </div>
+      `,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
+    });
+    L.marker([incLat, incLng], { icon: incIcon }).addTo(map).bindTooltip(`📍 Incident: ${incident?.id || "Target"}`);
+
+    // 2. Team Squad marker
+    const teamIcon = L.divIcon({
+      className: "mini-team-icon",
+      html: `
+        <div style="position:relative;display:flex;align-items:center;justify-content:center;">
+          ${isDispatched && !isResolved ? `<div style="position:absolute;inset:-6px;border-radius:50%;background:${isOnScene ? "rgba(16,185,129,0.4)" : "rgba(245,158,11,0.4)"};animation:pulse-ring 2s infinite ease-in-out;"></div>` : ''}
+          <div style="background:${isResolved ? "#10b981" : isOnScene ? "#10b981" : isDispatched ? "#f59e0b" : "#2563eb"};color:#fff;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,0.3);">
+            ${teamObj?.type?.includes("Boat") ? "🚤" : teamObj?.type?.includes("Medical") ? "🚑" : "🚒"}
+          </div>
+        </div>
+      `,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15]
+    });
+    L.marker([teamLat, teamLng], { icon: teamIcon }).addTo(map).bindTooltip(`🚒 Squad: ${teamObj?.name || "Assigned Unit"}`);
+
+    // 3. Connecting route trajectory
+    L.polyline([[teamLat, teamLng], [incLat, incLng]], {
+      color: isResolved ? "#10b981" : isOnScene ? "#10b981" : "#f59e0b",
+      weight: 4,
+      opacity: 0.9,
+      dashArray: isOnScene || isResolved ? undefined : "8, 6"
+    }).addTo(map);
+
+    try {
+      const bounds = L.latLngBounds([[incLat, incLng], [teamLat, teamLng]]);
+      map.fitBounds(bounds, { padding: [35, 35], animate: true });
+    } catch {}
+  }, [incident?.id, incident?.status, incident?.dispatchProgress, teamObj?.id, teamObj?.lat, teamObj?.lng]);
+
+  const isOnScene = incident?.status === "On Scene" || incident?.dispatchProgress === "on_scene";
+  const isDispatched = incident?.status === "Dispatched" || incident?.dispatchProgress === "en_route" || isOnScene;
+  const isResolved = incident?.status === "Resolved";
+
+  return (
+    <div className="dispatch-minimap-card">
+      <div className="dispatch-minimap-badge">
+        <span style={{
+          width: "8px",
+          height: "8px",
+          borderRadius: "50%",
+          background: isResolved ? "#10b981" : isOnScene ? "#10b981" : isDispatched ? "#f59e0b" : "#3b82f6",
+          display: "inline-block",
+          boxShadow: isDispatched && !isResolved ? "0 0 8px #f59e0b" : "none"
+        }} />
+        <span>
+          {isResolved
+            ? "✅ Incident Mitigated & Cleared"
+            : isOnScene
+            ? "📍 Squad Reached Site · Operating"
+            : isDispatched
+            ? "🚗 Squad En Route (ETA ~5 min)"
+            : "⚡ Standby · Ready for Deployment"}
+        </span>
+      </div>
+      <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
+    </div>
+  );
+}
+
+// Smart Dispatch Page with Animated Stepper & Fluid Button Micro-interactions
 function Dispatch({ incidents, resources, notify, onReload, onAutoDispatch }) {
-  // Sort incidents by timestamp latest first
   const sortedIncidents = [...incidents].sort(
     (a, b) => new Date(b.userTimestamp || b.updatedAt || b.createdAt || b.time || 0) - new Date(a.userTimestamp || a.updatedAt || a.createdAt || a.time || 0)
   );
-  const [selected, setSelected] = useState(sortedIncidents[0] || null);
-  const [team, setTeam] = useState(resources[0]?.name || "Municipal Cleaning & Desilting Crew");
+
+  const [selectedId, setSelectedId] = useState(sortedIncidents[0]?.id || null);
+  const selected = sortedIncidents.find((i) => i.id === selectedId) || sortedIncidents[0] || null;
+
+  // Compute resources sorted by proximity to the active problem / incident coordinates
+  const sortedResourcesByDistance = [...resources]
+    .map((r) => {
+      const distKm = (selected?.lat && selected?.lng && r.lat && r.lng)
+        ? calcDistanceKm(selected.lat, selected.lng, r.lat, r.lng)
+        : null;
+      return { ...r, distKm };
+    })
+    .sort((a, b) => {
+      if (a.distKm == null) return 1;
+      if (b.distKm == null) return -1;
+      return a.distKm - b.distKm;
+    });
+
+  const [team, setTeam] = useState(
+    selected?.assignedTeam || selected?.recommendedTeam || sortedResourcesByDistance[0]?.name || resources[0]?.name || "Municipal Cleaning & Desilting Crew"
+  );
   const [sending, setSending] = useState(false);
+  const [updatingProgress, setUpdatingProgress] = useState(false);
 
   useEffect(() => {
-    if (!selected && sortedIncidents.length > 0) {
-      setSelected(sortedIncidents[0]);
+    if (!selectedId && sortedIncidents.length > 0) {
+      setSelectedId(sortedIncidents[0].id);
     }
-  }, [sortedIncidents, selected]);
+  }, [sortedIncidents.length]);
 
-  const send = async () => {
+  useEffect(() => {
+    if (selected?.assignedTeam) {
+      setTeam(selected.assignedTeam);
+    } else if (selected?.recommendedTeam) {
+      setTeam(selected.recommendedTeam);
+    } else if (sortedResourcesByDistance.length > 0) {
+      setTeam(sortedResourcesByDistance[0].name);
+    }
+  }, [selected?.id]);
+
+  const selectedTeamObj = sortedResourcesByDistance.find((r) => r.name === team) || resources[0];
+
+  const handleDispatch = async () => {
     if (!selected) return;
     setSending(true);
     try {
@@ -2025,7 +2604,7 @@ function Dispatch({ incidents, resources, notify, onReload, onAutoDispatch }) {
           reason: selected.cause
         })
       });
-      notify(`Dispatch assigned for ${selected.id} → ${team}.`);
+      notify(`✓ Resource ${team} allocated to ${selected.id}. Live status: En Route.`);
       onReload();
     } catch (err) {
       notify("Dispatch failed: " + err.message);
@@ -2034,73 +2613,351 @@ function Dispatch({ incidents, resources, notify, onReload, onAutoDispatch }) {
     }
   };
 
+  const handleProgressStage = async (stage) => {
+    if (!selected) return;
+    setUpdatingProgress(true);
+    try {
+      if (stage === "resolved") {
+        await apiFetch(`/incidents/${selected.id}/resolve`, { method: "POST" });
+        notify(`✓ Incident ${selected.id} marked as Fully Resolved (Severity: 0).`);
+      } else {
+        await apiFetch(`/incidents/${selected.id}/progress`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ stage })
+        });
+        if (stage === "on_scene") {
+          notify(`✓ Squad ${selected.assignedTeam || team} marked as Reached / On Scene at ${selected.id}.`);
+        } else if (stage === "en_route") {
+          notify(`↺ Squad marked as En Route to ${selected.id}.`);
+        }
+      }
+      onReload();
+    } catch (err) {
+      notify("Progress update notice: " + err.message);
+    } finally {
+      setUpdatingProgress(false);
+    }
+  };
+
+  const isDispatched = selected?.status === "Dispatched" || selected?.dispatchProgress === "en_route";
+  const isOnScene = selected?.status === "On Scene" || selected?.dispatchProgress === "on_scene";
+  const isResolved = selected?.status === "Resolved" || selected?.dispatchProgress === "resolved";
+
+  // Step Calculation: 1 = Reported/Triaged, 2 = En route, 3 = On scene, 4 = Resolved
+  const currentStep = isResolved ? 4 : isOnScene ? 3 : isDispatched ? 2 : 1;
+  const progressPercent = isResolved ? 100 : isOnScene ? 70 : isDispatched ? 35 : 0;
+
   return (
     <div className="content">
       <PageHeader
         eyebrow="RESPONSE ORCHESTRATION"
         title="Smart Dispatch & Resource Tasking"
-        sub="Auto-route municipal teams to real citizen incident locations based on cause divergence diagnosis (latest first)."
+        sub="Auto-route municipal teams to real citizen incident locations based on cause divergence diagnosis."
       />
       <div className="dispatch-layout">
         <section className="panel">
           <div className="panel-head">
             <div>
-              <h3>Open Incidents</h3>
-              <span>Choose an incident to route</span>
+              <h3>Incidents Feed</h3>
+              <span>Choose an incident to route & track resources</span>
             </div>
           </div>
           {sortedIncidents.length === 0 ? (
             <div style={{ padding: "20px", color: "#8a9ba8", fontSize: "11px" }}>No incidents awaiting dispatch.</div>
           ) : (
-            sortedIncidents.map((i) => (
-              <button
-                className={`dispatch-item ${selected?.id === i.id ? "chosen" : ""}`}
-                key={i.id}
-                onClick={() => {
-                  setSelected(i);
-                  if (i.recommendedTeam) setTeam(i.recommendedTeam);
-                }}
-              >
-                <div>
-                  <b>{i.id}</b>
-                  <span>{i.address || i.zoneId} · {i.cause}</span>
-                </div>
-                <RiskBadge score={i.severity} />
-              </button>
-            ))
+            sortedIncidents.map((i) => {
+              const itemResolved = i.status === "Resolved";
+              const itemOnScene = i.status === "On Scene" || i.dispatchProgress === "on_scene";
+              const itemDispatched = i.status === "Dispatched" || i.dispatchProgress === "en_route" || itemOnScene;
+              const isChosen = selected?.id === i.id;
+
+              // Nearest squad for this individual incident item
+              const incNearest = (i.lat && i.lng && resources.length > 0)
+                ? [...resources]
+                    .map((r) => ({ ...r, distKm: calcDistanceKm(i.lat, i.lng, r.lat, r.lng) }))
+                    .filter((r) => r.distKm != null)
+                    .sort((a, b) => a.distKm - b.distKm)[0]
+                : null;
+
+              return (
+                <button
+                  className={`dispatch-item ${isChosen ? "chosen" : ""}`}
+                  key={i.id}
+                  onClick={() => setSelectedId(i.id)}
+                  style={{
+                    borderLeft: itemResolved
+                      ? "4px solid #10b981"
+                      : itemOnScene
+                      ? "4px solid #059669"
+                      : itemDispatched
+                      ? "4px solid #f59e0b"
+                      : isChosen
+                      ? "4px solid #2563eb"
+                      : "4px solid transparent"
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <b>{i.id}</b>
+                      {itemResolved ? (
+                        <span style={{ fontSize: "9px", background: "#dcfce7", color: "#166534", padding: "1px 6px", borderRadius: "10px", fontWeight: "800" }}>
+                          ✓ Resolved
+                        </span>
+                      ) : itemOnScene ? (
+                        <span style={{ fontSize: "9px", background: "#ecfdf5", color: "#047857", padding: "1px 6px", borderRadius: "10px", fontWeight: "800", border: "1px solid #a7f3d0" }}>
+                          📍 On Scene
+                        </span>
+                      ) : itemDispatched ? (
+                        <span style={{ fontSize: "9px", background: "#fef3c7", color: "#92400e", padding: "1px 6px", borderRadius: "10px", fontWeight: "800", border: "1px solid #fde68a" }}>
+                          🚗 En Route
+                        </span>
+                      ) : null}
+                    </div>
+                    <span>{i.address || i.zoneId} · {i.cause}</span>
+
+                    {/* Proximity / Assigned Unit Tag */}
+                    {itemDispatched && i.assignedTeam ? (
+                      <div style={{ fontSize: "10px", color: itemResolved ? "#166534" : "#2563eb", marginTop: "2px", fontWeight: "600" }}>
+                        🚒 {i.assignedTeam}
+                      </div>
+                    ) : incNearest ? (
+                      <div style={{ fontSize: "10px", color: "#0284c7", marginTop: "2px", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px" }}>
+                        <span>📍 Nearest:</span>
+                        <span>{incNearest.name.split(" ")[0]} ({incNearest.distKm} km)</span>
+                      </div>
+                    ) : null}
+                  </div>
+                  <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
+                    <RiskBadge score={i.severity} />
+                    {itemDispatched && i.originalSeverity && i.originalSeverity > i.severity && (
+                      <span style={{ fontSize: "9px", color: "#16a34a", fontWeight: "700" }}>
+                        ↓ from {i.originalSeverity}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })
           )}
         </section>
 
         <section className="panel dispatch-form">
           <div className="dispatch-hero">
             <div className="hero-icon"><RouteIcon /></div>
-            <div>
-              <span>Selected Incident</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Selected Incident</span>
+                <span className={`status ${selected?.status?.toLowerCase().replace(" ", "-")}`}>
+                  {selected?.status || "Received"}
+                </span>
+              </div>
               <h2>{selected?.id || "No Incident"}</h2>
               <p>
-                {selected?.reporter} · {selected?.address || selected?.zoneId} · Severity {selected?.severity} · Status: <b>{selected?.status}</b>
+                {selected?.reporter} · {selected?.address || selected?.zoneId} · Severity <b>{selected?.severity}</b>
+                {selected?.originalSeverity && selected.originalSeverity > selected.severity ? ` (Mitigated from ${selected.originalSeverity})` : ""}
               </p>
             </div>
           </div>
-          <label>
-            Assigned Response Team
-            <select value={team} onChange={(e) => setTeam(e.target.value)}>
-              {resources.map((r) => (
-                <option key={r.id} value={r.name}>{r.name} ({r.status})</option>
+
+          {/* Live Multi-Stage Dispatch Lifecycle Timeline */}
+          {selected && (
+            <div className="dispatch-timeline-card">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <b style={{ fontSize: "12px", color: "#0f172a", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <Activity size={15} color="#2563eb" /> Live Dispatch & Mitigation Lifecycle
+                </b>
+                <span style={{ fontSize: "11px", fontWeight: "700", color: isResolved ? "#10b981" : isOnScene ? "#047857" : isDispatched ? "#b45309" : "#64748b" }}>
+                  {isResolved ? "Stage 4 / 4: Resolved" : isOnScene ? "Stage 3 / 4: On Scene / Reached" : isDispatched ? "Stage 2 / 4: En Route" : "Stage 1 / 4: Triaged"}
+                </span>
+              </div>
+
+              <div className="dispatch-stepper">
+                <div className="dispatch-step-line">
+                  <div className="dispatch-step-progress-fill" style={{ width: `${progressPercent}%` }} />
+                </div>
+
+                <div className={`dispatch-step-item ${currentStep >= 1 ? "completed" : ""}`}>
+                  <div className="dispatch-step-circle">📋</div>
+                  <span className="dispatch-step-label">1. Triaged</span>
+                </div>
+
+                <div className={`dispatch-step-item ${currentStep === 2 ? "current-en-route" : currentStep > 2 ? "completed" : ""}`}>
+                  <div className="dispatch-step-circle">🚗</div>
+                  <span className="dispatch-step-label">2. En Route</span>
+                </div>
+
+                <div className={`dispatch-step-item ${currentStep === 3 ? "current-on-scene" : currentStep > 3 ? "completed" : ""}`}>
+                  <div className="dispatch-step-circle">📍</div>
+                  <span className="dispatch-step-label">3. Reached Site</span>
+                </div>
+
+                <div className={`dispatch-step-item ${currentStep === 4 ? "completed" : ""}`}>
+                  <div className="dispatch-step-circle">✅</div>
+                  <span className="dispatch-step-label">4. Mitigated</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Embedded Interactive Dispatch Route Mini-Map */}
+          {selected && (
+            <DispatchMiniMap incident={selected} teamObj={selectedTeamObj} />
+          )}
+
+          {/* Nearest Response Squads Ranked by Proximity Cards Grid */}
+          <div style={{ marginTop: "14px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+              <label style={{ fontSize: "11px", fontWeight: "800", color: "#1e293b", margin: 0 }}>
+                📍 Nearest Response Squads to {selected?.id || "Problem"}:
+              </label>
+              <span style={{ fontSize: "10px", color: "#64748b" }}>Ranked by shortest distance</span>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "8px", marginBottom: "10px" }}>
+              {sortedResourcesByDistance.slice(0, 3).map((r, idx) => {
+                const isChosenTeam = team === r.name;
+                return (
+                  <div
+                    key={r.id}
+                    onClick={() => setTeam(r.name)}
+                    style={{
+                      background: isChosenTeam ? "#eff6ff" : "#ffffff",
+                      border: isChosenTeam ? "2px solid #2563eb" : "1px solid #e2e8f0",
+                      borderRadius: "10px",
+                      padding: "9px 11px",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      boxShadow: isChosenTeam ? "0 4px 12px rgba(37,99,235,0.15)" : "0 1px 3px rgba(0,0,0,0.03)"
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <span style={{ fontSize: "16px" }}>
+                        {r.type?.includes("Boat") ? "🚤" : r.type?.includes("Medical") ? "🚑" : "🚒"}
+                      </span>
+                      <span style={{
+                        fontSize: "9px",
+                        fontWeight: "800",
+                        background: idx === 0 ? "#dcfce7" : "#dbeafe",
+                        color: idx === 0 ? "#15803d" : "#1e40af",
+                        padding: "2px 6px",
+                        borderRadius: "10px",
+                        border: idx === 0 ? "1px solid #86efac" : "1px solid #bfdbfe"
+                      }}>
+                        {idx === 0 ? "⚡ Nearest " : ""}{r.distKm != null ? `${r.distKm} km` : ""}
+                      </span>
+                    </div>
+                    <b style={{ fontSize: "11px", color: "#0f172a", display: "block", marginTop: "4px" }}>{r.name}</b>
+                    <div style={{ fontSize: "9px", color: "#64748b", marginTop: "1px" }}>📍 {r.station}</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "5px" }}>
+                      <span style={{ fontSize: "9px", fontWeight: "700", color: r.status === "Available" ? "#16a34a" : "#d97706" }}>
+                        ● {r.status}
+                      </span>
+                      {isChosenTeam && (
+                        <span style={{ fontSize: "9px", fontWeight: "800", color: "#2563eb" }}>✓ Selected</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <label style={{ marginTop: "4px" }}>
+            Assigned Response Team (Proximity Sorted)
+            <select value={team} onChange={(e) => setTeam(e.target.value)} disabled={sending || updatingProgress}>
+              {sortedResourcesByDistance.map((r, idx) => (
+                <option key={r.id} value={r.name}>
+                  {idx === 0 && r.distKm != null ? `⚡ [Nearest: ${r.distKm} km] ` : r.distKm != null ? `[${r.distKm} km away] ` : ""}{r.name} ({r.status})
+                </option>
               ))}
             </select>
           </label>
+
           <div className="route-card">
             <div>
               <b>Automated Routing Rationale</b>
               <p>{selected?.routingRationale || selected?.causeDescription || "Standard flood response crew assignment."}</p>
             </div>
-            <div className="eta">8–12 min</div>
+            <div className="eta">{isOnScene ? "0 min (On site)" : "8–12 min"}</div>
           </div>
-          <div className="action-row">
-            <button className="primary" onClick={send} disabled={!selected || sending}>
-              <Send size={16} /> {sending ? "Assigning..." : "Dispatch Team"}
-            </button>
+
+          {/* Smooth Interactive Action Controls */}
+          <div className="action-row" style={{ display: "flex", gap: "10px", marginTop: "14px" }}>
+            {!isDispatched && !isOnScene && !isResolved && (
+              <button
+                className="dispatch-action-btn primary"
+                onClick={handleDispatch}
+                disabled={!selected || sending}
+                style={{ flex: 1 }}
+              >
+                {sending ? (
+                  <>
+                    <RefreshCw size={15} style={{ animation: "spin 1s linear infinite" }} /> Assigning & Deploying Squad...
+                  </>
+                ) : (
+                  <>
+                    <Send size={15} /> 🚀 Dispatch Nearest Squad
+                  </>
+                )}
+              </button>
+            )}
+
+            {isDispatched && !isOnScene && !isResolved && (
+              <>
+                <button
+                  className="dispatch-action-btn stage-reached"
+                  onClick={() => handleProgressStage("on_scene")}
+                  disabled={updatingProgress}
+                  style={{ flex: 1 }}
+                >
+                  {updatingProgress ? <RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} /> : <MapPin size={15} />}
+                  📍 Mark Squad Reached Site / On Scene
+                </button>
+                <button
+                  className="dispatch-action-btn stage-resolve"
+                  onClick={() => handleProgressStage("resolved")}
+                  disabled={updatingProgress}
+                >
+                  <Check size={15} /> Fast Resolve
+                </button>
+              </>
+            )}
+
+            {isOnScene && !isResolved && (
+              <button
+                className="dispatch-action-btn stage-resolve"
+                onClick={() => handleProgressStage("resolved")}
+                disabled={updatingProgress}
+                style={{ flex: 1, padding: "12px 20px" }}
+              >
+                {updatingProgress ? (
+                  <>
+                    <RefreshCw size={15} style={{ animation: "spin 1s linear infinite" }} /> Resolving Incident...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={16} /> ✅ Hazard Mitigated — Mark Incident Fully Resolved
+                  </>
+                )}
+              </button>
+            )}
+
+            {isResolved && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", background: "#ecfdf5", border: "1.5px solid #a7f3d0", padding: "12px 16px", borderRadius: "10px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#065f46", fontSize: "12px", fontWeight: "800" }}>
+                  <CheckCircle2 size={18} color="#10b981" /> Incident Fully Cleared & Mitigated (Severity: 0)
+                </div>
+                <button
+                  className="ghost"
+                  onClick={() => handleProgressStage("en_route")}
+                  disabled={updatingProgress}
+                  style={{ fontSize: "11px", padding: "5px 10px" }}
+                >
+                  <RotateCcw size={13} /> Re-open Active Response
+                </button>
+              </div>
+            )}
           </div>
         </section>
       </div>
@@ -3483,7 +4340,7 @@ function App() {
         let detectedName = `GPS Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
 
         try {
-          const geoRes = await apiFetch(`/geocode?lat=${latitude}&lng=${longitude}`);
+          const geoRes = await apiFetch(`/geocode/reverse?lat=${latitude}&lng=${longitude}`);
           if (geoRes?.road) {
             detectedName = `${geoRes.road}, ${geoRes.ward || "Mumbai"}`;
           } else if (geoRes?.displayName) {
@@ -3499,7 +4356,7 @@ function App() {
       (err) => {
         console.warn("[web] GPS access error:", err.message);
         setLocationStatus("gps_denied");
-        notify("GPS access denied or timed out. Switched to manual search.");
+        fetchSheltersAndLocationData(19.1320, 72.8480, "Andheri West Station Road Market", "preset");
       },
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
@@ -3565,7 +4422,11 @@ function App() {
   // Initial Startup Effect with SSE & 4s fast sync interval
   useEffect(() => {
     loadInitialData();
-    fetchSheltersAndLocationData(19.1320, 72.8480, "Andheri West Station Road Market", "preset");
+    if (navigator.geolocation) {
+      handleDetectGps();
+    } else {
+      fetchSheltersAndLocationData(19.1320, 72.8480, "Andheri West Station Road Market", "preset");
+    }
 
     // Connect to live SSE Stream for real-time dispatch updates
     let es;
@@ -3608,7 +4469,29 @@ function App() {
               const rest = prev.filter((i) => i.id !== newInc.id);
               return [newInc, ...rest];
             });
+            if (newInc.isSos || newInc.type === "SOS" || newInc.status === "ACTIVE_SOS") {
+              playSosEmergencyChime();
+              setNotificationsOpen(true);
+              notify(`🚨 CRITICAL SOS TRIGGERED by ${newInc.reporter || "User"} at ${newInc.address}! (Phone: ${newInc.userPhone || "Emergency"})`);
+            }
           }
+        } catch {}
+        loadInitialData();
+      });
+      es.addEventListener("sos:triggered", (evt) => {
+        try {
+          const d = JSON.parse(evt.data);
+          const sosInc = d.payload?.incident;
+          const sosAlt = d.payload?.alert;
+          if (sosInc) {
+            setIncidents((prev) => [sosInc, ...prev.filter((i) => i.id !== sosInc.id)]);
+          }
+          if (sosAlt) {
+            setAlerts((prev) => [sosAlt, ...prev.filter((a) => a.id !== sosAlt.id)]);
+          }
+          playSosEmergencyChime();
+          setNotificationsOpen(true);
+          notify(`🚨 CRITICAL SOS TRIGGERED: ${sosInc?.reporter || "Distress Signal"} at ${sosInc?.address || "Active Area"}`);
         } catch {}
         loadInitialData();
       });
@@ -3723,14 +4606,46 @@ function App() {
     }
   };
 
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  const dispatchedIncidentIds = new Set(
+    incidents
+      .filter((i) => i.status === "Dispatched" || i.status === "Resolved" || i.status === "RESOLVED" || i.dispatched || i.assignedTeam)
+      .map((i) => i.id)
+  );
+
+  const activeSosIncidents = incidents.filter(
+    (i) => (i.isSos || i.type === "SOS" || i.status === "ACTIVE_SOS" || i.causeCode === "SOS_EMERGENCY") &&
+           i.status !== "Dispatched" && i.status !== "Resolved" && i.status !== "RESOLVED" && !i.dispatched && !i.assignedTeam
+  );
+
+  const activeAlerts = alerts.filter(
+    (a) => !a.dispatched && !dispatchedIncidentIds.has(a.incidentId) && !dispatchedIncidentIds.has(a.sosId) &&
+           !(a.isSos && (dispatchedIncidentIds.has(a.incidentId) || dispatchedIncidentIds.has(a.sosId) || activeSosIncidents.length === 0))
+  );
+
+  const hasActiveSos = activeSosIncidents.length > 0;
+  const totalUnreadAlerts = activeAlerts.length + activeSosIncidents.length;
+
   return (
     <div className="app-shell">
       <Sidebar open={sidebarOpen} />
       <div className="main-wrapper">
         <Topbar
           onMenu={() => setSidebarOpen(!sidebarOpen)}
-          alertCount={alerts.length}
+          alertCount={totalUnreadAlerts}
           onRefresh={loadInitialData}
+          onToggleNotifications={() => setNotificationsOpen(!notificationsOpen)}
+          hasActiveSos={hasActiveSos}
+        />
+
+        <NotificationsDrawer
+          isOpen={notificationsOpen}
+          onClose={() => setNotificationsOpen(false)}
+          alerts={alerts}
+          incidents={incidents}
+          onAutoDispatch={handleAutoDispatch}
+          onClearAlerts={() => setAlerts([])}
         />
 
         {notification && (
@@ -3822,6 +4737,7 @@ function App() {
               element={
                 <Incidents
                   incidents={incidents}
+                  resources={resources}
                   notify={notify}
                   onReload={loadInitialData}
                   onAutoDispatch={handleAutoDispatch}

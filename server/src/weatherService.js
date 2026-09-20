@@ -80,10 +80,46 @@ export async function fetchFloodMetrics(lat, lng) {
   }
 }
 
+const GOOGLE_MAPS_KEY = process.env.GOOGLE_MAPS_API_KEY || process.env.GCP_API_KEY;
+
 /**
- * Real Reverse Geocoding using OpenStreetMap Nominatim
+ * Real Reverse Geocoding using Google Maps Geocoding API (with OpenStreetMap Nominatim Fallback)
  */
 export async function reverseGeocode(lat, lng) {
+  if (GOOGLE_MAPS_KEY) {
+    try {
+      const gUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_MAPS_KEY}`;
+      const gRes = await fetch(gUrl, { signal: AbortSignal.timeout(5000) });
+      if (gRes.ok) {
+        const gData = await gRes.json();
+        if (gData.status === "OK" && gData.results?.length) {
+          const top = gData.results[0];
+          let road = "Local Area";
+          let ward = "Ward Area";
+          let city = "Mumbai";
+          let suburb = "";
+          for (const c of top.address_components || []) {
+            if (c.types.includes("route") || c.types.includes("sublocality_level_1")) road = c.long_name;
+            if (c.types.includes("sublocality") || c.types.includes("neighborhood")) ward = c.long_name;
+            if (c.types.includes("locality")) city = c.long_name;
+            if (c.types.includes("administrative_area_level_2")) suburb = c.long_name;
+          }
+          return {
+            success: true,
+            displayName: top.formatted_address,
+            road,
+            ward,
+            suburb,
+            city,
+            source: "Google Maps"
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("[Google Geocoding notice]:", err.message);
+    }
+  }
+
   try {
     const url = `${NOMINATIM_BASE}/reverse?lat=${lat}&lon=${lng}&format=json`;
     const res = await fetch(url, {
@@ -101,7 +137,8 @@ export async function reverseGeocode(lat, lng) {
       road,
       ward,
       suburb: addr.suburb || "",
-      city: addr.city || addr.town || addr.state_district || "Mumbai"
+      city: addr.city || addr.town || addr.state_district || "Mumbai",
+      source: "OpenStreetMap"
     };
   } catch (err) {
     return {
@@ -114,7 +151,7 @@ export async function reverseGeocode(lat, lng) {
 }
 
 /**
- * Real Forward Geocoding using OpenStreetMap Nominatim
+ * Real Forward Geocoding using Google Maps Geocoding API (with OpenStreetMap Nominatim Fallback)
  * Converts a text search query like "Mulund", "Kurla", "Andheri" into lat/lng coordinates
  */
 export async function forwardGeocode(query = "") {
@@ -122,6 +159,43 @@ export async function forwardGeocode(query = "") {
     return { success: false, error: "Query is required", results: [] };
   }
   const cleanQ = query.trim();
+
+  if (GOOGLE_MAPS_KEY) {
+    try {
+      const gUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(cleanQ)}&key=${GOOGLE_MAPS_KEY}`;
+      const gRes = await fetch(gUrl, { signal: AbortSignal.timeout(5000) });
+      if (gRes.ok) {
+        const gData = await gRes.json();
+        if (gData.status === "OK" && gData.results?.length) {
+          const results = gData.results.map((item) => {
+            const loc = item.geometry?.location || {};
+            let road = cleanQ;
+            let ward = "Area";
+            let city = "Mumbai";
+            for (const c of item.address_components || []) {
+              if (c.types.includes("route") || c.types.includes("sublocality_level_1")) road = c.long_name;
+              if (c.types.includes("sublocality") || c.types.includes("neighborhood")) ward = c.long_name;
+              if (c.types.includes("locality")) city = c.long_name;
+            }
+            return {
+              displayName: item.formatted_address,
+              name: road,
+              ward,
+              city,
+              latitude: loc.lat,
+              longitude: loc.lng,
+              type: item.types?.[0] || "geocode",
+              source: "Google Maps"
+            };
+          });
+          return { success: true, results, top: results[0] };
+        }
+      }
+    } catch (err) {
+      console.warn("[Google Forward Geocoding notice]:", err.message);
+    }
+  }
+
   try {
     const url = `${NOMINATIM_BASE}/search?q=${encodeURIComponent(cleanQ)}&format=json&addressdetails=1&limit=5&countrycodes=in`;
     const res = await fetch(url, {
@@ -152,7 +226,8 @@ export async function forwardGeocode(query = "") {
               city,
               latitude: parseFloat(item.lat),
               longitude: parseFloat(item.lon),
-              type: item.type || item.class
+              type: item.type || item.class,
+              source: "OpenStreetMap"
             };
           });
           return { success: true, results, top: results[0] };
@@ -173,7 +248,8 @@ export async function forwardGeocode(query = "") {
         city,
         latitude: parseFloat(item.lat),
         longitude: parseFloat(item.lon),
-        type: item.type || item.class
+        type: item.type || item.class,
+        source: "OpenStreetMap"
       };
     });
     return { success: true, results, top: results[0] };

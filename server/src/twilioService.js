@@ -46,14 +46,14 @@ export async function sendSosSms(sosData = {}) {
   const team = sosData.assignedTeam || "Municipal Flood Rescue Fleet";
   const eta = sosData.eta || "4–6 min";
 
-  // Strictly format as single-segment GSM-7 (no emojis, < 120 chars) to prevent Twilio Trial Error 30044:
-  // Twilio Trial prepends "Sent from your Twilio trial account - " (38 chars), so body must stay <= 122 chars
-  const shortName = callerName.slice(0, 16);
-  const cleanEmerg = emergencyContact.replace(/\D/g, "").slice(-10);
+  // Format message: SOS requester, phone number, and location of the SOS button pressed
+  const shortName = callerName.trim().slice(0, 20);
+  const cleanPhone = (callerPhone || "").replace(/[^\d+]/g, "").slice(-13);
+  const cleanAddress = (address || "Active Location").replace(/[\r\n]+/g, " ").trim().slice(0, 32);
   const cleanLat = Number(lat).toFixed(4);
   const cleanLng = Number(lng).toFixed(4);
 
-  const messageBody = `VARSHARAKSHA SOS: ${shortName} (${role}). Emerg: ${cleanEmerg}. GPS: ${cleanLat},${cleanLng}. Squad en route.`;
+  const messageBody = `VARSHARAKSHA SOS: ${shortName} (Ph: ${cleanPhone}). Location: ${cleanAddress} (GPS: ${cleanLat},${cleanLng}) https://maps.google.com/?q=${cleanLat},${cleanLng}`;
 
   try {
     const authHeader = "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64");

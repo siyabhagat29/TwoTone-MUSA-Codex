@@ -14,6 +14,13 @@ import numpy as np
 from pathlib import Path
 from typing import Optional, Dict, Any
 
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 # Suppress TF verbose logging
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 try:
@@ -26,17 +33,28 @@ except (ImportError, AttributeError):
 from PIL import Image
 import cv2
 import uvicorn
-from fastapi import FastAPI, File, UploadFile, Body, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+# Configurable Video Processing & Classification Constants
+VIDEO_SAMPLE_INTERVAL = 1.0   # Target sampling interval in seconds (1 frame per second)
+MAX_VIDEO_FRAMES = 120        # Cap maximum frames analyzed to protect memory
+VIDEO_FLOOD_THRESHOLD = 0.60  # Ratio of positive frames required for video-level Flood classification
+FRAME_FLOOD_THRESHOLD = 0.45  # Probability threshold for a single frame to be classified as flood-positive
+
 # Locate model file
 WORKSPACE_ROOT = Path(__file__).resolve().parent.parent.parent
-MODEL_PATH = WORKSPACE_ROOT / "fine_tuned_flood_detection_model.keras"
-if not MODEL_PATH.exists():
-    ALT_PATH = Path("/Users/dhavalbhagat/Downloads/fine_tuned_flood_detection_model.keras")
-    if ALT_PATH.exists():
-        MODEL_PATH = ALT_PATH
+env_model_path = os.environ.get("KERAS_MODEL_PATH") or os.environ.get("FLOOD_MODEL_PATH")
+
+if env_model_path and Path(env_model_path).exists():
+    MODEL_PATH = Path(env_model_path)
+else:
+    MODEL_PATH = WORKSPACE_ROOT / "fine_tuned_flood_detection_model.keras"
+    if not MODEL_PATH.exists():
+        ALT_PATH = Path("/Users/dhavalbhagat/Downloads/fine_tuned_flood_detection_model.keras")
+        if ALT_PATH.exists():
+            MODEL_PATH = ALT_PATH
 
 print(f"🌊 [FloodAI] Initializing model from: {MODEL_PATH}")
 
@@ -46,7 +64,7 @@ try:
     # Warm up model with a dummy tensor
     dummy_input = np.zeros((1, 224, 224, 3), dtype=np.float32)
     _ = model.predict(dummy_input, verbose=0)
-    print(f"✅ [FloodAI] Model successfully loaded and warmed up!")
+    print("✅ [FloodAI] Model successfully loaded and warmed up!")
 except Exception as e:
     print(f"❌ [FloodAI] Failed to load model: {e}")
 
@@ -77,48 +95,80 @@ def evaluate_image_array(img_rgb: np.ndarray) -> Dict[str, Any]:
     
     # Classification rule based on training calibration:
     # Index 0 is Flooding, Index 1 is Normal
-    is_flood = bool(flood_score > normal_score and flood_score >= 0.45)
+    is_flood = bool(flood_score > normal_score and flood_score >= FRAME_FLOOD_THRESHOLD)
     confidence = flood_score if is_flood else normal_score
 
     return {
+        "type": "image",
+        "media_type": "image",
+        "result": "Flooding" if is_flood else "No Flooding",
+        "label": "Flooding" if is_flood else "No Flooding",
         "is_flooding": is_flood,
         "flood_detected": is_flood,
         "confidence": round(confidence, 4),
         "flood_score": round(flood_score, 4),
         "normal_score": round(normal_score, 4),
-        "label": "Flooding" if is_flood else "No Flooding",
         "reason": "Visible water accumulation/flooding detected" if is_flood else "No visible waterlogging or flood accumulation detected"
     }
 
-def evaluate_video_file(video_path: str, max_samples: int = 10) -> Dict[str, Any]:
-    """Extracts evenly spaced frames from a video file and evaluates flood probability."""
+def evaluate_video_file(video_path: str) -> Dict[str, Any]:
+    """
+    Robust sequential frame reader and batched MobileNet inference pipeline.
+    Reads video sequentially to prevent seek errors on varied codecs/containers.
+    """
+    filename = Path(video_path).name
+    file_size = os.path.getsize(video_path) if os.path.exists(video_path) else 0
+
+    print(f"[VIDEO] Received file: {filename}")
+    print(f"[VIDEO] File size: {file_size} bytes")
+    print(f"[VIDEO] Opening video: {video_path}...")
+
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        raise ValueError(f"Unable to read video file: {video_path}")
+        print(f"[VIDEO] VideoCapture.isOpened() == False for file: {video_path}")
+        raise ValueError(f"Unable to open or decode video file: {filename}")
 
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    fps = cap.get(cv2.CAP_PROP_FPS) or 25
-    duration_sec = total_frames / fps if fps > 0 else 0
+    fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
+    if fps <= 0.0 or np.isnan(fps):
+        fps = 25.0
 
-    if total_frames <= 0:
-        cap.release()
-        raise ValueError("Video has no decodable frames")
+    duration_sec = (total_frames / fps) if (total_frames > 0 and fps > 0) else 0.0
+    print(f"[VIDEO] FPS: {round(fps, 2)} | Total frames: {total_frames} | Duration: {round(duration_sec, 2)}s")
 
-    sample_count = min(max_samples, total_frames)
-    frame_indices = np.linspace(0, total_frames - 1, sample_count, dtype=int)
+    # Determine dynamic sampling stride
+    sample_stride = max(1, int(round(fps * VIDEO_SAMPLE_INTERVAL)))
+    if total_frames > 0 and (total_frames / sample_stride) > MAX_VIDEO_FRAMES:
+        sample_stride = max(1, int(np.ceil(total_frames / MAX_VIDEO_FRAMES)))
+
+    print(f"[VIDEO] Sampling every {sample_stride} frames (Target: ~{VIDEO_SAMPLE_INTERVAL}s interval, max {MAX_VIDEO_FRAMES} frames)")
 
     frames = []
-    for idx in frame_indices:
-        cap.set(cv2.CAP_PROP_POS_FRAMES, int(idx))
+    frame_index = 0
+    actual_read_count = 0
+
+    # Sequential frame extraction avoids broken non-keyframe seeking in OpenCV
+    while True:
         ret, frame_bgr = cap.read()
-        if ret and frame_bgr is not None:
+        if not ret or frame_bgr is None:
+            break
+        actual_read_count += 1
+        if frame_index % sample_stride == 0:
             frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
             frame_resized = cv2.resize(frame_rgb, (224, 224)).astype(np.float32)
             frames.append(frame_resized)
+            if len(frames) >= MAX_VIDEO_FRAMES:
+                break
+        frame_index += 1
+
     cap.release()
 
     if not frames:
-        raise ValueError("Failed to extract frames from video")
+        print(f"[VIDEO] Zero decodable frames extracted from {filename} (read attempts: {actual_read_count})")
+        raise ValueError(f"Unable to decode video or no readable frames found in {filename}.")
+
+    print(f"[VIDEO] Frames extracted: {len(frames)} (from {actual_read_count} decodable stream frames)")
+    print(f"[VIDEO] Running model inference on batch of {len(frames)} frames...")
 
     batch = np.array(frames, dtype=np.float32)
     batch_preprocessed = preprocess_input(batch)
@@ -127,25 +177,55 @@ def evaluate_video_file(video_path: str, max_samples: int = 10) -> Dict[str, Any
     flood_scores = [float(p[0]) for p in batch_preds]
     normal_scores = [float(p[1]) for p in batch_preds]
 
-    flood_frames_count = sum(1 for f_score in flood_scores if f_score >= 0.45)
-    max_flood_score = max(flood_scores)
-    avg_flood_score = float(np.mean(flood_scores))
+    # Calculate frame-level flood metrics
+    flood_positive_frames = sum(1 for f_score in flood_scores if f_score >= FRAME_FLOOD_THRESHOLD)
+    frames_analyzed = len(frames)
+    flood_ratio = flood_positive_frames / frames_analyzed if frames_analyzed > 0 else 0.0
 
-    # A video is considered flooded if at least 2 frames show flooding or max score >= 0.55
-    is_flood = bool(flood_frames_count >= 2 or max_flood_score >= 0.55 or avg_flood_score >= 0.40)
-    confidence = max_flood_score if is_flood else float(np.mean(normal_scores))
+    # Classify video based on configured ratio threshold
+    is_flood = bool(flood_ratio >= VIDEO_FLOOD_THRESHOLD)
+
+    # Calculate aggregated confidence
+    if is_flood and flood_positive_frames > 0:
+        pos_scores = [s for s in flood_scores if s >= FRAME_FLOOD_THRESHOLD]
+        confidence = float(np.mean(pos_scores))
+    elif not is_flood and (frames_analyzed - flood_positive_frames) > 0:
+        neg_scores = [n for n, f in zip(normal_scores, flood_scores) if f < FRAME_FLOOD_THRESHOLD]
+        confidence = float(np.mean(neg_scores))
+    else:
+        confidence = float(np.mean(normal_scores))
+
+    confidence = min(max(confidence, 0.50), 0.99)
+    max_flood_score = max(flood_scores) if flood_scores else 0.0
+    avg_flood_score = float(np.mean(flood_scores)) if flood_scores else 0.0
+
+    result_label = "Flooding" if is_flood else "No Flooding"
+    print(f"[VIDEO] Predictions generated: {len(batch_preds)}")
+    print(f"[VIDEO] Flood-positive frames: {flood_positive_frames}/{frames_analyzed}")
+    print(f"[VIDEO] Flood ratio: {round(flood_ratio * 100, 1)}% (Threshold: {int(VIDEO_FLOOD_THRESHOLD * 100)}%)")
+    print(f"[VIDEO] Final result: {result_label} (Confidence: {round(confidence * 100, 1)}%)")
+
+    reason = (
+        f"Analyzed {frames_analyzed} frames ({flood_positive_frames} positive, {round(flood_ratio * 100, 1)}% flood ratio). Sustained water accumulation confirmed."
+        if is_flood
+        else f"Analyzed {frames_analyzed} frames ({flood_positive_frames} positive, {round(flood_ratio * 100, 1)}% flood ratio). Below {int(VIDEO_FLOOD_THRESHOLD * 100)}% flood threshold."
+    )
 
     return {
+        "type": "video",
+        "media_type": "video",
+        "result": result_label,
+        "label": result_label,
         "is_flooding": is_flood,
         "flood_detected": is_flood,
         "confidence": round(confidence, 4),
+        "frames_analyzed": frames_analyzed,
+        "flood_positive_frames": flood_positive_frames,
+        "flood_ratio": round(flood_ratio, 4),
+        "duration_seconds": round(duration_sec, 2),
         "flood_score": round(max_flood_score, 4),
         "avg_flood_score": round(avg_flood_score, 4),
-        "frames_analyzed": len(frames),
-        "flood_frames": flood_frames_count,
-        "duration_sec": round(duration_sec, 2),
-        "label": "Flooding" if is_flood else "No Flooding",
-        "reason": f"Analyzed {len(frames)} video frames; {flood_frames_count} frames confirmed active flooding" if is_flood else f"Analyzed {len(frames)} video frames; no flood conditions detected"
+        "reason": reason
     }
 
 @app.get("/health")
@@ -202,14 +282,15 @@ def predict_from_path(req: PredictPathRequest):
         result["inference_seconds"] = elapsed
         print(f"🔍 [FloodAI PredictPath] {media_type.upper()} {Path(target_path).name} -> {result['label']} (conf: {result['confidence']}, elapsed: {elapsed}s)")
         return result
+    except ValueError as ve:
+        print(f"⚠️ [FloodAI Decode Notice]: {ve}")
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         print(f"❌ [FloodAI Error]: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/predict")
-async def predict_media(
-    file: Optional[UploadFile] = File(None)
-):
+async def predict_media(file: Optional[UploadFile] = File(None)):
     if model is None:
         raise HTTPException(status_code=503, detail="Flood model is not loaded")
 
@@ -218,8 +299,8 @@ async def predict_media(
 
     start_time = time.time()
     temp_file = None
-    filename = file.filename.lower()
-    is_video = any(filename.endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv", ".webm"]) or file.content_type.startswith("video/")
+    filename = file.filename.lower() if file.filename else "upload"
+    is_video = any(filename.endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv", ".webm"]) or (file.content_type and file.content_type.startswith("video/"))
     media_type = "video" if is_video else "image"
 
     try:
@@ -244,6 +325,9 @@ async def predict_media(
 
     except HTTPException:
         raise
+    except ValueError as ve:
+        print(f"⚠️ [FloodAI Decode Notice]: {ve}")
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         print(f"❌ [FloodAI Error]: {e}")
         raise HTTPException(status_code=500, detail=str(e))

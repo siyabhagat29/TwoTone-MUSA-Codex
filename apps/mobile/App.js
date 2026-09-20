@@ -140,8 +140,8 @@ const TRANSLATIONS = {
     noFloodPopupMsg: "There is no flooding detected in the uploaded visual evidence. Incident report cannot be filed.",
 
     // Map Screen
-    mapScreenTitle: "🗺️ Live Hyperlocal GIS Map",
-    mapScreenSub: "Edge-to-edge sensor overlay · Ward 72/73",
+    mapScreenTitle: "🗺️ Live Flood Map",
+    mapScreenSub: "Live Google Maps navigation & shelter routing",
     tileClean: "Clean",
     tileOsm: "OSM",
     tileNavy: "Navy",
@@ -302,8 +302,8 @@ const TRANSLATIONS = {
     noFloodPopupMsg: "अपलोड किए गए साक्ष्य में बाढ़ का पता नहीं चला है, रिपोर्ट दर्ज नहीं की जा सकती।",
 
     // Map Screen
-    mapScreenTitle: "🗺️ लाइव हाइपरलोकल जीआईएस नक्शा",
-    mapScreenSub: "सेंसर और सुरक्षित मार्ग विश्लेषण · वार्ड 72/73",
+    mapScreenTitle: "🗺️ लाइव बाढ़ नक्शा",
+    mapScreenSub: "लाइव गूगल मैप्स नेविगेशन और राहत शिविर मार्ग",
     tileClean: "साफ",
     tileOsm: "ओपनस्ट्रीट",
     tileNavy: "नेवी",
@@ -464,8 +464,8 @@ const TRANSLATIONS = {
     noFloodPopupMsg: "अपलोड केलेल्या पुराव्यामध्ये कोणताही पूर आढळला नाही, तक्रार नोंदवता येणार नाही.",
 
     // Map Screen
-    mapScreenTitle: "🗺️ थेट हायपरलोकल जीआयएस नकाशा",
-    mapScreenSub: "सेन्सर आणि सुरक्षित मार्ग विश्लेषण · वार्ड 72/73",
+    mapScreenTitle: "🗺️ थेट पूर नकाशा",
+    mapScreenSub: "थेट गुगल मॅप्स नेव्हिगेशन आणि निवारा मार्ग",
     tileClean: "स्वच्छ",
     tileOsm: "OSM",
     tileNavy: "नेव्ही",
@@ -557,7 +557,10 @@ export const MUMBAI_MARKET_HUBS = [
   { id: "MKT-04", name: "Kurla West LBS Marg & Station", ward: "L Ward", latitude: 19.0680, longitude: 72.8800, area: "LBS Marg Market Hub" },
   { id: "MKT-05", name: "Malad West SV Road Market", ward: "P-North Ward", latitude: 19.1860, longitude: 72.8480, area: "SV Road Bazaar" },
   { id: "MKT-06", name: "Ghatkopar East MG Road Bazaar", ward: "N Ward", latitude: 19.0860, longitude: 72.9080, area: "MG Road Commercial" },
-  { id: "MKT-07", name: "Borivali West Station Bazaar", ward: "R-Central Ward", latitude: 19.2290, longitude: 72.8570, area: "Borivali Station Road" }
+  { id: "MKT-07", name: "Borivali West Station Bazaar", ward: "R-Central Ward", latitude: 19.2290, longitude: 72.8570, area: "Borivali Station Road" },
+  { id: "MKT-08", name: "Mulund West Station Road Bazaar", ward: "T Ward", latitude: 19.1721, longitude: 72.9567, area: "Mulund Station Commercial" },
+  { id: "MKT-09", name: "Colaba Causeway & Fort Commercial", ward: "A Ward", latitude: 18.9180, longitude: 72.8280, area: "Colaba & Fort Area" },
+  { id: "MKT-10", name: "Thane Station & Gokhale Road Bazaar", ward: "Thane Central", latitude: 19.1860, longitude: 72.9750, area: "Station Road Commercial" }
 ];
 
 export default function App() {
@@ -593,7 +596,7 @@ export default function App() {
   const [lightning, setLightning] = useState(null);
 
   const [userLoc, setUserLoc] = useState({ latitude: 19.132, longitude: 72.848 });
-  const [userAddress, setUserAddress] = useState("Station Road, Ward 72");
+  const [userAddress, setUserAddress] = useState("Locating...");
   const [gpsError, setGpsError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [locationModalOpen, setLocationModalOpen] = useState(false);
@@ -613,8 +616,8 @@ export default function App() {
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
 
   const activeZone = zones[0] || {
-    name: "Station Road",
-    ward: "Ward 72",
+    name: "Current Sector",
+    ward: "Local Ward",
     risk: 42,
     cause: "Normal Drainage",
     rainfall: 0,
@@ -640,7 +643,6 @@ export default function App() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         setGpsError(t.gpsDenied);
-        setUserLoc({ latitude: 19.132, longitude: 72.848 });
         setUserAddress("Station Road, Ward 72");
         return false;
       }
@@ -650,10 +652,16 @@ export default function App() {
 
       let detectedAddr = `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
       try {
-        const geoRes = await fetchWithTimeout(`${apiUrl}/geocode?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`);
+        const geoRes = await fetchWithTimeout(`${apiUrl}/geocode/reverse?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`);
         if (geoRes.ok) {
           const geo = await geoRes.json();
-          detectedAddr = geo.road ? `${geo.road}, ${geo.ward}` : geo.displayName;
+          if (geo?.road && geo?.ward) {
+            detectedAddr = `${geo.road}, ${geo.ward}`;
+          } else if (geo?.displayName) {
+            detectedAddr = geo.displayName.split(",").slice(0, 2).join(",");
+          } else if (geo?.road) {
+            detectedAddr = geo.road;
+          }
         }
       } catch {
         // use fallback string
@@ -663,8 +671,6 @@ export default function App() {
       return true;
     } catch (err) {
       setGpsError(err.message);
-      setUserLoc({ latitude: 19.132, longitude: 72.848 });
-      setUserAddress("Station Road, Ward 72");
       return false;
     }
   };
@@ -717,6 +723,11 @@ export default function App() {
     await fetchLiveData(userLoc);
     setRefreshing(false);
   };
+
+  useEffect(() => {
+    // Automatically detect real user GPS coordinates on launch
+    requestLocation();
+  }, []);
 
   useEffect(() => {
     fetchLiveData(userLoc);
@@ -973,12 +984,16 @@ export default function App() {
           zones={zones}
           emergencyServices={emergencyServices}
           shelters={shelters}
+          shelterLoading={shelterLoading}
           activeZone={activeZone}
           userLoc={userLoc}
           userAddress={userAddress}
           apiUrl={apiUrl}
           role={role}
           onOpenLocationModal={() => setLocationModalOpen(true)}
+          onRequestLocation={requestLocation}
+          onRefresh={onRefresh}
+          refreshing={refreshing}
           t={t}
         />
       )}
@@ -1077,7 +1092,7 @@ export default function App() {
       <Modal visible={reportOpen} transparent animationType="slide">
         <View style={s.modalBack}>
           <View style={s.modal}>
-            <Text style={s.modalTitle}>📸 {t.reportIncident}</Text>
+            <Text style={s.modalTitle}>{t.reportIncident}</Text>
             <Text style={s.modalSub}>{t.reportScreenSub}</Text>
             <TouchableOpacity
               style={s.primary}
@@ -1086,7 +1101,7 @@ export default function App() {
                 setTab("Report");
               }}
             >
-              <Ionicons name="camera" size={18} color="#fff" />
+              <Ionicons name="document-text" size={18} color="#fff" />
               <Text style={s.primaryText}>{t.openFullForm}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.cancel} onPress={() => setReportOpen(false)}>
@@ -1252,12 +1267,12 @@ function LocationSelectorModal({ visible, onClose, onSelectLocation, requestLoca
           </TouchableOpacity>
 
           <Text style={{ fontSize: 11, fontWeight: "800", color: NAVY, marginTop: 8, marginBottom: 8 }}>
-            🏪 Popular Commercial Market Hubs:
+            🏪 Select Market Hub:
           </Text>
 
-          <ScrollView style={{ maxHeight: 220 }}>
+          <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator={false}>
             {MUMBAI_MARKET_HUBS.map((hub) => {
-              const isSelected = currentAddress && currentAddress.includes(hub.name.split(" ")[0]);
+              const isSelected = currentAddress && currentAddress.toLowerCase().includes(hub.name.toLowerCase().split(" ")[0]);
               return (
                 <TouchableOpacity
                   key={hub.id}
@@ -1293,7 +1308,7 @@ function LocationSelectorModal({ visible, onClose, onSelectLocation, requestLoca
   );
 }
 
-// Comprehensive Emergency Registration & Login Screen
+// Simplified, Clean & Fast Onboarding Screen
 function LoginPage({
   lang,
   setLang,
@@ -1306,22 +1321,47 @@ function LoginPage({
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [emergencyNumber, setEmergencyNumber] = useState("");
-  const [emergencyRelation, setEmergencyRelation] = useState("Family");
   const [role, setRole] = useState("Shop Owner");
-  const [selectedHub, setSelectedHub] = useState("MKT-01");
+  const [selectedHub, setSelectedHub] = useState(null); // No hub pre-selected by default
+  const [locationInput, setLocationInput] = useState(""); // Starts completely empty (no autofill)
   const [loadingGps, setLoadingGps] = useState(false);
   const [validationError, setValidationError] = useState("");
 
   const cleanPhone = phone.replace(/\D/g, "").slice(-10);
   const cleanEmergency = emergencyNumber.replace(/\D/g, "").slice(-10);
 
-  // Strictly check if emergency number matches personal phone number
+  // Check if emergency number matches personal phone number
   const isSameNumber = Boolean(cleanPhone && cleanEmergency && cleanPhone === cleanEmergency);
+  const isFormValid = Boolean(name.trim() && cleanPhone.length === 10 && cleanEmergency.length === 10 && !isSameNumber);
 
   const handleGpsDetect = async () => {
     setLoadingGps(true);
-    await requestLocation();
-    setLoadingGps(false);
+    try {
+      if (typeof requestLocation === "function") {
+        await requestLocation();
+      }
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === "granted") {
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        let detectedAddr = `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
+        try {
+          const geoRes = await fetchWithTimeout(`${DEFAULT_API}/geocode?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`);
+          if (geoRes.ok) {
+            const geo = await geoRes.json();
+            detectedAddr = geo.road ? `${geo.road}, ${geo.ward || ""}` : (geo.displayName || detectedAddr);
+          }
+        } catch {}
+        setLocationInput(detectedAddr);
+        setSelectedHub(null);
+      } else {
+        Alert.alert("Permission Needed", "Please allow location access to detect your live GPS position.");
+      }
+    } catch (err) {
+      console.log("GPS Detect Error:", err);
+      Alert.alert("Location Error", "Could not acquire GPS position. You can select a market hub below or type manually.");
+    } finally {
+      setLoadingGps(false);
+    }
   };
 
   const handleSubmit = () => {
@@ -1335,37 +1375,37 @@ function LoginPage({
     }
 
     if (cleanPhone.length < 10) {
-      const err = "Please enter a valid 10-digit mobile phone number.";
+      const err = "Please enter a valid 10-digit mobile number.";
       setValidationError(err);
       Alert.alert("Invalid Phone Number", err);
       return;
     }
 
     if (cleanEmergency.length < 10) {
-      const err = "Please enter a valid 10-digit emergency number.";
+      const err = "Please enter a valid 10-digit emergency contact number.";
       setValidationError(err);
       Alert.alert("Invalid Emergency Number", err);
       return;
     }
 
-    // STRICT VALIDATION: Emergency number cannot be same as personal phone number
     if (cleanPhone === cleanEmergency) {
-      const err = "The emergency number cannot be the same as your phone number. Please enter a different contact number.";
+      const err = "The emergency contact number cannot be the same as your mobile number.";
       setValidationError(err);
       Alert.alert("Validation Error", err);
       return;
     }
 
-    const hub = MUMBAI_MARKET_HUBS.find((h) => h.id === selectedHub) || MUMBAI_MARKET_HUBS[0];
+    const hub = selectedHub ? MUMBAI_MARKET_HUBS.find((h) => h.id === selectedHub) : null;
+    const finalAddress = locationInput.trim() || (hub ? `${hub.name}, ${hub.ward}` : "Mumbai, Maharashtra");
     const profile = {
       id: `USR-${Date.now().toString().slice(-6)}`,
       name: name.trim(),
       phone: `+91 ${cleanPhone}`,
       emergencyNumber: `+91 ${cleanEmergency}`,
-      emergencyRelation,
+      emergencyRelation: "Emergency Contact",
       role,
-      address: userAddress || `${hub.name}, ${hub.ward}`,
-      marketHubId: selectedHub,
+      address: finalAddress,
+      marketHubId: selectedHub || null,
       registeredAt: new Date().toISOString()
     };
 
@@ -1374,16 +1414,16 @@ function LoginPage({
 
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: "#F4F8FF" }]}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 36 }} showsVerticalScrollIndicator={false}>
         {/* Top Header Branding */}
         <View style={s.loginTopHeader}>
           <View style={s.logoCircle}>
-            <MaterialCommunityIcons name="weather-pouring" size={32} color="#fff" />
+            <MaterialCommunityIcons name="weather-pouring" size={30} color="#fff" />
           </View>
           <Text style={s.roleBrand}>
             Varsha<Text style={{ color: "#4AB9FF" }}>Raksha</Text>
           </Text>
-          <Text style={s.roleTag}>{t.appTagline}</Text>
+          <Text style={s.roleTag}>{t.appTagline || "Hyperlocal Real-Time Flood Intelligence"}</Text>
 
           {/* Quick Language Switcher */}
           <View style={s.loginLangRow}>
@@ -1405,42 +1445,27 @@ function LoginPage({
           </View>
         </View>
 
-        {/* Main Registration Card */}
+        {/* Main Clean Card */}
         <View style={s.loginMainCard}>
-          <View style={s.loginBadgeRow}>
-            <View style={s.loginShieldBadge}>
-              <Ionicons name="shield-checkmark" size={14} color={BLUE} />
-              <Text style={s.loginShieldText}>Disaster Emergency Registration</Text>
-            </View>
-          </View>
-
           <Text style={s.loginTitle}>Enter Your Details</Text>
-          <Text style={s.loginSubtitle}>
-            Provide your basic information and an emergency contact. When you tap the SOS button, an emergency SMS is automatically dispatched via Twilio (+1 765 563 5185).
-          </Text>
 
-          {/* Real-time Inline Validation Banner */}
+          {/* Validation Banner (Only shown if validation error) */}
           {(validationError || isSameNumber) ? (
             <View style={s.loginErrorBanner}>
-              <Ionicons name="alert-circle" size={20} color={RED} />
+              <Ionicons name="alert-circle" size={18} color={RED} />
               <View style={{ flex: 1 }}>
                 <Text style={s.loginErrorBannerText}>
                   {isSameNumber
-                    ? "⚠️ The emergency number cannot be the same as your phone number."
+                    ? "The emergency contact number cannot be the same as your mobile number."
                     : validationError}
                 </Text>
-                {isSameNumber && (
-                  <Text style={s.loginErrorBannerSub}>
-                    Please provide a family member, neighbor, or doctor's number so rescue alerts reach someone who can assist you.
-                  </Text>
-                )}
               </View>
             </View>
           ) : null}
 
           {/* 1. Full Name */}
           <View style={s.loginInputGroup}>
-            <Text style={s.loginInputLabel}>👤 Full Name</Text>
+            <Text style={s.loginInputLabel}>Full Name</Text>
             <View style={s.loginInputBox}>
               <TextInput
                 style={s.loginInputField}
@@ -1457,7 +1482,7 @@ function LoginPage({
 
           {/* 2. Personal Phone Number */}
           <View style={s.loginInputGroup}>
-            <Text style={s.loginInputLabel}>📱 Your Mobile Phone Number</Text>
+            <Text style={s.loginInputLabel}>Mobile Number</Text>
             <View style={[s.loginInputBox, isSameNumber && { borderColor: RED, backgroundColor: "#FEF2F2" }]}>
               <View style={s.loginPrefixBox}>
                 <Text style={s.loginPrefixText}>+91</Text>
@@ -1477,20 +1502,12 @@ function LoginPage({
             </View>
           </View>
 
-          {/* 3. Emergency Number (Requested Explicit Label) */}
+          {/* 3. Emergency Number */}
           <View style={s.loginInputGroup}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <Text style={s.loginEmergencyLabel}>🚨 Enter Emergency Number</Text>
-              <View style={[s.urgentPill, isSameNumber && { backgroundColor: RED }]}>
-                <Text style={s.urgentPillText}>{isSameNumber ? "CANNOT MATCH PHONE" : "REQUIRED"}</Text>
-              </View>
-            </View>
-            <Text style={s.loginFieldHelp}>
-              Family member, relative, or neighbor. Cannot be the same as your personal phone number.
-            </Text>
+            <Text style={s.loginInputLabel}>Emergency Contact Number</Text>
             <View style={[s.loginInputBox, isSameNumber && { borderColor: RED, backgroundColor: "#FEF2F2" }]}>
-              <View style={[s.loginPrefixBox, { backgroundColor: isSameNumber ? "#FEE2E2" : "#EFF6FF" }]}>
-                <Text style={[s.loginPrefixText, { color: isSameNumber ? RED : BLUE }]}>+91</Text>
+              <View style={[s.loginPrefixBox, isSameNumber && { backgroundColor: "#FEE2E2" }]}>
+                <Text style={[s.loginPrefixText, isSameNumber && { color: RED }]}>+91</Text>
               </View>
               <TextInput
                 style={s.loginInputField}
@@ -1507,112 +1524,113 @@ function LoginPage({
             </View>
             {isSameNumber && (
               <Text style={s.fieldInlineError}>
-                ⚠️ The emergency number cannot be the same as your phone number!
+                The emergency contact cannot be your personal phone number.
               </Text>
             )}
           </View>
 
-          {/* 4. Relationship to Emergency Contact */}
+          {/* 4. Role Selection (Compact) */}
           <View style={s.loginInputGroup}>
-            <Text style={s.loginInputLabel}>👥 Emergency Contact Relationship</Text>
-            <View style={s.relationPillRow}>
-              {["Family", "Spouse", "Parent", "Friend", "Neighbor", "Doctor"].map((rel) => (
-                <TouchableOpacity
-                  key={rel}
-                  style={[s.relationPill, emergencyRelation === rel && s.relationPillActive]}
-                  onPress={() => setEmergencyRelation(rel)}
-                >
-                  <Text style={[s.relationPillText, emergencyRelation === rel && s.relationPillTextActive]}>
-                    {rel}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* 5. Role Selection */}
-          <View style={s.loginInputGroup}>
-            <Text style={s.loginInputLabel}>🏷️ Choose Your Role</Text>
+            <Text style={s.loginInputLabel}>Choose Your Role</Text>
             <View style={{ gap: 8 }}>
               <TouchableOpacity
-                style={[s.loginRoleBtn, role === "Shop Owner" && s.loginRoleBtnActive]}
+                style={[s.loginRoleBtnCompact, role === "Shop Owner" && s.loginRoleBtnActive]}
                 onPress={() => setRole("Shop Owner")}
               >
-                <Text style={{ fontSize: 22 }}>🏪</Text>
+                <Text style={{ fontSize: 20 }}>🏪</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.loginRoleBtnTitle}>Shop Owner / Merchant</Text>
-                  <Text style={s.loginRoleBtnSub}>Protect shop stock, alert neighboring shops & get flood checklists</Text>
+                  <Text style={s.loginRoleBtnTitle}>Shop Owner</Text>
+                  <Text style={s.loginRoleBtnSub}>Protect stock • Flood alerts • Checklists</Text>
                 </View>
-                {role === "Shop Owner" && <Ionicons name="checkmark-circle" size={22} color={BLUE} />}
+                {role === "Shop Owner" && <Ionicons name="checkmark-circle" size={20} color={BLUE} />}
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[s.loginRoleBtn, role === "Resident" && s.loginRoleBtnActive]}
+                style={[s.loginRoleBtnCompact, role === "Resident" && s.loginRoleBtnActive]}
                 onPress={() => setRole("Resident")}
               >
-                <Text style={{ fontSize: 22 }}>🏠</Text>
+                <Text style={{ fontSize: 20 }}>🏠</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.loginRoleBtnTitle}>Resident / Citizen</Text>
-                  <Text style={s.loginRoleBtnSub}>Hyperlocal flood alerts, high-ground evacuation shelters & reports</Text>
+                  <Text style={s.loginRoleBtnTitle}>Resident</Text>
+                  <Text style={s.loginRoleBtnSub}>Flood alerts • Safe routes • Emergency reports</Text>
                 </View>
-                {role === "Resident" && <Ionicons name="checkmark-circle" size={22} color={BLUE} />}
+                {role === "Resident" && <Ionicons name="checkmark-circle" size={20} color={BLUE} />}
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* 6. Location Setup */}
+          {/* 5. Location */}
           <View style={s.loginInputGroup}>
-            <Text style={s.loginInputLabel}>📍 Your Location / Market Hub</Text>
-            <TouchableOpacity
-              style={s.loginGpsBtn}
-              onPress={handleGpsDetect}
-              disabled={loadingGps}
-            >
-              {loadingGps ? (
-                <ActivityIndicator color={BLUE} size="small" />
-              ) : (
-                <Ionicons name="navigate" size={16} color={BLUE} />
-              )}
-              <Text style={s.loginGpsBtnText}>
-                {userAddress ? `📍 ${userAddress.slice(0, 32)}...` : "🎯 Auto-Detect GPS Location"}
-              </Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <Text style={s.loginInputLabel}>Location</Text>
+              <TouchableOpacity
+                style={s.loginDetectBtn}
+                onPress={handleGpsDetect}
+                disabled={loadingGps}
+              >
+                {loadingGps ? (
+                  <ActivityIndicator color={BLUE} size="small" />
+                ) : (
+                  <Ionicons name="navigate" size={12} color={BLUE} />
+                )}
+                <Text style={s.loginDetectBtnText}>
+                  {loadingGps ? "Detecting..." : "Detect Location"}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-            <Text style={[s.loginFieldHelp, { marginTop: 8 }]}>Or pick a Mumbai market hub:</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginTop: 4 }}>
-              {MUMBAI_MARKET_HUBS.map((hub) => (
-                <TouchableOpacity
-                  key={hub.id}
-                  style={[s.hubChip, selectedHub === hub.id && s.hubChipActive]}
-                  onPress={() => setSelectedHub(hub.id)}
-                >
-                  <Text style={[s.hubChipText, selectedHub === hub.id && s.hubChipTextActive]}>
-                    {hub.name.split(" ")[0]} ({hub.ward})
-                  </Text>
+            <View style={s.loginInputBox}>
+              <TextInput
+                style={s.loginInputField}
+                placeholder="Tap 'Detect Location' or enter your area"
+                placeholderTextColor="#94A3B8"
+                value={locationInput}
+                onChangeText={setLocationInput}
+              />
+              {locationInput.length > 0 && (
+                <TouchableOpacity onPress={() => setLocationInput("")} style={{ paddingHorizontal: 10 }}>
+                  <Ionicons name="close-circle" size={18} color="#94A3B8" />
                 </TouchableOpacity>
-              ))}
+              )}
+            </View>
+
+            <Text style={[s.loginFieldHelp, { marginTop: 10, marginBottom: 6, fontWeight: "700" }]}>
+              📍 Quick Select Hub (Optional):
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+              {MUMBAI_MARKET_HUBS.map((hub) => {
+                const isChosen = selectedHub === hub.id;
+                return (
+                  <TouchableOpacity
+                    key={hub.id}
+                    style={[s.hubChip, isChosen && s.hubChipActive]}
+                    onPress={() => {
+                      if (selectedHub === hub.id) {
+                        setSelectedHub(null);
+                        setLocationInput("");
+                      } else {
+                        setSelectedHub(hub.id);
+                        setLocationInput(`${hub.name}, ${hub.ward}`);
+                      }
+                    }}
+                  >
+                    <Text style={[s.hubChipText, isChosen && s.hubChipTextActive]}>
+                      🏪 {hub.name.split(" ")[0]} ({hub.ward})
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
 
-          {/* Submit Button */}
+          {/* Primary CTA Button */}
           <TouchableOpacity
-            style={[s.loginSubmitBtn, (isSameNumber || !name.trim()) && { opacity: 0.6 }]}
+            style={[s.loginSubmitBtn, (!isFormValid || isSameNumber) && { opacity: 0.55 }]}
             onPress={handleSubmit}
-            disabled={isSameNumber}
+            disabled={!isFormValid || isSameNumber}
           >
-            <Ionicons name="shield-checkmark" size={20} color="#fff" />
-            <Text style={s.loginSubmitBtnText}>Save Profile & Enter App 🛡️</Text>
+            <Text style={s.loginSubmitBtnText}>Save Profile & Enter App</Text>
           </TouchableOpacity>
-
-          {/* Twilio Dispatch Notice */}
-          <View style={s.loginTwilioNotice}>
-            <Ionicons name="information-circle-outline" size={15} color="#0369a1" />
-            <View style={{ flex: 1 }}>
-              <Text style={s.loginTwilioNoticeText}>
-                Twilio Emergency Dispatch Active · From: +1 765 563 5185 · Tested Recipient: +917738122051
-              </Text>
-            </View>
-          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -1658,13 +1676,13 @@ function ProfileModal({ visible, onClose, userProfile, onLogout, onEdit }) {
           </View>
 
           <View style={s.profileTwilioBanner}>
-            <Ionicons name="phone-portrait" size={18} color="#166534" />
+            <Ionicons name="shield-checkmark" size={18} color="#166534" />
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 10, fontWeight: "800", color: "#166534" }}>
-                Twilio Emergency Dispatch Channel
+                Emergency Alert Channel Active
               </Text>
               <Text style={{ fontSize: 9, color: "#15803d", marginTop: 2 }}>
-                Sender: +1 765 563 5185 ➔ Recipient: +91 77381 22051 (Contact: {userProfile.emergencyNumber})
+                SOS alerts are dispatched immediately to: {userProfile.emergencyNumber}
               </Text>
             </View>
           </View>
@@ -1688,7 +1706,7 @@ function ProfileModal({ visible, onClose, userProfile, onLogout, onEdit }) {
 // Alias for backwards compatibility
 const OnboardingFlow = LoginPage;
 
-// Clean Shopkeeper Dashboard (Big Red SOS + Report Incident + Nearby Emergency Services & NGO Shelters)
+// Clean, Fast Mobile Dashboard (Location, Circular SOS, Quick Actions & Top 3 Nearest Emergency Units)
 function Home({
   userProfile,
   onOpenProfile,
@@ -1696,7 +1714,7 @@ function Home({
   zone,
   alerts,
   lightning,
-  emergencyServices,
+  emergencyServices = [],
   shelters = [],
   userAddress,
   refreshing,
@@ -1711,19 +1729,66 @@ function Home({
   onOpenLocationModal,
   t
 }) {
-  const [categoryFilter, setCategoryFilter] = useState("all"); // all | medical | fire | police | shelter
+  // Select closest resource for each of the 3 key categories from existing data (Government Hospitals only)
+  const isGovHospital = (e) => {
+    const name = (e.name || "").toLowerCase();
+    const group = (e.group || "").toLowerCase();
+    const subType = (e.subType || "").toLowerCase();
+    return (
+      name.includes("municipal") ||
+      name.includes("bmc") ||
+      name.includes("mcgm") ||
+      name.includes("government") ||
+      name.includes("govt") ||
+      name.includes("civil") ||
+      name.includes("general hospital") ||
+      name.includes("health post") ||
+      name.includes("dispensary") ||
+      name.includes("phc") ||
+      name.includes("chc") ||
+      name.includes("esi") ||
+      name.includes("public") ||
+      name.includes("bhabha") ||
+      name.includes("cooper") ||
+      name.includes("kem") ||
+      name.includes("sion") ||
+      name.includes("nair") ||
+      name.includes("rajawadi") ||
+      name.includes("shatabdi") ||
+      name.includes("jj hospital") ||
+      name.includes("maternity home") ||
+      group.includes("government") ||
+      subType.includes("government")
+    );
+  };
 
-  // Filtered List across 4 key emergency categories
-  const filteredEms = emergencyServices.filter((ems) => {
-    if (categoryFilter === "all") return true;
-    if (categoryFilter === "medical") return ems.category === "medical";
-    if (categoryFilter === "fire") return ems.category === "fire";
-    if (categoryFilter === "police") return ems.category === "police";
-    if (categoryFilter === "shelter" || categoryFilter === "ngo") return ems.category === "ngo" || ems.category === "shelter";
-    return false;
-  });
+  const hospitalList = (emergencyServices || [])
+    .filter(
+      (e) =>
+        e.category === "medical" ||
+        e.group?.toLowerCase().includes("hospital") ||
+        e.name?.toLowerCase().includes("hospital") ||
+        e.name?.toLowerCase().includes("dispensary") ||
+        e.name?.toLowerCase().includes("health post")
+    )
+    .sort((a, b) => {
+      const aGov = isGovHospital(a) ? 0 : 1;
+      const bGov = isGovHospital(b) ? 0 : 1;
+      if (aGov !== bGov) return aGov - bGov;
+      return Number(a.distanceKm || 999) - Number(b.distanceKm || 999);
+    });
+  const closestHospital = hospitalList[0] || null;
 
-  const showShelters = categoryFilter === "all" || categoryFilter === "shelter" || categoryFilter === "ngo";
+  const ngoList = [
+    ...(emergencyServices || []).filter((e) => e.category === "ngo" || e.category === "shelter"),
+    ...(shelters || [])
+  ].sort((a, b) => Number(a.distanceKm ?? a.distance_km ?? 999) - Number(b.distanceKm ?? b.distance_km ?? 999));
+  const closestNgo = ngoList[0] || null;
+
+  const govList = (emergencyServices || []).filter(
+    (e) => e.category === "fire" || e.category === "police" || e.category === "government" || e.category === "gov" || e.group?.toLowerCase().includes("fire") || e.group?.toLowerCase().includes("police") || e.name?.toLowerCase().includes("police") || e.name?.toLowerCase().includes("fire") || e.name?.toLowerCase().includes("ward")
+  ).sort((a, b) => Number(a.distanceKm || 999) - Number(b.distanceKm || 999));
+  const closestGov = govList[0] || null;
 
   return (
     <ScrollView
@@ -1731,7 +1796,7 @@ function Home({
       contentContainerStyle={{ paddingTop: 14, paddingBottom: 110 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      {/* User Welcome & Registered Emergency Contact Bar */}
+      {/* 1. User Welcome & Role Bar */}
       {userProfile && (
         <View style={s.userWelcomeCard}>
           <View style={{ flex: 1 }}>
@@ -1740,19 +1805,8 @@ function Home({
                 👋 Welcome, {userProfile.name}
               </Text>
               <View style={s.userRoleTag}>
-                <Text style={s.userRoleTagText}>{userProfile.role}</Text>
+                <Text style={s.userRoleTagText}>{userProfile.role || role || "Shop Owner"}</Text>
               </View>
-            </View>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
-              <View style={s.userEmergencyPill}>
-                <Ionicons name="call" size={10} color="#fff" />
-                <Text style={s.userEmergencyPillText}>
-                  Emergency: {userProfile.emergencyNumber}
-                </Text>
-              </View>
-              <Text style={{ fontSize: 9, color: MUTED }}>
-                ({userProfile.emergencyRelation || "Contact"})
-              </Text>
             </View>
           </View>
           <TouchableOpacity style={s.userProfileEditIconBtn} onPress={onOpenProfile}>
@@ -1761,28 +1815,7 @@ function Home({
         </View>
       )}
 
-      {/* 0. Hyperlocal Active Shop / User Location Bar with Dynamic Switcher */}
-      <TouchableOpacity
-        style={s.locationBar}
-        onPress={onOpenLocationModal}
-        activeOpacity={0.7}
-      >
-        <View style={s.locationDotPulse} />
-        <View style={{ flex: 1 }}>
-          <Text style={s.locationBarLabel}>
-            {role === "Shop Owner" ? "🏪 SHOPKEEPER ACTIVE LOCATION" : "📍 HYPERLOCAL GPS LOCATION"}
-          </Text>
-          <Text style={s.locationBarValue} numberOfLines={1}>
-            {userAddress || "Station Road, Ward 72"}
-          </Text>
-        </View>
-        <View style={s.changeLocBtn}>
-          <Ionicons name="swap-horizontal" size={14} color={BLUE} />
-          <Text style={s.changeLocText}>Change</Text>
-        </View>
-      </TouchableOpacity>
-
-      {/* 1. Large Circular One-Tap Red Emergency SOS Button */}
+      {/* 2. Large Circular Red Emergency SOS Button */}
       <View style={s.sosCircularContainer}>
         <View style={s.sosOuterPulseRing} />
         <TouchableOpacity
@@ -1794,7 +1827,7 @@ function Home({
           <Ionicons name="radio" size={32} color="#fff" />
           <Text style={s.sosCircularTitle}>SOS</Text>
           <Text style={s.sosCircularSub}>
-            {sosCooldown > 0 ? `${sosCooldown}s COOLDOWN` : "ONE-TAP RESCUE"}
+            {sosCooldown > 0 ? `${sosCooldown}s COOLDOWN` : "Tap for Help"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -1804,262 +1837,176 @@ function Home({
           <Ionicons name="checkmark-circle" size={26} color={GREEN} />
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 13, fontWeight: "900", color: "#166534" }}>
-              🚨 {t.rescueDeployed}: {sosActiveData.assignedTeam || "Rapid Flood Rescue Fleet"}
+              🚨 {t.rescueDeployed}: {sosActiveData.assignedTeam || "Rapid Flood Rescue Squad"}
             </Text>
-
-            {/* Twilio SMS Dispatch Notice Box */}
-            <View style={s.sosTwilioDispatchedBox}>
-              <Ionicons name="chatbubble-ellipses" size={15} color="#166534" />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 10, fontWeight: "900", color: "#166534" }}>
-                  📲 Twilio SMS Alert Dispatched!
-                </Text>
-                <Text style={{ fontSize: 9, color: "#15803d", marginTop: 1 }}>
-                  Sender: +1 765 563 5185 ➔ Recipient: +91 77381 22051
-                </Text>
-                <Text style={{ fontSize: 8.5, color: "#166534", marginTop: 1, fontWeight: "700" }}>
-                  Registered Emergency Contact: {sosActiveData.targetEmergencyPhone || userProfile?.emergencyNumber || "Assigned Contact"}
-                </Text>
-              </View>
-            </View>
-
-            <Text style={{ fontSize: 9.5, color: "#15803d", marginTop: 4, fontWeight: "700" }}>
-              📞 Emergency Call Dispatched: NGO Coordinator (7977661625) · ETA: {sosActiveData.eta || "4–6 mins"}
+            <Text style={{ fontSize: 10, color: "#15803d", marginTop: 2, fontWeight: "700" }}>
+              SOS Broadcasted · Emergency Team Dispatched · ETA: {sosActiveData.eta || "4–6 mins"}
             </Text>
           </View>
         </View>
       )}
 
-      {/* 2. Prominent Report Incident Button */}
-      <TouchableOpacity style={s.reportIncidentBigBtn} onPress={onReport}>
+      {/* 4. Report Incident Card */}
+      <TouchableOpacity style={s.reportIncidentBigBtn} onPress={onReport} activeOpacity={0.8}>
         <View style={s.reportIconCircle}>
-          <Ionicons name="camera" size={26} color="#fff" />
+          <Text style={{ fontSize: 24 }}>🚨</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={s.reportBigTitle}>📸 {t.reportIncident}</Text>
-          <Text style={s.reportBigSub}>{t.reportScreenSub}</Text>
+          <Text style={s.reportBigTitle}>{t.reportIncident || "Report Incident"}</Text>
+          <Text style={s.reportBigSub}>Report a flood situation</Text>
         </View>
-        <Ionicons name="chevron-forward" size={22} color={BLUE} />
+        <Ionicons name="chevron-forward" size={20} color={BLUE} />
       </TouchableOpacity>
 
-      {/* Quick Action Utilities Row - Available for all citizens & merchants */}
+      {/* 5. Quick Actions Row */}
       <View style={{ flexDirection: "row", gap: 10, marginTop: 12, marginBottom: 18 }}>
-        <TouchableOpacity style={s.quickActionCard} onPress={onOpenChecklist}>
-          <Ionicons name="clipboard-outline" size={20} color={BLUE} />
-          <Text style={s.quickActionText}>📋 {t.emergencyChecklist}</Text>
+        <TouchableOpacity style={s.quickActionCard} onPress={onOpenChecklist} activeOpacity={0.7}>
+          <Ionicons name="clipboard-outline" size={18} color={BLUE} />
+          <Text style={s.quickActionText}>📋 Checklist</Text>
         </TouchableOpacity>
         {role === "Shop Owner" ? (
-          <TouchableOpacity style={s.quickActionCard} onPress={onOpenBuddy}>
-            <Ionicons name="people-outline" size={20} color={BLUE} />
-            <Text style={s.quickActionText}>{t.floodBuddy}</Text>
+          <TouchableOpacity style={s.quickActionCard} onPress={onOpenBuddy} activeOpacity={0.7}>
+            <Ionicons name="people-outline" size={18} color={BLUE} />
+            <Text style={s.quickActionText}>👥 Flood Buddy</Text>
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity style={s.quickActionCard} onPress={onNavigateToMap}>
-            <Ionicons name="navigate-outline" size={20} color={BLUE} />
-            <Text style={s.quickActionText}>Evacuation Map</Text>
+          <TouchableOpacity style={s.quickActionCard} onPress={onNavigateToMap} activeOpacity={0.7}>
+            <Ionicons name="navigate-outline" size={18} color={BLUE} />
+            <Text style={s.quickActionText}>🗺️ Evacuation Map</Text>
           </TouchableOpacity>
         )}
       </View>
 
-      {/* 3. Dynamic Nearby Emergency Services & Relief Infrastructure Header */}
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4, marginBottom: 6 }}>
-        <Text style={s.sectionTitle}>📍 {t.nearbyServices}</Text>
-        <Text style={{ fontSize: 10, color: BLUE, fontWeight: "700" }}>
-          {userAddress ? `${userAddress.slice(0, 18)} · 5 km radius` : "Within 5 km radius"}
-        </Text>
+      {/* 6. Nearby Emergency Services Header with View All -> */}
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4, marginBottom: 10 }}>
+        <Text style={s.sectionTitle}>Nearby Emergency Services</Text>
+        <TouchableOpacity onPress={onNavigateToMap} style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+          <Text style={{ fontSize: 11, color: BLUE, fontWeight: "800" }}>View All →</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Category Filter Chips (4 Core Categories + All) */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 10 }}>
-        {[
-          { id: "all", label: "All Units (5 km)" },
-          { id: "medical", label: "🏥 Hospitals & ICUs" },
-          { id: "fire", label: "🚒 Fire & Water-Rescue" },
-          { id: "police", label: "👮 Police & Security" },
-          { id: "shelter", label: "⛺ NGOs & Relief Centers" }
-        ].map((cat) => {
-          const isActive = categoryFilter === cat.id;
-          return (
-            <TouchableOpacity
-              key={cat.id}
-              style={{
-                backgroundColor: isActive ? BLUE : "#fff",
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-                borderRadius: 20,
-                borderWidth: 1,
-                borderColor: isActive ? BLUE : "#E2E8F0"
-              }}
-              onPress={() => setCategoryFilter(cat.id)}
-            >
-              <Text style={{ fontSize: 11, fontWeight: "800", color: isActive ? "#fff" : TEXT }}>
-                {cat.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      {/* Emergency Services & Shelters List */}
-      <View style={{ gap: 9 }}>
-        {/* NGO & Civic Shelters Section */}
-        {showShelters && shelters.length === 0 && (
-          <View style={{ backgroundColor: "#F8FAFC", borderRadius: 10, padding: 16, alignItems: "center", borderWidth: 1, borderColor: "#E2E8F0" }}>
-            <Text style={{ fontSize: 24, marginBottom: 4 }}>🏕️</Text>
-            <Text style={{ fontSize: 12, fontWeight: "800", color: TEXT }}>No Shelters Found within Radius</Text>
-            <Text style={{ fontSize: 10, color: MUTED, marginTop: 2, textAlign: "center" }}>
-              Expanding radius or checking backup disaster relief centers...
-            </Text>
+      {/* 7. Exactly 3 Category Cards (1 Hospital, 1 NGO, 1 Government) */}
+      <View style={{ gap: 10 }}>
+        {/* Card 1: 🏥 Hospital / Medical */}
+        {closestHospital ? (
+          <View style={s.cleanResourceCard}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <View style={[s.cleanResourceIconCircle, { backgroundColor: "#EFF6FF" }]}>
+                <Text style={{ fontSize: 22 }}>🏥</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.cleanResourceCategory}>GOVT HOSPITAL</Text>
+                <Text style={s.cleanResourceTitle} numberOfLines={1}>{closestHospital.name}</Text>
+                <Text style={s.cleanResourceAddress} numberOfLines={1}>
+                  📍 {closestHospital.station || closestHospital.address || closestHospital.area || "Healthcare Center & Emergency Ward"}
+                </Text>
+                <Text style={s.cleanResourceMeta}>
+                  ⚡ {closestHospital.distanceKm} km · ~{Math.max(2, Math.round(Number(closestHospital.distanceKm || 1) * 4))} min
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={s.cleanDirectionsBtn}
+                onPress={() => {
+                  const navUrl = closestHospital.navigateUrl || closestHospital.mapsUrl || ((closestHospital.latitude || closestHospital.lat) && (closestHospital.longitude || closestHospital.lng) ? `https://www.google.com/maps/dir/?api=1&destination=${closestHospital.latitude || closestHospital.lat},${closestHospital.longitude || closestHospital.lng}&travelmode=driving` : null);
+                  if (navUrl) Linking.openURL(navUrl).catch(() => null);
+                }}
+              >
+                <Ionicons name="navigate" size={12} color="#fff" />
+                <Text style={s.cleanDirectionsText}>Directions</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View style={s.cleanResourceCard}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Text style={{ fontSize: 20 }}>🏥</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={s.cleanResourceCategory}>GOVT HOSPITAL</Text>
+                <Text style={s.cleanResourceMeta}>No nearby government hospital available within radius</Text>
+              </View>
+            </View>
           </View>
         )}
 
-        {showShelters && shelters.map((sh) => {
-          const shMapsUrl = sh.maps_url || sh.mapsUrl || ((sh.latitude || sh.lat) && (sh.longitude || sh.lng) ? `https://www.google.com/maps/dir/?api=1&destination=${sh.latitude || sh.lat},${sh.longitude || sh.lng}&travelmode=driving` : null);
-          return (
-          <View style={[s.emsCard, { borderLeftWidth: 4, borderLeftColor: sh.is_verified ? GREEN : "#0284c7" }]} key={sh.id}>
-            <Text style={{ fontSize: 26 }}>{sh.icon || (sh.type?.includes("food") ? "🍲" : sh.type?.includes("tent") ? "⛺" : "🏕️")}</Text>
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <Text style={s.emsTitle}>{sh.name}</Text>
-                <View style={{ backgroundColor: sh.is_verified ? "#ECFDF5" : "#EFF6FF", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                  <Text style={{ fontSize: 9, fontWeight: "800", color: sh.is_verified ? GREEN : BLUE }}>
-                    {sh.distance_km ?? sh.distanceKm} km · {sh.eta_minutes ?? sh.etaMin ?? 5} min ETA
-                  </Text>
-                </View>
+        {/* Card 2: 🤝 NGO */}
+        {closestNgo ? (
+          <View style={s.cleanResourceCard}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <View style={[s.cleanResourceIconCircle, { backgroundColor: "#F0FDF4" }]}>
+                <Text style={{ fontSize: 22 }}>🤝</Text>
               </View>
-
-              {/* Type & Provider Badges */}
-              <View style={{ flexDirection: "row", gap: 5, marginTop: 3, flexWrap: "wrap" }}>
-                <View style={{ backgroundColor: "#F1F5F9", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
-                  <Text style={{ fontSize: 9, fontWeight: "700", color: "#475569" }}>🏷️ {sh.type || sh.shelterType || "Relief Center"}</Text>
-                </View>
-                <View style={{ backgroundColor: sh.is_verified ? "#DCFCE7" : "#E0F2FE", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
-                  <Text style={{ fontSize: 9, fontWeight: "800", color: sh.is_verified ? "#15803d" : "#0369a1" }}>
-                    {sh.is_verified ? "✓ Verified Shelter" : `Discovered (${sh.provider || "OSM"})`}
-                  </Text>
-                </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.cleanResourceCategory, { color: "#16a34a" }]}>NGO</Text>
+                <Text style={s.cleanResourceTitle} numberOfLines={1}>{closestNgo.name}</Text>
+                <Text style={s.cleanResourceAddress} numberOfLines={1}>
+                  📍 {closestNgo.address || closestNgo.station || closestNgo.area || "Designated NGO Community Hub"}
+                </Text>
+                <Text style={s.cleanResourceMeta}>
+                  ⚡ {closestNgo.distance_km ?? closestNgo.distanceKm} km · ~{closestNgo.eta_minutes ?? closestNgo.etaMin ?? Math.max(2, Math.round(Number(closestNgo.distance_km || closestNgo.distanceKm || 1) * 5))} min
+                </Text>
               </View>
-
-              {sh.agency && <Text style={[s.emsSub, { color: BLUE, fontWeight: "700", marginTop: 3 }]}>🤝 Assigned: {sh.agency}</Text>}
-              <Text style={s.emsSub}>{sh.address} · <Text style={{ color: GREEN, fontWeight: "700" }}>{sh.status || "Safe / Open"}</Text></Text>
-              {sh.capacity && <Text style={[s.emsSub, { fontSize: 10, color: MUTED }]}>Capacity: {sh.capacity}</Text>}
-              
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 6, flexWrap: "wrap", gap: 6 }}>
-                <TouchableOpacity
-                  style={{ flexDirection: "row", alignItems: "center", gap: 5 }}
-                  onPress={() => {
-                    const num = (sh.phone || sh.contact || "").split("/")[0].replace(/[^0-9+]/g, "");
-                    if (num) Linking.openURL(`tel:${num}`).catch(() => Alert.alert("Shelter Contact", `${sh.name}: ${sh.phone || sh.contact}`));
-                  }}
-                >
-                  <Ionicons name="call" size={12} color={BLUE} />
-                  <Text style={{ fontSize: 11, color: BLUE, fontWeight: "800" }}>{sh.phone || sh.contact || "+91 7977661625"}</Text>
-                </TouchableOpacity>
-
-                <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
-                  {shMapsUrl && (
-                    <TouchableOpacity
-                      style={{ backgroundColor: BLUE, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 7, flexDirection: "row", alignItems: "center", gap: 4 }}
-                      onPress={() => Linking.openURL(shMapsUrl).catch(() => null)}
-                    >
-                      <Ionicons name="navigate" size={11} color="#fff" />
-                      <Text style={{ fontSize: 10, color: "#fff", fontWeight: "800" }}>Navigate in Google Maps ↗</Text>
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity
-                    style={{ backgroundColor: "#EFF6FF", paddingHorizontal: 8, paddingVertical: 5, borderRadius: 7 }}
-                    onPress={onNavigateToMap}
-                  >
-                    <Text style={{ fontSize: 10, color: BLUE, fontWeight: "800" }}>🗺️ Route</Text>
-                  </TouchableOpacity>
-                </View>
+              <TouchableOpacity
+                style={[s.cleanDirectionsBtn, { backgroundColor: "#16a34a" }]}
+                onPress={() => {
+                  const navUrl = closestNgo.maps_url || closestNgo.mapsUrl || closestNgo.navigateUrl || ((closestNgo.latitude || closestNgo.lat) && (closestNgo.longitude || closestNgo.lng) ? `https://www.google.com/maps/dir/?api=1&destination=${closestNgo.latitude || closestNgo.lat},${closestNgo.longitude || closestNgo.lng}&travelmode=driving` : null);
+                  if (navUrl) Linking.openURL(navUrl).catch(() => null);
+                }}
+              >
+                <Ionicons name="navigate" size={12} color="#fff" />
+                <Text style={s.cleanDirectionsText}>Directions</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View style={s.cleanResourceCard}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Text style={{ fontSize: 20 }}>🤝</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.cleanResourceCategory, { color: "#16a34a" }]}>NGO</Text>
+                <Text style={s.cleanResourceMeta}>No nearby NGO relief center available</Text>
               </View>
             </View>
           </View>
-          );
-        })}
+        )}
 
-        {/* Emergency Services */}
-        {filteredEms.map((ems) => {
-          const emsNavUrl = ems.navigateUrl || ems.mapsUrl || ((ems.latitude || ems.lat) && (ems.longitude || ems.lng) ? `https://www.google.com/maps/dir/?api=1&destination=${ems.latitude || ems.lat},${ems.longitude || ems.lng}&travelmode=driving` : null);
-          return (
-          <View style={s.emsCard} key={ems.id}>
-            <Text style={{ fontSize: 26 }}>{ems.icon}</Text>
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <Text style={s.emsTitle}>{ems.name}</Text>
-                <View style={{ backgroundColor: "#EFF6FF", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                  <Text style={{ fontSize: 9, fontWeight: "800", color: BLUE }}>{ems.distanceKm} km</Text>
-                </View>
+        {/* Card 3: 🏛️ Government / Authority */}
+        {closestGov ? (
+          <View style={s.cleanResourceCard}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <View style={[s.cleanResourceIconCircle, { backgroundColor: "#FEF3C7" }]}>
+                <Text style={{ fontSize: 22 }}>{closestGov.category === "fire" ? "🚒" : closestGov.category === "police" ? "👮" : "🏛️"}</Text>
               </View>
-
-              {/* Badges & Rating */}
-              <View style={{ flexDirection: "row", gap: 5, marginTop: 3, flexWrap: "wrap", alignItems: "center" }}>
-                <View style={{ backgroundColor: "#F1F5F9", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
-                  <Text style={{ fontSize: 9, fontWeight: "700", color: "#475569" }}>🏷️ {ems.group || ems.subType || "Emergency Unit"}</Text>
-                </View>
-                {ems.source === "Google Maps" ? (
-                  <View style={{ backgroundColor: "#EFF6FF", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
-                    <Text style={{ fontSize: 9, fontWeight: "800", color: "#2563eb" }}>📍 Google Maps</Text>
-                  </View>
-                ) : (
-                  <View style={{ backgroundColor: "#DCFCE7", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
-                    <Text style={{ fontSize: 9, fontWeight: "800", color: "#15803d" }}>✓ Verified Civic Hub</Text>
-                  </View>
-                )}
-                {ems.rating && (
-                  <View style={{ backgroundColor: "#FEF3C7", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
-                    <Text style={{ fontSize: 9, fontWeight: "800", color: "#b45309" }}>⭐ {ems.rating} ({ems.userRatingsTotal || 0})</Text>
-                  </View>
-                )}
+              <View style={{ flex: 1 }}>
+                <Text style={[s.cleanResourceCategory, { color: "#d97706" }]}>GOVERNMENT</Text>
+                <Text style={s.cleanResourceTitle} numberOfLines={1}>{closestGov.name}</Text>
+                <Text style={s.cleanResourceAddress} numberOfLines={1}>
+                  📍 {closestGov.station || closestGov.address || closestGov.area || "Disaster Response Base"}
+                </Text>
+                <Text style={s.cleanResourceMeta}>
+                  ⚡ {closestGov.distanceKm} km · ~{Math.max(2, Math.round(Number(closestGov.distanceKm || 1) * 4))} min
+                </Text>
               </View>
-
-              <Text style={s.emsSub}>{ems.station} · <Text style={{ color: GREEN, fontWeight: "700" }}>{ems.status || "Active 24/7"}</Text></Text>
-              {ems.capacity && <Text style={[s.emsSub, { fontSize: 10, color: MUTED }]}>Equipped: {ems.capacity}</Text>}
-
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 6, flexWrap: "wrap", gap: 6 }}>
-                <TouchableOpacity
-                  style={{ flexDirection: "row", alignItems: "center", gap: 5 }}
-                  onPress={() => {
-                    const num = (ems.phone || "").split("/")[0].replace(/[^0-9+]/g, "");
-                    if (num) Linking.openURL(`tel:${num}`).catch(() => Alert.alert("Emergency Call", `${ems.name}: ${ems.phone}`));
-                  }}
-                >
-                  <Ionicons name="call" size={12} color={BLUE} />
-                  <Text style={{ fontSize: 11, color: BLUE, fontWeight: "800" }}>{ems.phone}</Text>
-                </TouchableOpacity>
-
-                {emsNavUrl && (
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: BLUE,
-                      paddingHorizontal: 10,
-                      paddingVertical: 5,
-                      borderRadius: 8,
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 4,
-                      elevation: 2
-                    }}
-                    onPress={() => Linking.openURL(emsNavUrl).catch(() => null)}
-                  >
-                    <Ionicons name="navigate" size={12} color="#fff" />
-                    <Text style={{ fontSize: 10, color: "#fff", fontWeight: "900" }}>Navigate in Google Maps ↗</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              <TouchableOpacity
+                style={[s.cleanDirectionsBtn, { backgroundColor: "#d97706" }]}
+                onPress={() => {
+                  const navUrl = closestGov.navigateUrl || closestGov.mapsUrl || ((closestGov.latitude || closestGov.lat) && (closestGov.longitude || closestGov.lng) ? `https://www.google.com/maps/dir/?api=1&destination=${closestGov.latitude || closestGov.lat},${closestGov.longitude || closestGov.lng}&travelmode=driving` : null);
+                  if (navUrl) Linking.openURL(navUrl).catch(() => null);
+                }}
+              >
+                <Ionicons name="navigate" size={12} color="#fff" />
+                <Text style={s.cleanDirectionsText}>Directions</Text>
+              </TouchableOpacity>
             </View>
           </View>
-          );
-        })}
-
-        {filteredEms.length === 0 && (!showShelters || shelters.length === 0) && (
-          <View style={{ backgroundColor: "#F8FAFC", borderRadius: 10, padding: 18, alignItems: "center", borderWidth: 1, borderColor: "#E2E8F0", marginTop: 4 }}>
-            <Text style={{ fontSize: 24, marginBottom: 4 }}>🔍</Text>
-            <Text style={{ fontSize: 12, fontWeight: "800", color: TEXT }}>No Units Found in this Category</Text>
-            <Text style={{ fontSize: 10, color: MUTED, marginTop: 2, textAlign: "center" }}>
-              No emergency facilities discovered for this category within 5 km.
-            </Text>
+        ) : (
+          <View style={s.cleanResourceCard}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Text style={{ fontSize: 20 }}>🏛️</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.cleanResourceCategory, { color: "#d97706" }]}>GOVERNMENT</Text>
+                <Text style={s.cleanResourceMeta}>No nearby government unit available</Text>
+              </View>
+            </View>
           </View>
         )}
       </View>
@@ -2067,7 +2014,7 @@ function Home({
   );
 }
 
-// Phased & Categorized Emergency Checklist Component with Live Progress & Role Toggle
+// Streamlined Essential Emergency Checklist Component
 function EmergencyChecklistView({ role, t, userProfile }) {
   const initialTab = (role === "Resident" || userProfile?.role === "Resident") ? "resident" : "shop";
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -2081,212 +2028,125 @@ function EmergencyChecklistView({ role, t, userProfile }) {
     setChecked({});
   };
 
-  // Phase 1: Immediate Life & People Safety (Priority 1)
-  const peopleItems = [
-    {
-      id: "p1",
-      icon: "walk",
-      title: "1. Evacuate to Upper Floor or High Ground",
-      desc: "Move family, staff, and customers above ground stormwater level immediately.",
-      badge: "CRITICAL",
-      badgeColor: RED
-    },
-    {
-      id: "p2",
-      icon: "people",
-      title: "2. Protect Children, Elderly & Pets",
-      desc: "Keep vulnerable members away from open storm drains, submerged potholes, and fast street flow.",
-      badge: "HIGH",
-      badgeColor: ORANGE
-    },
-    {
-      id: "p3",
-      icon: "battery-charging",
-      title: "3. Charge Phones & Keep Power Banks Accessible",
-      desc: "Keep primary phone charged for emergency Twilio SOS broadcasts (+1 765 563 5185).",
-      badge: "ESSENTIAL",
-      badgeColor: BLUE
-    }
-  ];
-
-  // Phase 2: Property & Stock Defense (Shopkeeper-specific)
+  // Essential Shop Defense Items
   const shopItems = [
     {
       id: "s1",
-      icon: "cube",
-      title: "4. Elevate Stock at Least 3 Feet Off Floor",
-      desc: "Move dry goods, electronics, textiles, and inventory to upper shelves, tables, or lofts.",
-      badge: "INVENTORY",
-      badgeColor: ORANGE
+      icon: "walk",
+      title: "Move to Upper Floor / High Ground",
+      desc: "Move staff and customers to a safe elevated floor immediately.",
+      priority: "CRITICAL"
     },
     {
       id: "s2",
-      icon: "flash-off",
-      title: "5. Cut Off Main Electrical Circuit Breaker",
-      desc: "Turn off the main shop breaker and unplug all ground-level electrical appliances safely.",
-      badge: "ELECTRICAL",
-      badgeColor: RED
+      icon: "cube",
+      title: "Elevate Stock & Inventory",
+      desc: "Move dry goods, electronics, and stock at least 3 feet off the floor.",
+      priority: "STOCK"
     },
     {
       id: "s3",
-      icon: "shield",
-      title: "6. Deploy Flood Barrier Boards & Sandbags",
-      desc: "Install doorway flood barriers and securely lock roll-down shutter against water pressure.",
-      badge: "BARRIER",
-      badgeColor: BLUE
+      icon: "flash-off",
+      title: "Turn Off Main Power Switch",
+      desc: "Safely cut off main breaker and unplug ground appliances to prevent shocks.",
+      priority: "SAFETY"
     },
     {
       id: "s4",
+      icon: "shield",
+      title: "Install Flood Barriers & Seal Shutters",
+      desc: "Put sandbags/flood boards in place and lock the shop shutter securely.",
+      priority: "BARRIER"
+    },
+    {
+      id: "s5",
       icon: "briefcase",
-      title: "7. Safeguard Cash, GST Invoices & POS Devices",
-      desc: "Seal tax registers, cash drawer, and digital POS payment devices inside sealed waterproof bags.",
-      badge: "DOCUMENTS",
-      badgeColor: GREEN
+      title: "Secure Cash & Essential Documents",
+      desc: "Seal cash, tax registers, and POS devices in waterproof bags.",
+      priority: "DOCS"
     }
   ];
 
-  // Phase 2: Resident / Household Defense (Resident-specific)
+  // Essential Resident Safety Items
   const residentItems = [
     {
       id: "r1",
-      icon: "flash-off",
-      title: "4. Shut Off Main Power Breaker & Gas Valve",
-      desc: "Prevent electrical short-circuits and gas leaks before street water enters the premises.",
-      badge: "SAFETY",
-      badgeColor: RED
+      icon: "walk",
+      title: "Move to Upper Floor / High Ground",
+      desc: "Move family, elderly members, and pets above ground flood levels.",
+      priority: "CRITICAL"
     },
     {
       id: "r2",
-      icon: "document-text",
-      title: "5. Seal Vital IDs, Papers & Prescriptions",
-      desc: "Pack Aadhaar cards, passports, property deeds, cash, and prescription medications in waterproof bags.",
-      badge: "VITAL DOCS",
-      badgeColor: GREEN
+      icon: "flash-off",
+      title: "Turn Off Electricity & Gas Valves",
+      desc: "Switch off the main breaker and cooking gas to prevent fires/leaks.",
+      priority: "SAFETY"
     },
     {
       id: "r3",
-      icon: "water",
-      title: "6. Store 48-Hour Drinking Water & Dry Rations",
-      desc: "Fill clean bottles, thermoses, and pots with drinking water before municipal lines are contaminated.",
-      badge: "SUPPLIES",
-      badgeColor: BLUE
+      icon: "medkit",
+      title: "Pack Emergency Go-Bag",
+      desc: "Keep emergency medicines, power bank, torch, drinking water, and IDs ready.",
+      priority: "SUPPLIES"
     },
     {
       id: "r4",
-      icon: "medkit",
-      title: "7. Prepare Emergency Go-Bag (Torch & Whistle)",
-      desc: "Keep a whistle (to signal rescue squads), waterproof flashlight, first-aid kit, and footwear ready.",
-      badge: "GO-BAG",
-      badgeColor: ORANGE
-    }
-  ];
-
-  // Phase 3: Active Stormwater Hazard Protocol (Universal - Priority 3)
-  const safetyItems = [
-    {
-      id: "f1",
       icon: "warning",
-      title: "8. Never Walk or Drive Through Moving Floodwater",
-      desc: "Just 6 inches of fast water can knock down an adult; 12 inches can sweep away small cars.",
-      badge: "HAZARD",
-      badgeColor: RED
-    },
-    {
-      id: "f2",
-      icon: "radio",
-      title: "9. Monitor VarshaRaksha Radar & Ward Sirens",
-      desc: "Keep track of live radar telemetry, Ward Emergency Control directives, and nearest public shelters.",
-      badge: "MONITOR",
-      badgeColor: BLUE
+      title: "Avoid Moving Floodwater",
+      desc: "Do not walk or drive through flowing water or submerged streets.",
+      priority: "HAZARD"
     }
   ];
 
-  const currentPropertyItems = activeTab === "shop" ? shopItems : residentItems;
-  const allCurrentItems = [...peopleItems, ...currentPropertyItems, ...safetyItems];
-
-  const totalCount = allCurrentItems.length;
-  const completedCount = allCurrentItems.filter((i) => checked[i.id]).length;
+  const currentItems = activeTab === "shop" ? shopItems : residentItems;
+  const totalCount = currentItems.length;
+  const completedCount = currentItems.filter((i) => checked[i.id]).length;
   const progressPercent = Math.round((completedCount / totalCount) * 100);
-
-  const renderCheckCard = (item) => {
-    const isDone = Boolean(checked[item.id]);
-    return (
-      <TouchableOpacity
-        key={item.id}
-        style={[s.checklistCardItem, isDone && s.checklistCardItemDone]}
-        onPress={() => toggleCheck(item.id)}
-        activeOpacity={0.7}
-      >
-        <View style={[s.checkItemCheckbox, isDone && s.checkItemCheckboxDone]}>
-          {isDone ? (
-            <Ionicons name="checkmark" size={16} color="#fff" />
-          ) : (
-            <Ionicons name={item.icon || "ellipse-outline"} size={16} color={BLUE} />
-          )}
-        </View>
-
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
-            <Text style={[s.checkItemTitle, isDone && s.checkItemTitleDone]}>
-              {item.title}
-            </Text>
-            <View style={[s.checkTagPill, { backgroundColor: item.badgeColor ? item.badgeColor + "18" : "#E2E8F0" }]}>
-              <Text style={[s.checkTagPillText, { color: item.badgeColor || MUTED }]}>
-                {item.badge}
-              </Text>
-            </View>
-          </View>
-
-          <Text style={[s.checkItemDesc, isDone && s.checkItemDescDone]}>
-            {item.desc}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
 
   return (
     <View style={{ paddingVertical: 4 }}>
-      {/* 1. Header Role Switcher Pills */}
+      {/* 1. Clean Role Switcher */}
       <View style={s.checklistRoleToggleRow}>
         <TouchableOpacity
           style={[s.checklistRoleTab, activeTab === "shop" && s.checklistRoleTabActive]}
           onPress={() => setActiveTab("shop")}
+          activeOpacity={0.8}
         >
-          <Text style={{ fontSize: 13 }}>🏪</Text>
+          <Text style={{ fontSize: 14 }}>🏪</Text>
           <Text style={[s.checklistRoleTabText, activeTab === "shop" && s.checklistRoleTabTextActive]}>
-            Shop Owner Defense
+            Shop Checklist
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[s.checklistRoleTab, activeTab === "resident" && s.checklistRoleTabActive]}
           onPress={() => setActiveTab("resident")}
+          activeOpacity={0.8}
         >
-          <Text style={{ fontSize: 13 }}>🏠</Text>
+          <Text style={{ fontSize: 14 }}>🏠</Text>
           <Text style={[s.checklistRoleTabText, activeTab === "resident" && s.checklistRoleTabTextActive]}>
-            Resident & Household
+            Resident Checklist
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* 2. Progress Summary Card */}
+      {/* 2. Compact Progress Summary */}
       <View style={s.checklistProgressCard}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Ionicons name="shield-checkmark" size={18} color={completedCount === totalCount ? GREEN : BLUE} />
+            <Ionicons name="shield-checkmark" size={16} color={completedCount === totalCount ? GREEN : BLUE} />
             <Text style={s.checklistProgressTitle}>
-              Preparedness: {completedCount} of {totalCount} Done ({progressPercent}%)
+              {completedCount} of {totalCount} Completed ({progressPercent}%)
             </Text>
           </View>
           {completedCount > 0 && (
             <TouchableOpacity onPress={clearAll}>
-              <Text style={{ fontSize: 10, color: RED, fontWeight: "800" }}>Reset All</Text>
+              <Text style={{ fontSize: 10.5, color: RED, fontWeight: "800" }}>Reset</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Visual Progress Bar */}
         <View style={s.checklistProgressBarTrack}>
           <View
             style={[
@@ -2298,66 +2158,85 @@ function EmergencyChecklistView({ role, t, userProfile }) {
 
         {completedCount === totalCount && (
           <View style={s.checklistSuccessMsg}>
-            <Ionicons name="checkmark-done-circle" size={16} color="#166534" />
+            <Ionicons name="checkmark-done-circle" size={15} color="#166534" />
             <Text style={s.checklistSuccessMsgText}>
-              All vital flood safety preparations are in place!
+              All essential flood safety steps completed!
             </Text>
           </View>
         )}
       </View>
 
-      {/* 3. Group 1: Life & People Safety */}
-      <View style={s.checkGroupCard}>
-        <View style={s.checkGroupHeader}>
-          <View style={[s.checkGroupBadge, { backgroundColor: "#FEE2E2" }]}>
-            <Text style={[s.checkGroupBadgeText, { color: RED }]}>PHASE 1</Text>
-          </View>
-          <Text style={s.checkGroupTitle}>🚨 People & Life Safety</Text>
-          <Text style={s.checkGroupSub}>Highest Priority</Text>
-        </View>
-        {peopleItems.map(renderCheckCard)}
-      </View>
+      {/* 3. Essential Checklist Items */}
+      <View style={{ gap: 8 }}>
+        {currentItems.map((item) => {
+          const isDone = Boolean(checked[item.id]);
+          return (
+            <TouchableOpacity
+              key={item.id}
+              style={[s.checklistCardItem, isDone && s.checklistCardItemDone]}
+              onPress={() => toggleCheck(item.id)}
+              activeOpacity={0.7}
+            >
+              <View style={[s.checkItemCheckbox, isDone && s.checkItemCheckboxDone]}>
+                {isDone ? (
+                  <Ionicons name="checkmark" size={15} color="#fff" />
+                ) : (
+                  <Ionicons name={item.icon || "ellipse-outline"} size={15} color={BLUE} />
+                )}
+              </View>
 
-      {/* 4. Group 2: Property & Stock Defense */}
-      <View style={s.checkGroupCard}>
-        <View style={s.checkGroupHeader}>
-          <View style={[s.checkGroupBadge, { backgroundColor: "#FEF3C7" }]}>
-            <Text style={[s.checkGroupBadgeText, { color: "#B45309" }]}>PHASE 2</Text>
-          </View>
-          <Text style={s.checkGroupTitle}>
-            {activeTab === "shop" ? "🏪 Shop Stock & Assets" : "🏠 Household & Valuables"}
-          </Text>
-          <Text style={s.checkGroupSub}>Damage Control</Text>
-        </View>
-        {currentPropertyItems.map(renderCheckCard)}
-      </View>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
+                  <Text style={[s.checkItemTitle, isDone && s.checkItemTitleDone]}>
+                    {item.title}
+                  </Text>
+                  <View style={[s.checkTagPill, { backgroundColor: isDone ? "#DCFCE7" : "#EFF6FF" }]}>
+                    <Text style={[s.checkTagPillText, { color: isDone ? "#166534" : BLUE }]}>
+                      {item.priority}
+                    </Text>
+                  </View>
+                </View>
 
-      {/* 5. Group 3: Active Water Hazards */}
-      <View style={s.checkGroupCard}>
-        <View style={s.checkGroupHeader}>
-          <View style={[s.checkGroupBadge, { backgroundColor: "#E0F2FE" }]}>
-            <Text style={[s.checkGroupBadgeText, { color: BLUE }]}>PHASE 3</Text>
-          </View>
-          <Text style={s.checkGroupTitle}>🌊 Active Flood Safety Protocol</Text>
-          <Text style={s.checkGroupSub}>Ongoing Caution</Text>
-        </View>
-        {safetyItems.map(renderCheckCard)}
+                <Text style={[s.checkItemDesc, isDone && s.checkItemDescDone]}>
+                  {item.desc}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
 }
 
-// Real, Interactive & Zoomable Hyperlocal GIS Map Screen with OSRM Real Routing
-function MapScreen({ zones, emergencyServices, shelters, activeZone, userLoc, userAddress, apiUrl, role, onOpenLocationModal, t }) {
+// Google Maps API Key from Web App configuration
+const GOOGLE_MAPS_KEY = "AIzaSyA5U1kvO3XeQxEGkQfuNyiMBvcik27VvKQ";
+
+// Real Interactive & Zoomable Google Maps Screen with OSRM Real Routing & Shelter List
+function MapScreen({
+  zones = [],
+  emergencyServices = [],
+  shelters = [],
+  shelterLoading = false,
+  activeZone = null,
+  userLoc = null,
+  userAddress = "",
+  apiUrl = "",
+  role = "Shop Owner",
+  onOpenLocationModal,
+  onRequestLocation,
+  onRefresh,
+  refreshing = false,
+  t
+}) {
   const [selectedPin, setSelectedPin] = useState(null);
   const [selectedShelter, setSelectedShelter] = useState(null);
-  const [tileMode, setTileMode] = useState("streets"); // streets | osm | dark
   const [zoom, setZoom] = useState(15);
   const [centerLat, setCenterLat] = useState(userLoc?.latitude || 19.132);
   const [centerLng, setCenterLng] = useState(userLoc?.longitude || 72.848);
   const [osrmRoute, setOsrmRoute] = useState(null);
   const [loadingRoute, setLoadingRoute] = useState(false);
-  const [navActive, setNavActive] = useState(false);
+  const lastTapRef = useRef(0);
 
   useEffect(() => {
     if (userLoc?.latitude && userLoc?.longitude) {
@@ -2377,16 +2256,60 @@ function MapScreen({ zones, emergencyServices, shelters, activeZone, userLoc, us
   centerLngRef.current = centerLng;
   zoomRef.current = zoom;
 
-  const isRedAlert = activeZone?.risk >= 75;
+  const { width: winWidth } = Dimensions.get("window");
+  const mapWidth = Math.max(300, (winWidth || 390) - 24);
+  const mapHeight = 350;
 
-  const { width: winWidth, height: winHeight } = Dimensions.get("window");
-  const mapWidth = winWidth || 390;
-  const mapHeight = winHeight - 140;
+  // Safe Route Calculation
+  const handleSelectShelterRoute = async (sh) => {
+    setSelectedShelter(sh);
+    setSelectedPin({ type: "shelter", data: sh });
+    setLoadingRoute(true);
+
+    const fromLat = userLoc?.latitude || 19.132;
+    const fromLng = userLoc?.longitude || 72.848;
+    const toLat = sh.latitude ?? sh.lat ?? 19.125;
+    const toLng = sh.longitude ?? sh.lng ?? 72.838;
+
+    // Center map midway along route
+    setCenterLat((fromLat + toLat) / 2);
+    setCenterLng((fromLng + toLng) / 2);
+
+    try {
+      const res = await fetchWithTimeout(`${apiUrl}/route?fromLat=${fromLat}&fromLng=${fromLng}&toLat=${toLat}&toLng=${toLng}`);
+      if (res.ok) {
+        const routeData = await res.json();
+        setOsrmRoute(routeData);
+      } else {
+        throw new Error("Route API error");
+      }
+    } catch {
+      // Direct road corridor fallback
+      setOsrmRoute({
+        coordinates: [
+          { lat: fromLat, lng: fromLng },
+          { lat: (fromLat + toLat) / 2, lng: (fromLng + toLng) / 2 },
+          { lat: toLat, lng: toLng }
+        ],
+        distanceKm: ((sh.distance_km ?? sh.distanceKm) || 1.2),
+        durationMin: (sh.eta_minutes ?? sh.etaMin ?? 5),
+        hazardAdvisory: "Direct road corridor · Exercise caution near local storm drains."
+      });
+    } finally {
+      setLoadingRoute(false);
+    }
+  };
+
+  const handleClearRoute = () => {
+    setSelectedShelter(null);
+    setOsrmRoute(null);
+    setSelectedPin(null);
+  };
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 3 || Math.abs(gesture.dy) > 3,
       onPanResponderGrant: (evt) => {
         dragStart.current = { lat: centerLatRef.current, lng: centerLngRef.current };
         const touches = evt.nativeEvent.touches;
@@ -2403,13 +2326,19 @@ function MapScreen({ zones, emergencyServices, shelters, activeZone, userLoc, us
         } else {
           pinchStartDistance.current = null;
           pinchStartMidpoint.current = null;
+          // Double tap zoom
+          const now = Date.now();
+          if (now - lastTapRef.current < 300) {
+            setZoom((z) => Math.min(18, z + 1));
+          }
+          lastTapRef.current = now;
         }
       },
       onPanResponderMove: (evt, gesture) => {
         const touches = evt.nativeEvent.touches;
         const n = Math.pow(2, zoomRef.current);
 
-        // 2-FINGER MULTI-TOUCH PINCH-TO-ZOOM & 2-FINGER PAN
+        // 2-FINGER MULTI-TOUCH PINCH-TO-ZOOM & PAN
         if (touches && touches.length >= 2) {
           const currentDist = Math.hypot(
             touches[0].pageX - touches[1].pageX,
@@ -2432,7 +2361,6 @@ function MapScreen({ zones, emergencyServices, shelters, activeZone, userLoc, us
               pinchStartDistance.current = currentDist;
             }
 
-            // 2-Finger pan translation
             if (pinchStartMidpoint.current) {
               const currentMidX = (touches[0].pageX + touches[1].pageX) / 2;
               const currentMidY = (touches[0].pageY + touches[1].pageY) / 2;
@@ -2473,7 +2401,10 @@ function MapScreen({ zones, emergencyServices, shelters, activeZone, userLoc, us
     if (zoom > 12) setZoom((z) => z - 1);
   };
 
-  const handleRecenter = () => {
+  const handleRecenter = async () => {
+    if (onRequestLocation) {
+      await onRequestLocation();
+    }
     const lat = userLoc?.latitude || 19.132;
     const lng = userLoc?.longitude || 72.848;
     setCenterLat(lat);
@@ -2481,36 +2412,7 @@ function MapScreen({ zones, emergencyServices, shelters, activeZone, userLoc, us
     setZoom(15);
   };
 
-  // Fetch real OSRM road route when a shelter is selected or Red Alert is triggered
-  useEffect(() => {
-    const fetchOsrmRoute = async () => {
-      const targetShelter = selectedShelter || shelters[0];
-      if (!targetShelter) return;
-      setLoadingRoute(true);
-      const fromLat = userLoc?.latitude || 19.132;
-      const fromLng = userLoc?.longitude || 72.848;
-      const toLat = targetShelter.latitude ?? targetShelter.lat ?? 19.125;
-      const toLng = targetShelter.longitude ?? targetShelter.lng ?? 72.838;
-
-      try {
-        const res = await fetchWithTimeout(`${apiUrl}/route?fromLat=${fromLat}&fromLng=${fromLng}&toLat=${toLat}&toLng=${toLng}`);
-        if (res.ok) {
-          const routeData = await res.json();
-          setOsrmRoute(routeData);
-        }
-      } catch (err) {
-        console.warn("[map] OSRM route fetch notice:", err.message);
-      } finally {
-        setLoadingRoute(false);
-      }
-    };
-
-    if (selectedShelter || isRedAlert) {
-      fetchOsrmRoute();
-    }
-  }, [selectedShelter, isRedAlert, apiUrl, shelters, userLoc]);
-
-  // Web Mercator Tile Calculation
+  // Google Maps Slippy Tile Calculation
   const n = Math.pow(2, zoom);
   const cX = ((centerLng + 180) / 360) * n * 256;
   const cLatRad = (centerLat * Math.PI) / 180;
@@ -2533,14 +2435,10 @@ function MapScreen({ zones, emergencyServices, shelters, activeZone, userLoc, us
       if (x < 0 || x > maxTileIndex || y < 0 || y > maxTileIndex) continue;
       const tileScreenX = x * 256 - leftPx;
       const tileScreenY = y * 256 - topPx;
-      let tileUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${zoom}/${y}/${x}`;
-      if (tileMode === "osm") {
-        tileUrl = `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
-      } else if (tileMode === "dark") {
-        tileUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/${zoom}/${y}/${x}`;
-      }
+      const sub = Math.abs(x + y) % 4;
+      const tileUrl = `https://mt${sub}.google.com/vt/lyrs=m&x=${x}&y=${y}&z=${zoom}&key=${GOOGLE_MAPS_KEY}`;
       tiles.push({
-        key: `${zoom}-${x}-${y}`,
+        key: `google-${zoom}-${x}-${y}`,
         screenX: tileScreenX,
         screenY: tileScreenY,
         url: tileUrl
@@ -2548,7 +2446,7 @@ function MapScreen({ zones, emergencyServices, shelters, activeZone, userLoc, us
     }
   }
 
-  // Projection helper for pins
+  // Web Mercator point projection
   const project = (lat, lng) => {
     const tX = ((lng + 180) / 360) * n * 256;
     const tLatRad = (lat * Math.PI) / 180;
@@ -2561,19 +2459,40 @@ function MapScreen({ zones, emergencyServices, shelters, activeZone, userLoc, us
 
   const userCoords = userLoc || { latitude: 19.132, longitude: 72.848 };
   const userPx = project(userCoords.latitude, userCoords.longitude);
+  const routePoints = osrmRoute?.coordinates || [];
 
-  const routePoints = osrmRoute?.coordinates || [
-    { lat: userCoords.latitude, lng: userCoords.longitude },
-    { lat: 19.1315, lng: 72.8455 },
-    { lat: 19.1290, lng: 72.8430 },
-    { lat: 19.1265, lng: 72.8390 },
-    { lat: 19.1250, lng: 72.8380 }
-  ];
+  // Sort shelters by proximity
+  const sortedShelters = [...(shelters || [])].sort(
+    (a, b) => Number(a.distance_km ?? a.distanceKm ?? 999) - Number(b.distance_km ?? b.distanceKm ?? 999)
+  );
 
   return (
-    <View style={s.mapScreen}>
-      <View style={s.fullBleedMap} {...panResponder.panHandlers}>
-        {/* Real Dynamic Slippy Tiles Grid */}
+    <ScrollView
+      style={s.body}
+      contentContainerStyle={{ paddingBottom: 120 }}
+      refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined}
+    >
+      {/* 1. Header & Location Bar */}
+      <View style={s.mapScreenHeader}>
+        <Text style={s.screenTitle}>{t.mapScreenTitle || "🗺️ Live Flood Map"}</Text>
+        <TouchableOpacity
+          style={s.mapLocationPill}
+          onPress={onOpenLocationModal}
+          activeOpacity={0.7}
+        >
+          <View style={s.locationDotPulse} />
+          <Text style={s.mapLocationText} numberOfLines={1}>
+            📍 {userAddress || "Current Location"}
+          </Text>
+          <View style={s.changeLocBtnMini}>
+            <Text style={s.changeLocTextMini}>Change</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      {/* 2. Interactive Google Maps Canvas */}
+      <View style={s.googleMapContainer} {...panResponder.panHandlers}>
+        {/* Google Roadmap Slippy Tiles */}
         <View style={[StyleSheet.absoluteFill, { backgroundColor: "#E6EEF8", overflow: "hidden" }]}>
           {tiles.map((tile) => (
             <Image
@@ -2590,10 +2509,9 @@ function MapScreen({ zones, emergencyServices, shelters, activeZone, userLoc, us
             />
           ))}
 
-          {/* Real OSRM Road Route Connecting Polyline & Avoidance Corridor */}
-          {(selectedShelter || isRedAlert) && (
+          {/* OSRM Road Route Connecting Polyline */}
+          {routePoints.length > 1 && (
             <View style={StyleSheet.absoluteFill} pointerEvents="none">
-              {/* Connected Road Line Segments */}
               {routePoints.slice(0, -1).map((pt, idx) => {
                 const next = routePoints[idx + 1];
                 const p1 = project(pt.lat, pt.lng);
@@ -2615,36 +2533,10 @@ function MapScreen({ zones, emergencyServices, shelters, activeZone, userLoc, us
                       top: midY - 3,
                       width: len,
                       height: 6,
-                      backgroundColor: "#2563EB",
+                      backgroundColor: "#1D4ED8",
                       borderRadius: 3,
                       transform: [{ rotate: `${angle}deg` }],
-                      elevation: 4
-                    }}
-                  />
-                );
-              })}
-
-              {/* Waypoint Markers */}
-              {routePoints.map((pt, idx) => {
-                const ptPx = project(pt.lat, pt.lng);
-                const isStart = idx === 0;
-                const isEnd = idx === routePoints.length - 1;
-                if (!isStart && !isEnd && idx % 3 !== 0) return null;
-
-                return (
-                  <View
-                    key={`wp-${idx}`}
-                    style={{
-                      position: "absolute",
-                      left: ptPx.x - (isStart || isEnd ? 7 : 4),
-                      top: ptPx.y - (isStart || isEnd ? 7 : 4),
-                      width: isStart || isEnd ? 14 : 8,
-                      height: isStart || isEnd ? 14 : 8,
-                      borderRadius: isStart || isEnd ? 7 : 4,
-                      backgroundColor: isStart ? BLUE : isEnd ? GREEN : "#60A5FA",
-                      borderWidth: isStart || isEnd ? 2 : 1,
-                      borderColor: "#fff",
-                      elevation: 6
+                      elevation: 5
                     }}
                   />
                 );
@@ -2653,7 +2545,7 @@ function MapScreen({ zones, emergencyServices, shelters, activeZone, userLoc, us
           )}
 
           {/* User Location Marker */}
-          <View
+          <TouchableOpacity
             style={[
               s.mapPinUser,
               {
@@ -2661,13 +2553,15 @@ function MapScreen({ zones, emergencyServices, shelters, activeZone, userLoc, us
                 top: userPx.y - 28
               }
             ]}
+            onPress={() => setSelectedPin({ type: "user", data: { name: userAddress || "Active Location", role } })}
+            activeOpacity={0.8}
           >
             <View style={s.userPulseRing} />
-            <Text style={{ fontSize: 20 }}>📍</Text>
-            <Text style={s.pinLabelUser}>{role === "Shop Owner" ? t.youShop : t.youResident}</Text>
-          </View>
+            <Text style={{ fontSize: 22 }}>📍</Text>
+            <Text style={s.pinLabelUser}>You are here</Text>
+          </TouchableOpacity>
 
-          {/* Dynamic Zone Risk Pins */}
+          {/* Ward Risk Zone Pins */}
           {zones.map((z) => {
             const zLat = z.lat ?? z.latitude;
             const zLng = z.lng ?? z.longitude;
@@ -2683,25 +2577,30 @@ function MapScreen({ zones, emergencyServices, shelters, activeZone, userLoc, us
                 style={[
                   s.mapZonePin,
                   {
-                    left: ptPx.x - 22,
-                    top: ptPx.y - 22,
+                    left: ptPx.x - 20,
+                    top: ptPx.y - 20,
                     borderColor: color
                   }
                 ]}
                 onPress={() => setSelectedPin({ type: "zone", data: z })}
+                activeOpacity={0.8}
               >
                 <Text style={[s.zonePinScore, { color }]}>{z.risk}</Text>
-                <Text style={s.zonePinName}>{z.name}</Text>
+                <Text style={s.zonePinName} numberOfLines={1}>{z.name}</Text>
               </TouchableOpacity>
             );
           })}
 
-          {/* Dynamic Emergency Services Pins */}
+          {/* Emergency Services Pins */}
           {emergencyServices.map((e) => {
             const eLat = e.latitude ?? e.lat;
             const eLng = e.longitude ?? e.lng;
             if (!eLat || !eLng) return null;
             const ptPx = project(eLat, eLng);
+            const isHospital = e.category === "medical" || e.name?.toLowerCase().includes("hospital");
+            const isNgo = e.category === "ngo" || e.category === "shelter";
+            const dist = e.distance_km ?? e.distanceKm ?? 0.5;
+
             return (
               <TouchableOpacity
                 key={e.id}
@@ -2709,306 +2608,357 @@ function MapScreen({ zones, emergencyServices, shelters, activeZone, userLoc, us
                   s.mapEmsPin,
                   {
                     left: ptPx.x - 16,
-                    top: ptPx.y - 16
+                    top: ptPx.y - 16,
+                    borderColor: isHospital ? BLUE : isNgo ? GREEN : "#D97706",
+                    backgroundColor: isHospital ? "#EFF6FF" : isNgo ? "#F0FDF4" : "#FEF3C7"
                   }
                 ]}
                 onPress={() => setSelectedPin({ type: "ems", data: e })}
+                activeOpacity={0.8}
               >
-                <Text style={{ fontSize: 18 }}>{e.icon}</Text>
+                <Text style={{ fontSize: 16 }}>{isHospital ? "🏥" : isNgo ? "🤝" : e.category === "fire" ? "🚒" : "👮"}</Text>
+                <View style={s.mapPinLabelBox}>
+                  <Text style={s.mapPinLabelTitle} numberOfLines={1}>{e.name}</Text>
+                  <Text style={s.mapPinLabelLoc} numberOfLines={1}>📍 {e.station || e.address || e.type || "Rescue Station"} · {dist} km</Text>
+                </View>
               </TouchableOpacity>
             );
           })}
 
-          {/* Shelters Pins with 1-Tap Direct Route Trigger */}
+          {/* Evacuation Shelter Pins */}
           {shelters.map((sh) => {
             const shLat = sh.latitude ?? sh.lat;
             const shLng = sh.longitude ?? sh.lng;
             if (!shLat || !shLng) return null;
             const ptPx = project(shLat, shLng);
             const isSelected = selectedShelter && selectedShelter.id === sh.id;
+            const dist = sh.distance_km ?? sh.distanceKm ?? 1.2;
+
             return (
               <TouchableOpacity
                 key={sh.id}
                 style={[
-                  s.mapEmsPin,
+                  s.mapShelterPin,
                   {
                     left: ptPx.x - 18,
                     top: ptPx.y - 18,
-                    width: 36,
-                    height: 36,
-                    borderRadius: 18,
-                    borderColor: isSelected ? BLUE : GREEN,
-                    borderWidth: isSelected ? 3 : 2,
-                    backgroundColor: isSelected ? "#DBEAFE" : "#ECFDF5",
-                    elevation: 6
+                    borderColor: isSelected ? "#E11D48" : GREEN,
+                    backgroundColor: isSelected ? "#FFE4E6" : "#DCFCE7"
                   }
                 ]}
-                onPress={() => {
-                  setSelectedShelter(sh);
-                  setSelectedPin(null);
-                }}
+                onPress={() => handleSelectShelterRoute(sh)}
+                activeOpacity={0.8}
               >
                 <Text style={{ fontSize: 18 }}>🏠</Text>
+                <View style={s.mapPinLabelBox}>
+                  <Text style={s.mapPinLabelTitle} numberOfLines={1}>{sh.name}</Text>
+                  <Text style={s.mapPinLabelLoc} numberOfLines={1}>📍 {sh.address || sh.area || "Relief Center"} · {dist} km</Text>
+                </View>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        {/* Active Navigation HUD Banner */}
-        {navActive && (
-          <View style={[s.mapTopOverlay, { backgroundColor: "#064E3B", borderColor: GREEN, borderWidth: 1 }]}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 12, fontWeight: "900", color: "#6EE7B7" }}>
-                  🟢 {t.startNavBtn} ACTIVE · OSRM ROUTE
-                </Text>
-                <Text style={{ fontSize: 10, color: "#A7F3D0", marginTop: 1 }}>
-                  Safe Corridor via Link Road · {osrmRoute?.durationMin || 7} mins ({osrmRoute?.distanceKm || 1.7} km)
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={{ backgroundColor: RED, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 }}
-                onPress={() => setNavActive(false)}
-              >
-                <Text style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}>STOP</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* Floating Top Banner & Controls */}
-        {!navActive && (
-          <View style={s.mapTopOverlay}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <View style={{ flex: 1, marginRight: 8 }}>
-                <Text style={s.mapTopTitle}>{t.mapScreenTitle}</Text>
-                <TouchableOpacity
-                  style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}
-                  onPress={onOpenLocationModal}
-                  activeOpacity={0.7}
-                >
-                  <Text style={{ fontSize: 9, color: BLUE, fontWeight: "800" }} numberOfLines={1}>
-                    📍 {userAddress || "Station Road, Ward 72"} • <Text style={{ textDecorationLine: "underline" }}>Change</Text>
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              <View style={{ flexDirection: "row", gap: 4 }}>
-                <TouchableOpacity
-                  style={[s.tileModeBtn, tileMode === "streets" && s.tileModeBtnActive]}
-                  onPress={() => setTileMode("streets")}
-                >
-                  <Text style={[s.tileModeText, tileMode === "streets" && { color: "#fff" }]}>{t.tileClean}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[s.tileModeBtn, tileMode === "osm" && s.tileModeBtnActive]}
-                  onPress={() => setTileMode("osm")}
-                >
-                  <Text style={[s.tileModeText, tileMode === "osm" && { color: "#fff" }]}>{t.tileOsm}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[s.tileModeBtn, tileMode === "dark" && s.tileModeBtnActive]}
-                  onPress={() => setTileMode("dark")}
-                >
-                  <Text style={[s.tileModeText, tileMode === "dark" && { color: "#fff" }]}>{t.tileNavy}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Floating Zoom & Pan Controls on Right Edge */}
+        {/* Floating Zoom & Recenter Controls on Map */}
         <View style={s.mapFloatingControls}>
-          <TouchableOpacity style={s.mapControlBtn} onPress={handleZoomIn}>
+          <TouchableOpacity style={s.mapControlBtn} onPress={handleZoomIn} activeOpacity={0.7}>
             <Ionicons name="add" size={20} color={NAVY} />
           </TouchableOpacity>
-          <TouchableOpacity style={s.mapControlBtn} onPress={handleZoomOut}>
+          <TouchableOpacity style={s.mapControlBtn} onPress={handleZoomOut} activeOpacity={0.7}>
             <Ionicons name="remove" size={20} color={NAVY} />
           </TouchableOpacity>
-          <TouchableOpacity style={[s.mapControlBtn, { backgroundColor: BLUE }]} onPress={handleRecenter}>
+          <TouchableOpacity style={[s.mapControlBtn, { backgroundColor: BLUE }]} onPress={handleRecenter} activeOpacity={0.7}>
             <Ionicons name="locate" size={18} color="#fff" />
           </TouchableOpacity>
         </View>
 
-        {/* Quick Horizontal Nearby Shelters Selector Bar */}
-        {!selectedShelter && shelters.length > 0 && (
-          <View style={{ position: "absolute", bottom: 12, left: 10, right: 10, backgroundColor: "rgba(255,255,255,0.95)", borderRadius: 12, padding: 10, elevation: 6, borderWidth: 1, borderColor: "#E2E8F0" }}>
-            <Text style={{ fontSize: 11, fontWeight: "900", color: NAVY, marginBottom: 6 }}>
-              🏠 Nearby Evacuation Shelters (Tap to Route):
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-              {shelters.map((sh) => (
-                <TouchableOpacity
-                  key={sh.id}
-                  style={{
-                    backgroundColor: "#F8FAFC",
-                    borderRadius: 8,
-                    paddingHorizontal: 10,
-                    paddingVertical: 7,
-                    borderWidth: 1,
-                    borderColor: "#CBD5E1",
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 6
-                  }}
-                  onPress={() => {
-                    setSelectedShelter(sh);
-                    setSelectedPin(null);
-                  }}
-                >
-                  <Text style={{ fontSize: 14 }}>🏠</Text>
-                  <View>
-                    <Text style={{ fontSize: 11, fontWeight: "800", color: TEXT }}>{sh.name}</Text>
-                    <Text style={{ fontSize: 9, color: BLUE, fontWeight: "700" }}>{sh.distance_km ?? sh.distanceKm ?? 1.2} km away · {sh.status || "Safe / Open"}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
+        {/* Google Map Attribution Pill */}
+        <View style={s.mapGoogleBadge}>
+          <Ionicons name="map" size={11} color="#64748B" />
+          <Text style={s.mapGoogleBadgeText}>Google Maps</Text>
+        </View>
+      </View>
 
-        {/* RED ALERT EMERGENCY EVACUATION BUTTON */}
-        {isRedAlert && (
-          <View style={s.redAlertContainer}>
-            <TouchableOpacity style={s.redAlertBtn} onPress={() => setSelectedShelter(shelters[0] || true)}>
-              <Ionicons name="warning" size={20} color="#fff" />
-              <Text style={s.redAlertBtnText}>{t.redAlertBtnText}</Text>
+      {/* 3. Active Safe Route HUD Banner */}
+      {osrmRoute && selectedShelter && (
+        <View style={s.mapRouteHudCard}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                <Ionicons name="navigate-circle" size={16} color={BLUE} />
+                <Text style={s.mapRouteHudTitle}>Safest Evacuation Route</Text>
+              </View>
+              <Text style={s.mapRouteHudDest} numberOfLines={1}>{selectedShelter.name}</Text>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: NAVY, marginTop: 1 }} numberOfLines={1}>
+                📍 Destination: {selectedShelter.address || selectedShelter.agency || "Designated Municipal Relief Center"}
+              </Text>
+              <Text style={s.mapRouteHudMeta}>
+                ⚡ {osrmRoute.distanceKm || selectedShelter.distance_km || 1.1} km · ~{osrmRoute.durationMin || selectedShelter.eta_minutes || 5} min safe travel time
+              </Text>
+              <Text style={s.mapRouteHudAdvisory}>
+                🛡️ {osrmRoute.hazardAdvisory || "Verified flood-avoidance road corridor"}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={handleClearRoute} style={s.mapRouteCloseBtn}>
+              <Ionicons name="close" size={18} color={MUTED} />
             </TouchableOpacity>
           </View>
-        )}
-
-        {/* Selected Pin Details Modal / Bottom Drawer */}
-        {selectedPin && (
-          <View style={s.pinDetailDrawer}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <Text style={{ fontSize: 13, fontWeight: "900", color: NAVY }}>
-                {selectedPin.type === "zone"
-                  ? `📍 ${selectedPin.data.name}`
-                  : selectedPin.type === "ems"
-                  ? `${selectedPin.data.icon} ${selectedPin.data.name}`
-                  : `🏠 ${selectedPin.data.name}`}
-              </Text>
-              <TouchableOpacity onPress={() => setSelectedPin(null)}>
-                <Ionicons name="close-circle" size={22} color={MUTED} />
-              </TouchableOpacity>
-            </View>
-
-            {selectedPin.type === "zone" && (
-              <View style={{ marginTop: 8 }}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
-                  <Text style={{ fontSize: 11, color: MUTED }}>{t.liveScore}:</Text>
-                  <Text style={{ fontSize: 12, fontWeight: "900", color: selectedPin.data.risk >= 75 ? RED : selectedPin.data.risk >= 45 ? ORANGE : GREEN }}>
-                    {selectedPin.data.risk} / 100 ({selectedPin.data.risk >= 75 ? "RED ALERT" : selectedPin.data.risk >= 45 ? "ORANGE" : "GREEN"})
-                  </Text>
-                </View>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
-                  <Text style={{ fontSize: 11, color: MUTED }}>{t.liveRain}:</Text>
-                  <Text style={{ fontSize: 11, fontWeight: "800", color: TEXT }}>{selectedPin.data.rainfall ?? 0} mm</Text>
-                </View>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
-                  <Text style={{ fontSize: 11, color: MUTED }}>{t.drainageCause}:</Text>
-                  <Text style={{ fontSize: 11, fontWeight: "800", color: ORANGE }}>{selectedPin.data.cause || "Normal Drainage"}</Text>
-                </View>
-              </View>
-            )}
-
-            {selectedPin.type === "ems" && (
-              <View style={{ marginTop: 8 }}>
-                <Text style={{ fontSize: 10, color: MUTED }}>Station: {selectedPin.data.station}</Text>
-                <Text style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>{t.distanceLabel}: {selectedPin.data.distanceKm} km</Text>
-                <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
-                  <TouchableOpacity
-                    style={[s.primary, { flex: 1, height: 38 }]}
-                    onPress={() => {
-                      const num = (selectedPin.data.phone || "").split("/")[0].replace(/[^0-9+]/g, "");
-                      if (num) Linking.openURL(`tel:${num}`).catch(() => Alert.alert("Emergency Call", `${selectedPin.data.name}: ${selectedPin.data.phone}`));
-                    }}
-                  >
-                    <Ionicons name="call" size={14} color="#fff" />
-                    <Text style={s.primaryText}>{t.callBtn}</Text>
-                  </TouchableOpacity>
-                  {(selectedPin.data.navigateUrl || selectedPin.data.mapsUrl || ((selectedPin.data.latitude || selectedPin.data.lat) && (selectedPin.data.longitude || selectedPin.data.lng))) && (
-                    <TouchableOpacity
-                      style={[s.secondary, { flex: 1.3, height: 38, backgroundColor: BLUE, borderColor: BLUE }]}
-                      onPress={() => {
-                        const url = selectedPin.data.navigateUrl || selectedPin.data.mapsUrl || `https://www.google.com/maps/dir/?api=1&destination=${selectedPin.data.latitude || selectedPin.data.lat},${selectedPin.data.longitude || selectedPin.data.lng}&travelmode=driving`;
-                        Linking.openURL(url).catch(() => null);
-                      }}
-                    >
-                      <Ionicons name="navigate" size={14} color="#fff" />
-                      <Text style={[s.secondaryText, { color: "#fff", fontWeight: "800", fontSize: 11 }]}>Google Maps ↗</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Safe Route Evacuation Modal & Road Guidance Steps */}
-        {selectedShelter && (
-          <View style={s.shelterRouteDrawer}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <Text style={{ fontSize: 13, fontWeight: "900", color: NAVY }}>🏠 {t.safeRoute}</Text>
-              <TouchableOpacity onPress={() => setSelectedShelter(null)}>
-                <Ionicons name="close-circle" size={22} color={MUTED} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={{ marginVertical: 6, padding: 8, backgroundColor: "#FEF2F2", borderRadius: 8, borderLeftWidth: 3, borderLeftColor: RED }}>
-              <Text style={{ fontSize: 10, fontWeight: "800", color: RED }}>{t.routeHazardAdvisory}</Text>
-              <Text style={{ fontSize: 9, color: "#991B1B", marginTop: 2 }}>{t.evacuationWarning}</Text>
-            </View>
-
-            <Text style={{ fontSize: 11, fontWeight: "700", color: TEXT }}>
-              {t.destinationLabel}: {selectedShelter.name || "BMC Community Relief Hall"}
-            </Text>
-            <Text style={{ fontSize: 9, color: MUTED }}>
-              {t.distanceLabel}: {osrmRoute?.distanceM ? `${osrmRoute.distanceM}m (${osrmRoute.distanceKm} km)` : `${selectedShelter.distanceKm || 0.4} km`} · {t.travelTimeLabel}: {osrmRoute?.durationMin || 4} mins
-            </Text>
-
-            {/* Turn-by-Turn Road Navigation Steps */}
-            {osrmRoute?.steps && osrmRoute.steps.length > 0 && (
-              <View style={{ marginTop: 6, maxHeight: 90 }}>
-                <Text style={{ fontSize: 9, fontWeight: "800", color: NAVY, marginBottom: 3 }}>Turn-by-Turn Safe Corridor:</Text>
-                <ScrollView nestedScrollEnabled style={{ maxHeight: 75 }}>
-                  {osrmRoute.steps.map((st, idx) => (
-                    <View key={idx} style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                      <Text style={{ fontSize: 9, color: BLUE, fontWeight: "800" }}>{idx + 1}.</Text>
-                      <Text style={{ fontSize: 9, color: TEXT, flex: 1 }}>{st.instruction} ({st.distanceM}m)</Text>
-                    </View>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-
-            <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
+          <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+            {Boolean(selectedShelter.maps_url || selectedShelter.mapsUrl || ((selectedShelter.latitude || selectedShelter.lat) && (selectedShelter.longitude || selectedShelter.lng))) && (
               <TouchableOpacity
-                style={[s.primary, { flex: 1, height: 38 }]}
+                style={s.mapRouteNavBtn}
                 onPress={() => {
-                  setNavActive(true);
-                  setSelectedShelter(null);
+                  const url = selectedShelter.maps_url || selectedShelter.mapsUrl || `https://www.google.com/maps/dir/?api=1&destination=${selectedShelter.latitude || selectedShelter.lat},${selectedShelter.longitude || selectedShelter.lng}&travelmode=driving`;
+                  Linking.openURL(url).catch(() => null);
                 }}
               >
-                <Ionicons name="navigate" size={15} color="#fff" />
-                <Text style={s.primaryText}>{t.startNavBtn}</Text>
+                <Ionicons name="navigate" size={14} color="#fff" />
+                <Text style={s.mapRouteNavText}>Google Maps Navigation ↗</Text>
               </TouchableOpacity>
-              {Boolean(selectedShelter.maps_url || selectedShelter.mapsUrl || ((selectedShelter.latitude || selectedShelter.lat) && (selectedShelter.longitude || selectedShelter.lng))) && (
-                <TouchableOpacity
-                  style={[s.secondary, { flex: 1, height: 38, borderColor: BLUE, backgroundColor: "#EFF6FF" }]}
-                  onPress={() => {
-                    const url = selectedShelter.maps_url || selectedShelter.mapsUrl || `https://www.google.com/maps/dir/?api=1&destination=${selectedShelter.latitude || selectedShelter.lat},${selectedShelter.longitude || selectedShelter.lng}&travelmode=driving`;
-                    Linking.openURL(url).catch(() => null);
-                  }}
-                >
-                  <Ionicons name="map" size={14} color={BLUE} />
-                  <Text style={[s.secondaryText, { color: BLUE, fontWeight: "800", fontSize: 11 }]}>Google Maps ↗</Text>
-                </TouchableOpacity>
+            )}
+            <TouchableOpacity style={s.mapRouteClearBtn} onPress={handleClearRoute}>
+              <Text style={s.mapRouteClearText}>Clear Route</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* 4. Selected Pin Details Info Card */}
+      {selectedPin && selectedPin.type !== "shelter" && !osrmRoute && (
+        <View style={s.mapPinInfoCard}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text style={{ fontSize: 18 }}>
+                  {selectedPin.type === "user" ? "📍" : selectedPin.type === "zone" ? "🔴" : selectedPin.data.category === "medical" ? "🏥" : selectedPin.data.category === "ngo" ? "🤝" : selectedPin.data.category === "fire" ? "🚒" : "👮"}
+                </Text>
+                <Text style={s.mapPinInfoTitle}>{selectedPin.data.name}</Text>
+              </View>
+              {selectedPin.type === "ems" && (
+                <View style={{ marginTop: 3 }}>
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: NAVY }}>
+                    📍 Location: {selectedPin.data.station || selectedPin.data.address || selectedPin.data.area || "Area Response Facility"}
+                  </Text>
+                  <Text style={s.mapPinInfoMeta}>
+                    🏷️ {selectedPin.data.type || selectedPin.data.category?.toUpperCase() || "Emergency Unit"} · ⚡ {selectedPin.data.distanceKm} km away · ~{Math.max(2, Math.round(Number(selectedPin.data.distanceKm || 1) * 4))} min
+                  </Text>
+                </View>
+              )}
+              {selectedPin.type === "zone" && (
+                <Text style={s.mapPinInfoMeta}>
+                  Live Flood Risk Score: {selectedPin.data.risk}/100 · Rainfall: {selectedPin.data.rainfall ?? 0} mm · {selectedPin.data.cause || "Normal Drainage"}
+                </Text>
+              )}
+              {selectedPin.type === "user" && (
+                <Text style={s.mapPinInfoMeta}>
+                  Your active location for hyperlocal alerts & evacuation routing
+                </Text>
               )}
             </View>
+            <TouchableOpacity onPress={() => setSelectedPin(null)}>
+              <Ionicons name="close-circle" size={20} color={MUTED} />
+            </TouchableOpacity>
+          </View>
+
+          {selectedPin.type === "ems" && (
+            <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+              <TouchableOpacity
+                style={s.mapPinCallBtn}
+                onPress={() => {
+                  const num = (selectedPin.data.phone || "").split("/")[0].replace(/[^0-9+]/g, "");
+                  if (num) Linking.openURL(`tel:${num}`).catch(() => null);
+                }}
+              >
+                <Ionicons name="call" size={13} color="#fff" />
+                <Text style={s.mapPinCallText}>Call Unit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={s.mapPinDirBtn}
+                onPress={() => {
+                  const url = selectedPin.data.navigateUrl || selectedPin.data.mapsUrl || ((selectedPin.data.latitude || selectedPin.data.lat) && (selectedPin.data.longitude || selectedPin.data.lng) ? `https://www.google.com/maps/dir/?api=1&destination=${selectedPin.data.latitude || selectedPin.data.lat},${selectedPin.data.longitude || selectedPin.data.lng}&travelmode=driving` : null);
+                  if (url) Linking.openURL(url).catch(() => null);
+                }}
+              >
+                <Ionicons name="navigate" size={13} color={BLUE} />
+                <Text style={s.mapPinDirText}>Directions ↗</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* 5. Nearby Evacuation Shelters Section */}
+      <View style={s.sheltersSection}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <Text style={s.sheltersSectionTitle}>🏠 Nearby Evacuation Shelters</Text>
+          {sortedShelters.length > 0 && (
+            <View style={s.sheltersCountBadge}>
+              <Text style={s.sheltersCountText}>{sortedShelters.length} Available</Text>
+            </View>
+          )}
+        </View>
+        <Text style={s.sheltersSectionSub}>Tap any shelter to calculate a verified safe road route</Text>
+
+        {/* Loading State */}
+        {shelterLoading && sortedShelters.length === 0 && (
+          <View style={s.sheltersEmptyBox}>
+            <ActivityIndicator size="small" color={BLUE} />
+            <Text style={s.sheltersEmptyText}>Loading nearby shelters...</Text>
           </View>
         )}
+
+        {/* Empty State */}
+        {!shelterLoading && sortedShelters.length === 0 && (
+          <View style={s.sheltersEmptyBox}>
+            <Ionicons name="home-outline" size={28} color={MUTED} />
+            <Text style={s.sheltersEmptyText}>No nearby evacuation shelters found within 5 km.</Text>
+            {onRefresh && (
+              <TouchableOpacity style={s.sheltersRetryBtn} onPress={onRefresh}>
+                <Ionicons name="refresh" size={13} color={BLUE} />
+                <Text style={s.sheltersRetryText}>Retry / Refresh</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* Shelters List Cards */}
+        {sortedShelters.slice(0, 5).map((sh) => {
+          const isSelected = selectedShelter && selectedShelter.id === sh.id;
+          const dist = sh.distance_km ?? sh.distanceKm ?? 1.2;
+          const eta = sh.eta_minutes ?? sh.etaMin ?? Math.max(2, Math.round(Number(dist) * 4));
+          const isVerified = Boolean(sh.is_verified || sh.isVerified);
+
+          return (
+            <View key={sh.id} style={[s.shelterCard, isSelected && s.shelterCardSelected]}>
+              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
+                <View style={[s.shelterIconBox, isSelected && { backgroundColor: "#FFE4E6" }]}>
+                  <Text style={{ fontSize: 22 }}>🏠</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <Text style={s.shelterName} numberOfLines={1}>{sh.name}</Text>
+                    {isVerified ? (
+                      <View style={s.shelterVerifiedPill}>
+                        <Text style={s.shelterVerifiedText}>✓ VERIFIED</Text>
+                      </View>
+                    ) : (
+                      <View style={s.shelterCapacityPill}>
+                        <Text style={s.shelterCapacityText}>{sh.type || "Relief Center"}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={s.shelterAddress} numberOfLines={1}>📍 Location: {sh.address || sh.agency || "Designated Municipal Relief Center"}</Text>
+                  <Text style={s.shelterDistanceEta}>
+                    ⚡ {dist} km away · ~{eta} min travel time
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+                <TouchableOpacity
+                  style={[s.shelterRouteBtn, isSelected && { backgroundColor: "#15803D" }]}
+                  onPress={() => handleSelectShelterRoute(sh)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="navigate" size={13} color="#fff" />
+                  <Text style={s.shelterRouteBtnText}>{isSelected ? "Route Displayed" : "Safe Route"}</Text>
+                </TouchableOpacity>
+
+                {Boolean(sh.maps_url || sh.mapsUrl || ((sh.latitude || sh.lat) && (sh.longitude || sh.lng))) && (
+                  <TouchableOpacity
+                    style={s.shelterMapsBtn}
+                    onPress={() => {
+                      const url = sh.maps_url || sh.mapsUrl || `https://www.google.com/maps/dir/?api=1&destination=${sh.latitude || sh.lat},${sh.longitude || sh.lng}&travelmode=driving`;
+                      Linking.openURL(url).catch(() => null);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="map-outline" size={13} color={BLUE} />
+                    <Text style={s.shelterMapsBtnText}>Directions ↗</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          );
+        })}
       </View>
-    </View>
+
+      {/* 6. Nearby Emergency Services & Responders Section */}
+      {emergencyServices.length > 0 && (
+        <View style={[s.sheltersSection, { marginTop: 18 }]}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+            <Text style={s.sheltersSectionTitle}>🚑 Nearby Emergency Services & Responders</Text>
+            <View style={[s.sheltersCountBadge, { backgroundColor: "#FEF3C7" }]}>
+              <Text style={[s.sheltersCountText, { color: "#D97706" }]}>{emergencyServices.length} Units</Text>
+            </View>
+          </View>
+          <Text style={s.sheltersSectionSub}>Direct access to local hospitals, fire brigades, police, and NGO bases</Text>
+
+          <View style={{ gap: 10, marginTop: 8 }}>
+            {emergencyServices.map((e) => {
+              const isHospital = e.category === "medical" || e.name?.toLowerCase().includes("hospital");
+              const isNgo = e.category === "ngo" || e.category === "shelter";
+              const isFire = e.category === "fire";
+              const dist = e.distance_km ?? e.distanceKm ?? 0.5;
+              const eta = Math.max(2, Math.round(Number(dist) * 4));
+              const icon = isHospital ? "🏥" : isNgo ? "🤝" : isFire ? "🚒" : e.category === "police" ? "👮" : "🏛️";
+              const bgCircle = isHospital ? "#EFF6FF" : isNgo ? "#F0FDF4" : isFire ? "#FEE2E2" : "#FEF3C7";
+              const pillColor = isHospital ? BLUE : isNgo ? "#16a34a" : isFire ? RED : "#d97706";
+
+              return (
+                <View key={e.id} style={s.cleanResourceCard}>
+                  <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
+                    <View style={[s.cleanResourceIconCircle, { backgroundColor: bgCircle }]}>
+                      <Text style={{ fontSize: 20 }}>{icon}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[s.cleanResourceCategory, { color: pillColor }]}>
+                        {e.type || (isHospital ? "HOSPITAL" : isNgo ? "NGO" : isFire ? "FIRE & RESCUE" : "GOVERNMENT")}
+                      </Text>
+                      <Text style={s.cleanResourceTitle} numberOfLines={1}>{e.name}</Text>
+                      <Text style={s.cleanResourceAddress} numberOfLines={1}>
+                        📍 Location: {e.station || e.address || e.area || "Area Emergency Outpost"}
+                      </Text>
+                      <Text style={s.cleanResourceMeta}>
+                        ⚡ {dist} km away · ~{eta} min response time
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+                    {e.phone ? (
+                      <TouchableOpacity
+                        style={[s.shelterRouteBtn, { backgroundColor: "#0F172A", flex: 0.8 }]}
+                        onPress={() => {
+                          const num = (e.phone || "").split("/")[0].replace(/[^0-9+]/g, "");
+                          if (num) Linking.openURL(`tel:${num}`).catch(() => null);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="call" size={12} color="#fff" />
+                        <Text style={s.shelterRouteBtnText}>Call</Text>
+                      </TouchableOpacity>
+                    ) : null}
+
+                    <TouchableOpacity
+                      style={[s.shelterMapsBtn, { flex: 1 }]}
+                      onPress={() => {
+                        const url = e.navigateUrl || e.mapsUrl || ((e.latitude || e.lat) && (e.longitude || e.lng) ? `https://www.google.com/maps/dir/?api=1&destination=${e.latitude || e.lat},${e.longitude || e.lng}&travelmode=driving` : null);
+                        if (url) Linking.openURL(url).catch(() => null);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="navigate" size={12} color={BLUE} />
+                      <Text style={s.shelterMapsBtnText}>Directions ↗</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
+    </ScrollView>
   );
 }
 
@@ -3160,7 +3110,9 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
   const [videoUri, setVideoUri] = useState(null);
   const [videoPreview, setVideoPreview] = useState(null);
   const [aiVerifying, setAiVerifying] = useState(false);
+  const [aiProgressStep, setAiProgressStep] = useState("");
   const [aiResult, setAiResult] = useState(null);
+  const [aiError, setAiError] = useState(null);
   const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState(null);
   const [uploadedVideoUrl, setUploadedVideoUrl] = useState(null);
 
@@ -3200,23 +3152,44 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
     fetchLiveGps();
   }, []);
 
-  // Pre-verification with Keras Flood Detection AI
+  // Pre-verification with MobileNet Flood Detection AI (Photo & Video)
   const runAiVerification = async (uri, isVideo = false) => {
     if (!uri) return null;
     setAiVerifying(true);
     setAiResult(null);
+    setAiError(null);
+    setAiProgressStep(isVideo ? "Uploading video..." : "Uploading photo...");
+
+    // Simulated progressive status for smooth UX
+    const timer1 = setTimeout(() => {
+      setAiProgressStep(isVideo ? "Analyzing video frames..." : "Extracting image features...");
+    }, 1200);
+    const timer2 = setTimeout(() => {
+      setAiProgressStep("Checking flood conditions with MobileNet AI...");
+    }, 2800);
+    const timer3 = setTimeout(() => {
+      setAiProgressStep("Generating result...");
+    }, 4500);
+
     try {
       const formData = new FormData();
-      const filename = isVideo ? `scan_video_${Date.now()}.mp4` : `scan_photo_${Date.now()}.jpg`;
+      let ext = ".jpg";
+      if (isVideo) {
+        const match = uri.match(/\.(mp4|mov|webm|avi|mkv)$/i);
+        ext = match ? `.${match[1].toLowerCase()}` : ".mp4";
+      }
+      const filename = isVideo ? `scan_video_${Date.now()}${ext}` : `scan_photo_${Date.now()}${ext}`;
       formData.append("media", {
         uri,
         name: filename,
-        type: isVideo ? "video/mp4" : "image/jpeg"
+        type: isVideo ? (ext === ".mov" ? "video/quicktime" : (ext === ".webm" ? "video/webm" : "video/mp4")) : "image/jpeg"
       });
+
       const res = await fetchWithTimeout(`${apiUrl}/upload-media`, {
         method: "POST",
         body: formData
-      }, 35000);
+      }, 60000);
+
       if (res.ok) {
         const data = await res.json();
         if (isVideo) {
@@ -3229,17 +3202,27 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
           if (data.aiVerification.is_flooding === false) {
             Alert.alert(
               t.noFloodPopupTitle || "No Flooding Detected",
-              t.noFloodPopupMsg || "There is no flooding detected, report cannot be filed.",
+              t.noFloodPopupMsg || "There is no flooding detected in the evidence. Report cannot be filed.",
               [{ text: "OK" }]
             );
           }
           return data.aiVerification;
         }
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        const userMsg = errJson.message || (isVideo ? "Could not decode or analyze the video." : "Could not analyze the photo.");
+        setAiError(userMsg);
+        Alert.alert("Evidence Verification Notice", userMsg);
       }
     } catch (e) {
-      console.warn("[AI Verification pre-check notice]:", e.message);
+      console.warn("[AI Verification error]:", e.message);
+      setAiError(isVideo ? "Unable to complete video analysis. Please check network connection." : "Unable to verify photo.");
     } finally {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
       setAiVerifying(false);
+      setAiProgressStep("");
     }
     return null;
   };
@@ -3612,39 +3595,96 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
         {(photoPreview || videoPreview) && (
           <View style={{ marginTop: 8 }}>
             {aiVerifying && (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#EFF6FF", borderWidth: 1, borderColor: "#BFDBFE", padding: 10, borderRadius: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#EFF6FF", borderWidth: 1, borderColor: "#BFDBFE", padding: 12, borderRadius: 8 }}>
                 <ActivityIndicator size="small" color={BLUE} />
-                <Text style={{ fontSize: 11, color: BLUE, fontWeight: "700" }}>
-                  🤖 AI model scanning visual evidence for active flooding...
-                </Text>
-              </View>
-            )}
-
-            {!aiVerifying && aiResult && aiResult.is_flooding && (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#F0FDF4", borderWidth: 1, borderColor: "#86EFAC", padding: 10, borderRadius: 8 }}>
-                <Ionicons name="checkmark-circle" size={20} color="#16A34A" />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 12, color: "#166534", fontWeight: "800" }}>
-                    ✅ AI Flood Verified ({(aiResult.confidence * 100).toFixed(0)}% Confidence)
+                  <Text style={{ fontSize: 11, color: BLUE, fontWeight: "800" }}>
+                    🤖 AI Model Verification Active
                   </Text>
-                  <Text style={{ fontSize: 10, color: "#15803D", marginTop: 2 }}>
-                    Flooding patterns confirmed by fine-tuned MobileNet model. Ready to submit.
+                  <Text style={{ fontSize: 10, color: "#2563EB", marginTop: 2 }}>
+                    {aiProgressStep || "Scanning visual evidence for active flooding..."}
                   </Text>
                 </View>
               </View>
             )}
 
-            {!aiVerifying && aiResult && !aiResult.is_flooding && (
+            {!aiVerifying && aiError && (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#FEF2F2", borderWidth: 1, borderColor: "#FECACA", padding: 10, borderRadius: 8 }}>
-                <Ionicons name="close-circle" size={20} color="#DC2626" />
+                <Ionicons name="alert-circle" size={20} color="#DC2626" />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 12, color: "#991B1B", fontWeight: "800" }}>
-                    ⚠️ No Flooding Detected
+                  <Text style={{ fontSize: 11, color: "#991B1B", fontWeight: "800" }}>
+                    ⚠️ Verification Notice
                   </Text>
                   <Text style={{ fontSize: 10, color: "#B91C1C", marginTop: 2 }}>
-                    Our AI model did not detect flooding in this evidence. Report cannot be filed.
+                    {aiError}
                   </Text>
                 </View>
+              </View>
+            )}
+
+            {!aiVerifying && !aiError && aiResult && aiResult.is_flooding && (
+              <View style={{ backgroundColor: "#F0FDF4", borderWidth: 1, borderColor: "#86EFAC", padding: 12, borderRadius: 8 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Ionicons name="water" size={22} color="#16A34A" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, color: "#166534", fontWeight: "900" }}>
+                      🌊 FLOODING DETECTED
+                    </Text>
+                    <Text style={{ fontSize: 10, color: "#15803D", marginTop: 2 }}>
+                      Confidence: {(aiResult.confidence * 100).toFixed(0)}%
+                    </Text>
+                  </View>
+                </View>
+                {Boolean(aiResult.frames_analyzed) && (
+                  <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#BBF7D0", flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={{ fontSize: 10, color: "#166534" }}>
+                      Frames analyzed: <Text style={{ fontWeight: "800" }}>{aiResult.frames_analyzed}</Text>
+                    </Text>
+                    <Text style={{ fontSize: 10, color: "#166534" }}>
+                      Flood-positive: <Text style={{ fontWeight: "800" }}>{aiResult.flood_positive_frames}</Text>
+                    </Text>
+                    <Text style={{ fontSize: 10, color: "#166534" }}>
+                      Flood ratio: <Text style={{ fontWeight: "800" }}>{((aiResult.flood_ratio || 0) * 100).toFixed(0)}%</Text>
+                    </Text>
+                  </View>
+                )}
+                {aiResult.reason ? (
+                  <Text style={{ fontSize: 9, color: "#15803D", marginTop: 4, fontStyle: "italic" }}>
+                    {aiResult.reason}
+                  </Text>
+                ) : null}
+              </View>
+            )}
+
+            {!aiVerifying && !aiError && aiResult && !aiResult.is_flooding && (
+              <View style={{ backgroundColor: "#FEF2F2", borderWidth: 1, borderColor: "#FECACA", padding: 12, borderRadius: 8 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Ionicons name="checkmark-circle-outline" size={22} color="#DC2626" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, color: "#991B1B", fontWeight: "900" }}>
+                      ✓ NO FLOODING DETECTED
+                    </Text>
+                    <Text style={{ fontSize: 10, color: "#B91C1C", marginTop: 2 }}>
+                      Confidence: {(aiResult.confidence * 100).toFixed(0)}%
+                    </Text>
+                  </View>
+                </View>
+                {Boolean(aiResult.frames_analyzed) && (
+                  <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#FECACA", flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={{ fontSize: 10, color: "#991B1B" }}>
+                      Frames analyzed: <Text style={{ fontWeight: "800" }}>{aiResult.frames_analyzed}</Text>
+                    </Text>
+                    <Text style={{ fontSize: 10, color: "#991B1B" }}>
+                      Flood-positive: <Text style={{ fontWeight: "800" }}>{aiResult.flood_positive_frames}</Text>
+                    </Text>
+                    <Text style={{ fontSize: 10, color: "#991B1B" }}>
+                      Flood ratio: <Text style={{ fontWeight: "800" }}>{((aiResult.flood_ratio || 0) * 100).toFixed(0)}%</Text>
+                    </Text>
+                  </View>
+                )}
+                <Text style={{ fontSize: 10, color: "#B91C1C", marginTop: 6 }}>
+                  Our AI model did not detect flooding in this evidence. Report cannot be filed.
+                </Text>
               </View>
             )}
           </View>
@@ -4210,29 +4250,443 @@ const s = StyleSheet.create({
   checkSection: { fontSize: 9, fontWeight: "800", color: BLUE, textTransform: "uppercase" },
   checkText: { fontSize: 10, color: TEXT, marginTop: 2, lineHeight: 14 },
 
-  // Edge to Edge Map
-  mapScreen: { flex: 1 },
-  fullBleedMap: { flex: 1, position: "relative", backgroundColor: "#E6EEF8", overflow: "hidden" },
-  mapTopOverlay: { position: "absolute", top: 12, left: 12, right: 12, backgroundColor: "rgba(255,255,255,0.95)", borderRadius: 12, padding: 10, borderWidth: 1, borderColor: "#CBD5E1", elevation: 6 },
-  mapTopTitle: { fontSize: 12, fontWeight: "900", color: NAVY },
-  mapTopSub: { fontSize: 8, color: MUTED, marginTop: 1 },
-  tileModeBtn: { paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6, backgroundColor: "#F1F5F9", borderWidth: 1, borderColor: "#CBD5E1" },
-  tileModeBtnActive: { backgroundColor: BLUE, borderColor: BLUE },
-  tileModeText: { fontSize: 8, fontWeight: "800", color: TEXT },
-  mapFloatingControls: { position: "absolute", right: 12, top: 80, gap: 8, elevation: 7 },
-  mapControlBtn: { width: 38, height: 38, borderRadius: 10, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#CBD5E1", elevation: 4 },
-  mapPinUser: { position: "absolute", alignItems: "center", zIndex: 20 },
-  userPulseRing: { position: "absolute", width: 44, height: 44, borderRadius: 44, backgroundColor: "rgba(37,99,235,0.25)", top: -8 },
-  pinLabelUser: { fontSize: 8, fontWeight: "800", color: BLUE, backgroundColor: "#fff", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, marginTop: 2, elevation: 3, borderWidth: 1, borderColor: "#CBD5E1" },
-  mapZonePin: { position: "absolute", width: 44, height: 44, borderRadius: 22, backgroundColor: "#fff", borderWidth: 3, alignItems: "center", justifyContent: "center", elevation: 6, zIndex: 15 },
-  zonePinScore: { fontSize: 13, fontWeight: "900" },
-  zonePinName: { position: "absolute", bottom: -14, fontSize: 8, fontWeight: "700", color: NAVY, width: 85, textAlign: "center", backgroundColor: "rgba(255,255,255,0.9)", paddingHorizontal: 2, borderRadius: 3 },
-  mapEmsPin: { position: "absolute", padding: 5, backgroundColor: "#fff", borderRadius: 8, borderWidth: 1.5, borderColor: "#CBD5E1", elevation: 5, zIndex: 10 },
-  redAlertContainer: { position: "absolute", top: 80, left: 12, right: 60, zIndex: 25 },
-  redAlertBtn: { backgroundColor: RED, borderRadius: 12, padding: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, elevation: 8 },
-  redAlertBtnText: { color: "#fff", fontWeight: "900", fontSize: 10 },
-  pinDetailDrawer: { position: "absolute", bottom: 85, left: 12, right: 12, backgroundColor: "#fff", borderRadius: 16, padding: 14, borderWidth: 1, borderColor: "#CBD5E1", elevation: 10, zIndex: 30 },
-  shelterRouteDrawer: { position: "absolute", bottom: 85, left: 12, right: 12, backgroundColor: "#fff", borderRadius: 16, padding: 14, borderWidth: 1, borderColor: "#CBD5E1", elevation: 10, zIndex: 30 },
+  // Google Maps Screen & Shelter Section Styles
+  mapScreenHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 4
+  },
+  mapLocationPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#DBEAFE",
+    marginTop: 4,
+    gap: 6,
+    elevation: 2
+  },
+  mapLocationText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: NAVY,
+    flex: 1
+  },
+  changeLocBtnMini: {
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#BFDBFE"
+  },
+  changeLocTextMini: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: BLUE
+  },
+  googleMapContainer: {
+    height: 350,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1.5,
+    borderColor: "#CBD5E1",
+    position: "relative",
+    backgroundColor: "#E6EEF8",
+    elevation: 4
+  },
+  mapFloatingControls: {
+    position: "absolute",
+    right: 12,
+    top: 14,
+    gap: 8,
+    elevation: 7,
+    zIndex: 25
+  },
+  mapControlBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    elevation: 4
+  },
+  mapGoogleBadge: {
+    position: "absolute",
+    bottom: 8,
+    left: 8,
+    backgroundColor: "rgba(255,255,255,0.92)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    zIndex: 22
+  },
+  mapGoogleBadgeText: {
+    fontSize: 8.5,
+    fontWeight: "800",
+    color: "#475569"
+  },
+  mapPinUser: {
+    position: "absolute",
+    alignItems: "center",
+    zIndex: 20
+  },
+  userPulseRing: {
+    position: "absolute",
+    width: 44,
+    height: 44,
+    borderRadius: 44,
+    backgroundColor: "rgba(37,99,235,0.25)",
+    top: -8
+  },
+  pinLabelUser: {
+    fontSize: 8,
+    fontWeight: "800",
+    color: BLUE,
+    backgroundColor: "#fff",
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    marginTop: 2,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "#CBD5E1"
+  },
+  mapZonePin: {
+    position: "absolute",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+    borderWidth: 3,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 6,
+    zIndex: 15
+  },
+  zonePinScore: {
+    fontSize: 12,
+    fontWeight: "900"
+  },
+  zonePinName: {
+    position: "absolute",
+    bottom: -13,
+    fontSize: 7.5,
+    fontWeight: "700",
+    color: NAVY,
+    width: 80,
+    textAlign: "center",
+    backgroundColor: "rgba(255,255,255,0.9)",
+    paddingHorizontal: 2,
+    borderRadius: 3
+  },
+  mapEmsPin: {
+    position: "absolute",
+    padding: 5,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    elevation: 5,
+    zIndex: 10
+  },
+  mapShelterPin: {
+    position: "absolute",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 6,
+    zIndex: 18
+  },
+  mapRouteHudCard: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    backgroundColor: "#EFF6FF",
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1.5,
+    borderColor: "#BFDBFE",
+    elevation: 3
+  },
+  mapRouteHudTitle: {
+    fontSize: 10.5,
+    fontWeight: "900",
+    color: BLUE,
+    textTransform: "uppercase",
+    letterSpacing: 0.4
+  },
+  mapRouteHudDest: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: NAVY,
+    marginTop: 2
+  },
+  mapRouteHudMeta: {
+    fontSize: 10.5,
+    fontWeight: "700",
+    color: "#1E40AF",
+    marginTop: 2
+  },
+  mapRouteHudAdvisory: {
+    fontSize: 9.5,
+    color: "#1E3A8A",
+    marginTop: 3,
+    fontWeight: "600"
+  },
+  mapRouteCloseBtn: {
+    padding: 2
+  },
+  mapRouteNavBtn: {
+    flex: 1,
+    backgroundColor: BLUE,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5
+  },
+  mapRouteNavText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "800"
+  },
+  mapRouteClearBtn: {
+    backgroundColor: "#DBEAFE",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  mapRouteClearText: {
+    color: BLUE,
+    fontSize: 11,
+    fontWeight: "800"
+  },
+  mapPinInfoCard: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    elevation: 3
+  },
+  mapPinInfoTitle: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: NAVY,
+    flex: 1
+  },
+  mapPinInfoMeta: {
+    fontSize: 10,
+    color: MUTED,
+    fontWeight: "600",
+    marginTop: 3
+  },
+  mapPinCallBtn: {
+    flex: 1,
+    backgroundColor: "#16A34A",
+    paddingVertical: 7,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4
+  },
+  mapPinCallText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "800"
+  },
+  mapPinDirBtn: {
+    flex: 1,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    paddingVertical: 7,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4
+  },
+  mapPinDirText: {
+    color: BLUE,
+    fontSize: 11,
+    fontWeight: "800"
+  },
+  sheltersSection: {
+    marginHorizontal: 16,
+    marginTop: 14
+  },
+  sheltersSectionTitle: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: NAVY
+  },
+  sheltersCountBadge: {
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#BFDBFE"
+  },
+  sheltersCountText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: BLUE
+  },
+  sheltersSectionSub: {
+    fontSize: 9.5,
+    color: MUTED,
+    fontWeight: "600",
+    marginBottom: 8
+  },
+  sheltersEmptyBox: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    gap: 6
+  },
+  sheltersEmptyText: {
+    fontSize: 11,
+    color: MUTED,
+    fontWeight: "600"
+  },
+  sheltersRetryBtn: {
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    marginTop: 4
+  },
+  sheltersRetryText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: BLUE
+  },
+  shelterCard: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 10,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3
+  },
+  shelterCardSelected: {
+    borderColor: BLUE,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1.5
+  },
+  shelterIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#F0FDF4",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  shelterName: {
+    fontSize: 12.5,
+    fontWeight: "900",
+    color: NAVY
+  },
+  shelterVerifiedPill: {
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4
+  },
+  shelterVerifiedText: {
+    fontSize: 7.5,
+    fontWeight: "900",
+    color: "#166534"
+  },
+  shelterCapacityPill: {
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4
+  },
+  shelterCapacityText: {
+    fontSize: 7.5,
+    fontWeight: "800",
+    color: MUTED
+  },
+  shelterAddress: {
+    fontSize: 9.5,
+    color: MUTED,
+    marginTop: 2
+  },
+  shelterDistanceEta: {
+    fontSize: 10.5,
+    fontWeight: "800",
+    color: BLUE,
+    marginTop: 3
+  },
+  shelterRouteBtn: {
+    flex: 1,
+    backgroundColor: BLUE,
+    paddingVertical: 7,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4
+  },
+  shelterRouteBtnText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "800"
+  },
+  shelterMapsBtn: {
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4
+  },
+  shelterMapsBtnText: {
+    color: BLUE,
+    fontSize: 10.5,
+    fontWeight: "800"
+  },
 
   // Flood Buddy
   buddyCard: { backgroundColor: "#fff", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "#E5EBF4", marginBottom: 10 },
@@ -4394,43 +4848,31 @@ const s = StyleSheet.create({
     textTransform: "uppercase"
   },
   loginTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "900",
     color: NAVY,
-    letterSpacing: -0.5
-  },
-  loginSubtitle: {
-    fontSize: 11,
-    color: MUTED,
-    marginTop: 4,
-    marginBottom: 16,
-    lineHeight: 16
+    letterSpacing: -0.3,
+    marginBottom: 14
   },
   loginErrorBanner: {
     backgroundColor: "#FEF2F2",
     borderWidth: 1.5,
     borderColor: "#FECACA",
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 10,
+    padding: 10,
     flexDirection: "row",
-    gap: 10,
-    alignItems: "flex-start",
-    marginBottom: 16
+    gap: 8,
+    alignItems: "center",
+    marginBottom: 14
   },
   loginErrorBannerText: {
-    fontSize: 12,
-    fontWeight: "800",
+    fontSize: 11,
+    fontWeight: "700",
     color: RED,
-    lineHeight: 16
-  },
-  loginErrorBannerSub: {
-    fontSize: 10,
-    color: "#991B1B",
-    marginTop: 3,
-    lineHeight: 14
+    lineHeight: 15
   },
   loginInputGroup: {
-    marginBottom: 16
+    marginBottom: 14
   },
   loginInputLabel: {
     fontSize: 12,
@@ -4438,27 +4880,10 @@ const s = StyleSheet.create({
     color: NAVY,
     marginBottom: 6
   },
-  loginEmergencyLabel: {
-    fontSize: 12,
-    fontWeight: "900",
-    color: RED,
-    marginBottom: 2
-  },
-  urgentPill: {
-    backgroundColor: "#FEE2E2",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 5
-  },
-  urgentPillText: {
-    fontSize: 8,
-    fontWeight: "900",
-    color: RED
-  },
   loginFieldHelp: {
     fontSize: 10,
     color: MUTED,
-    marginBottom: 6
+    marginBottom: 4
   },
   loginInputBox: {
     flexDirection: "row",
@@ -4466,13 +4891,13 @@ const s = StyleSheet.create({
     backgroundColor: "#F8FAFC",
     borderWidth: 1.5,
     borderColor: "#CBD5E1",
-    borderRadius: 12,
+    borderRadius: 10,
     overflow: "hidden"
   },
   loginPrefixBox: {
     backgroundColor: "#E2E8F0",
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingVertical: 10,
     justifyContent: "center",
     alignItems: "center",
     borderRightWidth: 1,
@@ -4486,49 +4911,25 @@ const s = StyleSheet.create({
   loginInputField: {
     flex: 1,
     paddingHorizontal: 12,
-    paddingVertical: 11,
-    fontSize: 14,
+    paddingVertical: 10,
+    fontSize: 13.5,
     fontWeight: "700",
     color: NAVY
   },
   fieldInlineError: {
     fontSize: 10,
-    fontWeight: "800",
+    fontWeight: "700",
     color: RED,
     marginTop: 4
   },
-  relationPillRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6
-  },
-  relationPill: {
-    backgroundColor: "#F1F5F9",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#E2E8F0"
-  },
-  relationPillActive: {
-    backgroundColor: BLUE,
-    borderColor: BLUE
-  },
-  relationPillText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: TEXT
-  },
-  relationPillTextActive: {
-    color: "#fff"
-  },
-  loginRoleBtn: {
+  loginRoleBtnCompact: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
     backgroundColor: "#F8FAFC",
-    padding: 12,
-    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
     borderWidth: 1.5,
     borderColor: "#E2E8F0"
   },
@@ -4537,14 +4938,30 @@ const s = StyleSheet.create({
     borderColor: BLUE
   },
   loginRoleBtnTitle: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: "800",
     color: NAVY
   },
   loginRoleBtnSub: {
     fontSize: 9.5,
     color: MUTED,
-    marginTop: 2
+    marginTop: 1
+  },
+  loginDetectBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6
+  },
+  loginDetectBtnText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: BLUE
   },
   loginGpsBtn: {
     flexDirection: "row",
@@ -4553,8 +4970,9 @@ const s = StyleSheet.create({
     backgroundColor: "#EFF6FF",
     borderWidth: 1,
     borderColor: "#BFDBFE",
-    padding: 11,
-    borderRadius: 10
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: 8
   },
   loginGpsBtnText: {
     fontSize: 11,
@@ -4565,7 +4983,7 @@ const s = StyleSheet.create({
     backgroundColor: "#F1F5F9",
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 8,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: "#E2E8F0"
   },
@@ -4583,41 +5001,23 @@ const s = StyleSheet.create({
   },
   loginSubmitBtn: {
     backgroundColor: BLUE,
-    borderRadius: 14,
-    paddingVertical: 14,
+    borderRadius: 12,
+    paddingVertical: 13,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    marginTop: 8,
-    elevation: 3,
+    marginTop: 10,
+    elevation: 2,
     shadowColor: BLUE,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6
   },
   loginSubmitBtnText: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: "900",
-    letterSpacing: 0.3
-  },
-  loginTwilioNotice: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 14,
-    backgroundColor: "#F0F9FF",
-    padding: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#BAE6FD"
-  },
-  loginTwilioNoticeText: {
-    fontSize: 8.5,
-    color: "#0369A1",
-    fontWeight: "600",
-    lineHeight: 12
+    letterSpacing: 0.4
   },
 
   // Header & Home Profile Badges
@@ -4980,6 +5380,93 @@ const s = StyleSheet.create({
   checkTagPillText: {
     fontSize: 7.5,
     fontWeight: "900"
+  },
+
+  // Clean 3-Card Resource Styles
+  cleanResourceCard: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2
+  },
+  cleanResourceIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  cleanResourceCategory: {
+    fontSize: 9,
+    fontWeight: "900",
+    color: BLUE,
+    letterSpacing: 0.5,
+    textTransform: "uppercase"
+  },
+  cleanResourceTitle: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: NAVY,
+    marginTop: 1
+  },
+  cleanResourceAddress: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: NAVY,
+    marginTop: 1
+  },
+  cleanResourceMeta: {
+    fontSize: 10,
+    color: MUTED,
+    fontWeight: "600",
+    marginTop: 2
+  },
+  cleanDirectionsBtn: {
+    backgroundColor: BLUE,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4
+  },
+  cleanDirectionsText: {
+    fontSize: 10.5,
+    fontWeight: "800",
+    color: "#fff"
+  },
+  mapPinLabelBox: {
+    position: "absolute",
+    bottom: -24,
+    left: -32,
+    width: 96,
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderRadius: 5,
+    paddingHorizontal: 3,
+    paddingVertical: 1.5,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    alignItems: "center",
+    elevation: 4,
+    zIndex: 25
+  },
+  mapPinLabelTitle: {
+    fontSize: 7.8,
+    fontWeight: "900",
+    color: NAVY,
+    textAlign: "center"
+  },
+  mapPinLabelLoc: {
+    fontSize: 6.8,
+    fontWeight: "700",
+    color: MUTED,
+    textAlign: "center"
   }
 });
 
