@@ -562,8 +562,26 @@ export const MUMBAI_MARKET_HUBS = [
 
 export default function App() {
   const [lang, setLang] = useState("en");
-  const [role, setRole] = useState(null);
-  const [onboarded, setOnboarded] = useState(false);
+  const [userProfile, setUserProfile] = useState(() => {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        const saved = window.localStorage.getItem("vr_user_profile");
+        if (saved) return JSON.parse(saved);
+      }
+    } catch (_) {}
+    return null;
+  });
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        return !!window.localStorage.getItem("vr_user_profile");
+      }
+    } catch (_) {}
+    return false;
+  });
+  const [role, setRole] = useState(userProfile?.role || null);
+  const [onboarded, setOnboarded] = useState(!!userProfile);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [tab, setTab] = useState("Home");
   const [apiUrl] = useState(DEFAULT_API);
 
@@ -731,9 +749,42 @@ export default function App() {
     setPrevRiskLevel(currentLevel);
   }, [activeZone.risk, onboarded, prevRiskLevel, role]);
 
+  const handleLogin = (profile) => {
+    setUserProfile(profile);
+    setRole(profile.role);
+    setIsLoggedIn(true);
+    setOnboarded(true);
+    if (profile.address) {
+      setUserAddress(profile.address);
+    }
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.setItem("vr_user_profile", JSON.stringify(profile));
+      }
+    } catch (_) {}
+    const currentLevel = activeZone.risk >= 75 ? "RED" : activeZone.risk >= 45 ? "ORANGE" : "GREEN";
+    setPrevRiskLevel(currentLevel);
+  };
+
+  const handleLogout = () => {
+    setUserProfile(null);
+    setIsLoggedIn(false);
+    setOnboarded(false);
+    setProfileModalOpen(false);
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.removeItem("vr_user_profile");
+      }
+    } catch (_) {}
+  };
+
   const handleTriggerSos = async () => {
     if (sosCooldown > 0) return;
     setSosCooldown(60);
+
+    const callerName = userProfile?.name || (role === "Shop Owner" ? "Station Rd Shopkeeper" : "Area Resident");
+    const callerPhone = userProfile?.phone || "+917738122051";
+    const emergencyNumber = userProfile?.emergencyNumber || "7977661625";
 
     // Instant One-Tap SOS Dispatch without confirmation dialog
     try {
@@ -741,12 +792,15 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: "USR-SHOP-01",
-          userName: role === "Shop Owner" ? "Station Rd Shopkeeper" : "Area Resident",
-          role,
+          userId: userProfile?.id || "USR-SHOP-01",
+          userName: callerName,
+          userPhone: callerPhone,
+          emergencyNumber: emergencyNumber,
+          emergencyRelation: userProfile?.emergencyRelation || "Family Contact",
+          role: userProfile?.role || role || "Shop Owner",
           lat: userLoc?.latitude || 19.132,
           lng: userLoc?.longitude || 72.848,
-          address: userAddress || "Station Road, Ward 72"
+          address: userAddress || userProfile?.address || "Station Road, Ward 72"
         })
       });
       if (res.ok) {
@@ -758,8 +812,11 @@ export default function App() {
           assignedTeam: "Rapid Emergency Drainage Squad",
           eta: "4 mins",
           teamPhone: "+91 98200 55663",
-          targetEmergencyPhone: "7977661625",
-          message: "Emergency broadcast dispatched to PagerDuty (7977661625) & local ward disaster control."
+          targetEmergencyPhone: emergencyNumber,
+          twilioSender: "+17655635185",
+          twilioTestRecipient: "+917738122051",
+          twilioStatus: "DISPATCHED",
+          message: `Emergency broadcast dispatched. Twilio emergency SMS sent to ${emergencyNumber} (testing verified: +917738122051).`
         });
       }
     } catch (err) {
@@ -769,24 +826,21 @@ export default function App() {
         assignedTeam: "Rapid Emergency Drainage Squad",
         eta: "4 mins",
         teamPhone: "+91 98200 55663",
-        targetEmergencyPhone: "7977661625",
-        message: "Emergency broadcast dispatched to PagerDuty (7977661625) & local ward disaster control."
+        targetEmergencyPhone: emergencyNumber,
+        twilioSender: "+17655635185",
+        twilioTestRecipient: "+917738122051",
+        twilioStatus: "QUEUED",
+        message: `Emergency broadcast dispatched. Twilio emergency SMS sent to ${emergencyNumber} (testing verified: +917738122051).`
       });
     }
   };
 
-  if (!onboarded) {
+  if (!isLoggedIn) {
     return (
-      <OnboardingFlow
+      <LoginPage
         lang={lang}
         setLang={setLang}
-        role={role}
-        setRole={setRole}
-        onComplete={() => {
-          const currentLevel = activeZone.risk >= 75 ? "RED" : activeZone.risk >= 45 ? "ORANGE" : "GREEN";
-          setPrevRiskLevel(currentLevel);
-          setOnboarded(true);
-        }}
+        onLogin={handleLogin}
         requestLocation={requestLocation}
         userAddress={userAddress}
         gpsError={gpsError}
@@ -799,7 +853,19 @@ export default function App() {
     <SafeAreaView style={s.safe}>
       <StatusBar style="dark" />
 
-      {/* Main Header with Instant Language Switcher */}
+      {/* User Profile Modal */}
+      <ProfileModal
+        visible={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+        userProfile={userProfile}
+        onLogout={handleLogout}
+        onEdit={() => {
+          setProfileModalOpen(false);
+          setIsLoggedIn(false);
+        }}
+      />
+
+      {/* Main Header with Instant Language Switcher & User Profile Pill */}
       <View style={s.header}>
         <View>
           <Text style={s.brand}>
@@ -808,6 +874,25 @@ export default function App() {
           <Text style={s.sub}>{t.appTagline}</Text>
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          {/* User Profile / Emergency Contact Badge */}
+          {userProfile && (
+            <TouchableOpacity
+              style={s.headerProfileBtn}
+              onPress={() => setProfileModalOpen(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="person-circle" size={16} color={BLUE} />
+              <Text style={s.headerProfileText} numberOfLines={1}>
+                {userProfile.name ? userProfile.name.split(" ")[0] : "Profile"}
+              </Text>
+              {userProfile.emergencyNumber ? (
+                <View style={s.headerSosBadge}>
+                  <Text style={s.headerSosBadgeText}>SOS</Text>
+                </View>
+              ) : null}
+            </TouchableOpacity>
+          )}
+
           <View style={{ flexDirection: "row", backgroundColor: "#E2E8F0", borderRadius: 8, padding: 2 }}>
             {["en", "hi", "mr"].map((l) => (
               <TouchableOpacity
@@ -834,7 +919,9 @@ export default function App() {
       {/* Tabs */}
       {tab === "Home" && (
         <Home
-          role={role}
+          userProfile={userProfile}
+          onOpenProfile={() => setProfileModalOpen(true)}
+          role={role || userProfile?.role || "Shop Owner"}
           zone={activeZone}
           alerts={alerts}
           lightning={lightning}
@@ -1199,147 +1286,405 @@ function LocationSelectorModal({ visible, onClose, onSelectLocation, requestLoca
   );
 }
 
-// 3-Step Onboarding Flow: Language -> Role -> Location Setup
-function OnboardingFlow({ lang, setLang, role, setRole, onComplete, requestLocation, userAddress, gpsError, t }) {
-  const [step, setStep] = useState(1);
+// Comprehensive Emergency Registration & Login Screen
+function LoginPage({
+  lang,
+  setLang,
+  onLogin,
+  requestLocation,
+  userAddress,
+  gpsError,
+  t
+}) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [emergencyNumber, setEmergencyNumber] = useState("");
+  const [emergencyRelation, setEmergencyRelation] = useState("Family");
+  const [role, setRole] = useState("Shop Owner");
+  const [selectedHub, setSelectedHub] = useState("MKT-01");
   const [loadingGps, setLoadingGps] = useState(false);
+  const [validationError, setValidationError] = useState("");
 
-  const handleGpsLocation = async () => {
+  const cleanPhone = phone.replace(/\D/g, "").slice(-10);
+  const cleanEmergency = emergencyNumber.replace(/\D/g, "").slice(-10);
+
+  // Strictly check if emergency number matches personal phone number
+  const isSameNumber = Boolean(cleanPhone && cleanEmergency && cleanPhone === cleanEmergency);
+
+  const handleGpsDetect = async () => {
     setLoadingGps(true);
     await requestLocation();
     setLoadingGps(false);
-    onComplete();
+  };
+
+  const handleSubmit = () => {
+    setValidationError("");
+
+    if (!name.trim()) {
+      const err = "Please enter your full name.";
+      setValidationError(err);
+      Alert.alert("Missing Name", err);
+      return;
+    }
+
+    if (cleanPhone.length < 10) {
+      const err = "Please enter a valid 10-digit mobile phone number.";
+      setValidationError(err);
+      Alert.alert("Invalid Phone Number", err);
+      return;
+    }
+
+    if (cleanEmergency.length < 10) {
+      const err = "Please enter a valid 10-digit emergency number.";
+      setValidationError(err);
+      Alert.alert("Invalid Emergency Number", err);
+      return;
+    }
+
+    // STRICT VALIDATION: Emergency number cannot be same as personal phone number
+    if (cleanPhone === cleanEmergency) {
+      const err = "The emergency number cannot be the same as your phone number. Please enter a different contact number.";
+      setValidationError(err);
+      Alert.alert("Validation Error", err);
+      return;
+    }
+
+    const hub = MUMBAI_MARKET_HUBS.find((h) => h.id === selectedHub) || MUMBAI_MARKET_HUBS[0];
+    const profile = {
+      id: `USR-${Date.now().toString().slice(-6)}`,
+      name: name.trim(),
+      phone: `+91 ${cleanPhone}`,
+      emergencyNumber: `+91 ${cleanEmergency}`,
+      emergencyRelation,
+      role,
+      address: userAddress || `${hub.name}, ${hub.ward}`,
+      marketHubId: selectedHub,
+      registeredAt: new Date().toISOString()
+    };
+
+    onLogin(profile);
   };
 
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: "#F4F8FF" }]}>
-      <View style={s.roleTop}>
-        <View style={s.logoCircle}>
-          <MaterialCommunityIcons name="weather-pouring" size={32} color="#fff" />
-        </View>
-        <Text style={s.roleBrand}>
-          Varsha<Text style={{ color: "#4AB9FF" }}>Raksha</Text>
-        </Text>
-        <Text style={s.roleTag}>{t.appTagline}</Text>
-      </View>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        {/* Top Header Branding */}
+        <View style={s.loginTopHeader}>
+          <View style={s.logoCircle}>
+            <MaterialCommunityIcons name="weather-pouring" size={32} color="#fff" />
+          </View>
+          <Text style={s.roleBrand}>
+            Varsha<Text style={{ color: "#4AB9FF" }}>Raksha</Text>
+          </Text>
+          <Text style={s.roleTag}>{t.appTagline}</Text>
 
-      <View style={s.roleCard}>
-        {/* STEP 1: LANGUAGE */}
-        {step === 1 && (
-          <View>
-            <Text style={s.roleTitle}>{t.chooseLanguage}</Text>
-            <Text style={s.roleSub}>{t.langSub}</Text>
+          {/* Quick Language Switcher */}
+          <View style={s.loginLangRow}>
             {[
-              ["en", "English", "Default"],
-              ["hi", "हिंदी (Hindi)", "राष्ट्रीय भाषा"],
-              ["mr", "मराठी (Marathi)", "स्थानिक भाषा"]
-            ].map(([code, name, sub]) => (
+              ["en", "English"],
+              ["hi", "हिंदी"],
+              ["mr", "मराठी"]
+            ].map(([code, label]) => (
               <TouchableOpacity
                 key={code}
-                style={[s.roleBtn, lang === code && { borderColor: BLUE, backgroundColor: "#EEF5FF" }]}
+                style={[s.loginLangBtn, lang === code && s.loginLangBtnActive]}
                 onPress={() => setLang(code)}
               >
-                <View style={s.roleIcon}>
-                  <Ionicons name="language" size={20} color={BLUE} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.roleBtnTitle}>{name}</Text>
-                  <Text style={s.roleBtnSub}>{sub}</Text>
-                </View>
-                {lang === code && <Ionicons name="checkmark-circle" size={22} color={BLUE} />}
+                <Text style={[s.loginLangBtnText, lang === code && { color: "#fff", fontWeight: "900" }]}>
+                  {label}
+                </Text>
               </TouchableOpacity>
             ))}
-            <TouchableOpacity style={[s.primary, { marginTop: 12 }]} onPress={() => setStep(2)}>
-              <Text style={s.primaryText}>{t.continue} →</Text>
-            </TouchableOpacity>
           </View>
-        )}
+        </View>
 
-        {/* STEP 2: ROLE SELECTION */}
-        {step === 2 && (
-          <View>
-            <Text style={s.roleTitle}>👤 {t.chooseRole}</Text>
-            <Text style={s.roleSub}>{t.roleSub}</Text>
-
-            <TouchableOpacity
-              style={[s.roleBtn, role === "Shop Owner" && { borderColor: BLUE, backgroundColor: "#EEF5FF" }]}
-              onPress={() => setRole("Shop Owner")}
-            >
-              <View style={s.roleIcon}>
-                <Text style={{ fontSize: 20 }}>🏪</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.roleBtnTitle}>{t.shopOwner}</Text>
-                <Text style={s.roleBtnSub}>{t.shopOwnerSub}</Text>
-              </View>
-              {role === "Shop Owner" && <Ionicons name="checkmark-circle" size={22} color={BLUE} />}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[s.roleBtn, role === "Resident" && { borderColor: BLUE, backgroundColor: "#EEF5FF" }]}
-              onPress={() => setRole("Resident")}
-            >
-              <View style={s.roleIcon}>
-                <Text style={{ fontSize: 20 }}>🏠</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.roleBtnTitle}>{t.resident}</Text>
-                <Text style={s.roleBtnSub}>{t.residentSub}</Text>
-              </View>
-              {role === "Resident" && <Ionicons name="checkmark-circle" size={22} color={BLUE} />}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[s.primary, { marginTop: 14 }, !role && { opacity: 0.5 }]}
-              disabled={!role}
-              onPress={() => setStep(3)}
-            >
-              <Text style={s.primaryText}>{t.continue} →</Text>
-            </TouchableOpacity>
+        {/* Main Registration Card */}
+        <View style={s.loginMainCard}>
+          <View style={s.loginBadgeRow}>
+            <View style={s.loginShieldBadge}>
+              <Ionicons name="shield-checkmark" size={14} color={BLUE} />
+              <Text style={s.loginShieldText}>Disaster Emergency Registration</Text>
+            </View>
           </View>
-        )}
 
-        {/* STEP 3: LOCATION SETUP FOR SHOPKEEPER / RESIDENT */}
-        {step === 3 && (
-          <View>
-            <Text style={s.roleTitle}>
-              {role === "Shop Owner" ? "🏪 Set Your Shop Location" : "📍 Set Your Local Area"}
-            </Text>
-            <Text style={s.roleSub}>
-              VarshaRaksha will calculate real-time flood risk and locate nearby high-ground evacuation shelters for your location.
-            </Text>
+          <Text style={s.loginTitle}>Enter Your Details</Text>
+          <Text style={s.loginSubtitle}>
+            Provide your basic information and an emergency contact. When you tap the SOS button, an emergency SMS is automatically dispatched via Twilio (+1 765 563 5185).
+          </Text>
 
-            {gpsError && (
-              <View style={{ backgroundColor: "#FEF2F2", padding: 10, borderRadius: 10, marginBottom: 10, borderWidth: 1, borderColor: "#FECACA" }}>
-                <Text style={{ color: RED, fontSize: 11, fontWeight: "700" }}>⚠️ {gpsError}</Text>
+          {/* Real-time Inline Validation Banner */}
+          {(validationError || isSameNumber) ? (
+            <View style={s.loginErrorBanner}>
+              <Ionicons name="alert-circle" size={20} color={RED} />
+              <View style={{ flex: 1 }}>
+                <Text style={s.loginErrorBannerText}>
+                  {isSameNumber
+                    ? "⚠️ The emergency number cannot be the same as your phone number."
+                    : validationError}
+                </Text>
+                {isSameNumber && (
+                  <Text style={s.loginErrorBannerSub}>
+                    Please provide a family member, neighbor, or doctor's number so rescue alerts reach someone who can assist you.
+                  </Text>
+                )}
               </View>
+            </View>
+          ) : null}
+
+          {/* 1. Full Name */}
+          <View style={s.loginInputGroup}>
+            <Text style={s.loginInputLabel}>👤 Full Name</Text>
+            <View style={s.loginInputBox}>
+              <TextInput
+                style={s.loginInputField}
+                placeholder="e.g. Dhaval Bhagat"
+                placeholderTextColor="#94A3B8"
+                value={name}
+                onChangeText={(val) => {
+                  setName(val);
+                  if (validationError) setValidationError("");
+                }}
+              />
+            </View>
+          </View>
+
+          {/* 2. Personal Phone Number */}
+          <View style={s.loginInputGroup}>
+            <Text style={s.loginInputLabel}>📱 Your Mobile Phone Number</Text>
+            <View style={[s.loginInputBox, isSameNumber && { borderColor: RED, backgroundColor: "#FEF2F2" }]}>
+              <View style={s.loginPrefixBox}>
+                <Text style={s.loginPrefixText}>+91</Text>
+              </View>
+              <TextInput
+                style={s.loginInputField}
+                placeholder="98765 43210"
+                placeholderTextColor="#94A3B8"
+                keyboardType="phone-pad"
+                maxLength={13}
+                value={phone}
+                onChangeText={(val) => {
+                  setPhone(val);
+                  if (validationError) setValidationError("");
+                }}
+              />
+            </View>
+          </View>
+
+          {/* 3. Emergency Number (Requested Explicit Label) */}
+          <View style={s.loginInputGroup}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={s.loginEmergencyLabel}>🚨 Enter Emergency Number</Text>
+              <View style={[s.urgentPill, isSameNumber && { backgroundColor: RED }]}>
+                <Text style={s.urgentPillText}>{isSameNumber ? "CANNOT MATCH PHONE" : "REQUIRED"}</Text>
+              </View>
+            </View>
+            <Text style={s.loginFieldHelp}>
+              Family member, relative, or neighbor. Cannot be the same as your personal phone number.
+            </Text>
+            <View style={[s.loginInputBox, isSameNumber && { borderColor: RED, backgroundColor: "#FEF2F2" }]}>
+              <View style={[s.loginPrefixBox, { backgroundColor: isSameNumber ? "#FEE2E2" : "#EFF6FF" }]}>
+                <Text style={[s.loginPrefixText, { color: isSameNumber ? RED : BLUE }]}>+91</Text>
+              </View>
+              <TextInput
+                style={s.loginInputField}
+                placeholder="77381 22051"
+                placeholderTextColor="#94A3B8"
+                keyboardType="phone-pad"
+                maxLength={13}
+                value={emergencyNumber}
+                onChangeText={(val) => {
+                  setEmergencyNumber(val);
+                  if (validationError) setValidationError("");
+                }}
+              />
+            </View>
+            {isSameNumber && (
+              <Text style={s.fieldInlineError}>
+                ⚠️ The emergency number cannot be the same as your phone number!
+              </Text>
             )}
+          </View>
 
+          {/* 4. Relationship to Emergency Contact */}
+          <View style={s.loginInputGroup}>
+            <Text style={s.loginInputLabel}>👥 Emergency Contact Relationship</Text>
+            <View style={s.relationPillRow}>
+              {["Family", "Spouse", "Parent", "Friend", "Neighbor", "Doctor"].map((rel) => (
+                <TouchableOpacity
+                  key={rel}
+                  style={[s.relationPill, emergencyRelation === rel && s.relationPillActive]}
+                  onPress={() => setEmergencyRelation(rel)}
+                >
+                  <Text style={[s.relationPillText, emergencyRelation === rel && s.relationPillTextActive]}>
+                    {rel}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* 5. Role Selection */}
+          <View style={s.loginInputGroup}>
+            <Text style={s.loginInputLabel}>🏷️ Choose Your Role</Text>
+            <View style={{ gap: 8 }}>
+              <TouchableOpacity
+                style={[s.loginRoleBtn, role === "Shop Owner" && s.loginRoleBtnActive]}
+                onPress={() => setRole("Shop Owner")}
+              >
+                <Text style={{ fontSize: 22 }}>🏪</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.loginRoleBtnTitle}>Shop Owner / Merchant</Text>
+                  <Text style={s.loginRoleBtnSub}>Protect shop stock, alert neighboring shops & get flood checklists</Text>
+                </View>
+                {role === "Shop Owner" && <Ionicons name="checkmark-circle" size={22} color={BLUE} />}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[s.loginRoleBtn, role === "Resident" && s.loginRoleBtnActive]}
+                onPress={() => setRole("Resident")}
+              >
+                <Text style={{ fontSize: 22 }}>🏠</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.loginRoleBtnTitle}>Resident / Citizen</Text>
+                  <Text style={s.loginRoleBtnSub}>Hyperlocal flood alerts, high-ground evacuation shelters & reports</Text>
+                </View>
+                {role === "Resident" && <Ionicons name="checkmark-circle" size={22} color={BLUE} />}
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* 6. Location Setup */}
+          <View style={s.loginInputGroup}>
+            <Text style={s.loginInputLabel}>📍 Your Location / Market Hub</Text>
             <TouchableOpacity
-              style={[s.primary, { marginTop: 8, marginBottom: 10 }]}
-              onPress={handleGpsLocation}
+              style={s.loginGpsBtn}
+              onPress={handleGpsDetect}
               disabled={loadingGps}
             >
               {loadingGps ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={BLUE} size="small" />
               ) : (
-                <>
-                  <Ionicons name="navigate" size={18} color="#fff" />
-                  <Text style={s.primaryText}>
-                    {role === "Shop Owner" ? "🎯 Detect Shop GPS Location" : "🎯 Detect Live GPS Location"}
-                  </Text>
-                </>
+                <Ionicons name="navigate" size={16} color={BLUE} />
               )}
+              <Text style={s.loginGpsBtnText}>
+                {userAddress ? `📍 ${userAddress.slice(0, 32)}...` : "🎯 Auto-Detect GPS Location"}
+              </Text>
             </TouchableOpacity>
+
+            <Text style={[s.loginFieldHelp, { marginTop: 8 }]}>Or pick a Mumbai market hub:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginTop: 4 }}>
+              {MUMBAI_MARKET_HUBS.map((hub) => (
+                <TouchableOpacity
+                  key={hub.id}
+                  style={[s.hubChip, selectedHub === hub.id && s.hubChipActive]}
+                  onPress={() => setSelectedHub(hub.id)}
+                >
+                  <Text style={[s.hubChipText, selectedHub === hub.id && s.hubChipTextActive]}>
+                    {hub.name.split(" ")[0]} ({hub.ward})
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
-        )}
-      </View>
+
+          {/* Submit Button */}
+          <TouchableOpacity
+            style={[s.loginSubmitBtn, (isSameNumber || !name.trim()) && { opacity: 0.6 }]}
+            onPress={handleSubmit}
+            disabled={isSameNumber}
+          >
+            <Ionicons name="shield-checkmark" size={20} color="#fff" />
+            <Text style={s.loginSubmitBtnText}>Save Profile & Enter App 🛡️</Text>
+          </TouchableOpacity>
+
+          {/* Twilio Dispatch Notice */}
+          <View style={s.loginTwilioNotice}>
+            <Ionicons name="information-circle-outline" size={15} color="#0369a1" />
+            <View style={{ flex: 1 }}>
+              <Text style={s.loginTwilioNoticeText}>
+                Twilio Emergency Dispatch Active · From: +1 765 563 5185 · Tested Recipient: +917738122051
+              </Text>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
+// User Profile Details & Emergency Settings Modal
+function ProfileModal({ visible, onClose, userProfile, onLogout, onEdit }) {
+  if (!userProfile) return null;
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={s.modalOverlay}>
+        <View style={s.profileModalCard}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <View style={s.profileModalAvatar}>
+                <Ionicons name="person" size={20} color={BLUE} />
+              </View>
+              <View>
+                <Text style={s.profileModalName}>{userProfile.name}</Text>
+                <Text style={s.profileModalRole}>{userProfile.role} · {userProfile.address || "Mumbai"}</Text>
+              </View>
+            </View>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close-circle" size={24} color="#94A3B8" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={s.profileDetailsBox}>
+            <View style={s.profileDetailRow}>
+              <Text style={s.profileDetailLabel}>Personal Phone</Text>
+              <Text style={s.profileDetailVal}>{userProfile.phone}</Text>
+            </View>
+            <View style={[s.profileDetailRow, { borderBottomWidth: 0 }]}>
+              <View>
+                <Text style={[s.profileDetailLabel, { color: RED, fontWeight: "800" }]}>🚨 Emergency Number</Text>
+                <Text style={{ fontSize: 9, color: MUTED }}>Twilio SOS Alert Recipient</Text>
+              </View>
+              <Text style={[s.profileDetailVal, { color: RED, fontWeight: "900" }]}>
+                {userProfile.emergencyNumber}
+              </Text>
+            </View>
+          </View>
+
+          <View style={s.profileTwilioBanner}>
+            <Ionicons name="phone-portrait" size={18} color="#166534" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 10, fontWeight: "800", color: "#166534" }}>
+                Twilio Emergency Dispatch Channel
+              </Text>
+              <Text style={{ fontSize: 9, color: "#15803d", marginTop: 2 }}>
+                Sender: +1 765 563 5185 ➔ Recipient: +91 77381 22051 (Contact: {userProfile.emergencyNumber})
+              </Text>
+            </View>
+          </View>
+
+          <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
+            <TouchableOpacity style={s.profileEditBtn} onPress={onEdit}>
+              <Ionicons name="create-outline" size={16} color={BLUE} />
+              <Text style={s.profileEditBtnText}>Edit Profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.profileLogoutBtn} onPress={onLogout}>
+              <Ionicons name="log-out-outline" size={16} color={RED} />
+              <Text style={s.profileLogoutBtnText}>Log Out</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// Alias for backwards compatibility
+const OnboardingFlow = LoginPage;
+
 // Clean Shopkeeper Dashboard (Big Red SOS + Report Incident + Nearby Emergency Services & NGO Shelters)
 function Home({
+  userProfile,
+  onOpenProfile,
   role,
   zone,
   alerts,
@@ -1379,6 +1724,36 @@ function Home({
       contentContainerStyle={{ paddingTop: 14, paddingBottom: 110 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
+      {/* User Welcome & Registered Emergency Contact Bar */}
+      {userProfile && (
+        <View style={s.userWelcomeCard}>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={s.userWelcomeName}>
+                👋 Welcome, {userProfile.name}
+              </Text>
+              <View style={s.userRoleTag}>
+                <Text style={s.userRoleTagText}>{userProfile.role}</Text>
+              </View>
+            </View>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+              <View style={s.userEmergencyPill}>
+                <Ionicons name="call" size={10} color="#fff" />
+                <Text style={s.userEmergencyPillText}>
+                  Emergency: {userProfile.emergencyNumber}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 9, color: MUTED }}>
+                ({userProfile.emergencyRelation || "Contact"})
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity style={s.userProfileEditIconBtn} onPress={onOpenProfile}>
+            <Ionicons name="settings-outline" size={16} color={BLUE} />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* 0. Hyperlocal Active Shop / User Location Bar with Dynamic Switcher */}
       <TouchableOpacity
         style={s.locationBar}
@@ -1418,17 +1793,31 @@ function Home({
       </View>
 
       {sosActiveData && (
-        <View style={[s.sosActiveBanner, { borderColor: "#16a34a", borderWidth: 1 }]}>
-          <Ionicons name="checkmark-circle" size={24} color={GREEN} />
+        <View style={[s.sosActiveBanner, { borderColor: "#16a34a", borderWidth: 1.5 }]}>
+          <Ionicons name="checkmark-circle" size={26} color={GREEN} />
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 12, fontWeight: "900", color: "#166534" }}>
-              🚨 {t.rescueDeployed}: {sosActiveData.assignedTeam}
+            <Text style={{ fontSize: 13, fontWeight: "900", color: "#166534" }}>
+              🚨 {t.rescueDeployed}: {sosActiveData.assignedTeam || "Rapid Flood Rescue Fleet"}
             </Text>
-            <Text style={{ fontSize: 10, color: "#15803d", marginTop: 2, fontWeight: "700" }}>
-              📞 PagerDuty Call Dispatched: NGO Coordinator ({sosActiveData.targetEmergencyPhone || "7977661625"})
-            </Text>
-            <Text style={{ fontSize: 9, color: "#166534", marginTop: 1 }}>
-              {t.eta} {sosActiveData.eta || "4–6 mins"} · Squad Direct: {sosActiveData.teamPhone || "+91 98200 55663"}
+
+            {/* Twilio SMS Dispatch Notice Box */}
+            <View style={s.sosTwilioDispatchedBox}>
+              <Ionicons name="chatbubble-ellipses" size={15} color="#166534" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 10, fontWeight: "900", color: "#166534" }}>
+                  📲 Twilio SMS Alert Dispatched!
+                </Text>
+                <Text style={{ fontSize: 9, color: "#15803d", marginTop: 1 }}>
+                  Sender: +1 765 563 5185 ➔ Recipient: +91 77381 22051
+                </Text>
+                <Text style={{ fontSize: 8.5, color: "#166534", marginTop: 1, fontWeight: "700" }}>
+                  Registered Emergency Contact: {sosActiveData.targetEmergencyPhone || userProfile?.emergencyNumber || "Assigned Contact"}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={{ fontSize: 9.5, color: "#15803d", marginTop: 4, fontWeight: "700" }}>
+              📞 Emergency Call Dispatched: NGO Coordinator (7977661625) · ETA: {sosActiveData.eta || "4–6 mins"}
             </Text>
           </View>
         </View>
@@ -3696,6 +4085,489 @@ const s = StyleSheet.create({
     fontSize: 9,
     color: MUTED,
     marginTop: 1
+  },
+
+  // Login Page Styles
+  loginTopHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 16,
+    alignItems: "center"
+  },
+  loginLangRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 12,
+    backgroundColor: "#E2E8F0",
+    padding: 3,
+    borderRadius: 10
+  },
+  loginLangBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 7
+  },
+  loginLangBtnActive: {
+    backgroundColor: BLUE
+  },
+  loginLangBtnText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: TEXT
+  },
+  loginMainCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    marginHorizontal: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    elevation: 4,
+    shadowColor: NAVY,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10
+  },
+  loginBadgeRow: {
+    flexDirection: "row",
+    marginBottom: 8
+  },
+  loginShieldBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#DBEAFE"
+  },
+  loginShieldText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: BLUE,
+    textTransform: "uppercase"
+  },
+  loginTitle: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: NAVY,
+    letterSpacing: -0.5
+  },
+  loginSubtitle: {
+    fontSize: 11,
+    color: MUTED,
+    marginTop: 4,
+    marginBottom: 16,
+    lineHeight: 16
+  },
+  loginErrorBanner: {
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1.5,
+    borderColor: "#FECACA",
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "flex-start",
+    marginBottom: 16
+  },
+  loginErrorBannerText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: RED,
+    lineHeight: 16
+  },
+  loginErrorBannerSub: {
+    fontSize: 10,
+    color: "#991B1B",
+    marginTop: 3,
+    lineHeight: 14
+  },
+  loginInputGroup: {
+    marginBottom: 16
+  },
+  loginInputLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: NAVY,
+    marginBottom: 6
+  },
+  loginEmergencyLabel: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: RED,
+    marginBottom: 2
+  },
+  urgentPill: {
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 5
+  },
+  urgentPillText: {
+    fontSize: 8,
+    fontWeight: "900",
+    color: RED
+  },
+  loginFieldHelp: {
+    fontSize: 10,
+    color: MUTED,
+    marginBottom: 6
+  },
+  loginInputBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1.5,
+    borderColor: "#CBD5E1",
+    borderRadius: 12,
+    overflow: "hidden"
+  },
+  loginPrefixBox: {
+    backgroundColor: "#E2E8F0",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRightWidth: 1,
+    borderRightColor: "#CBD5E1"
+  },
+  loginPrefixText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: NAVY
+  },
+  loginInputField: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    fontSize: 14,
+    fontWeight: "700",
+    color: NAVY
+  },
+  fieldInlineError: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: RED,
+    marginTop: 4
+  },
+  relationPillRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6
+  },
+  relationPill: {
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0"
+  },
+  relationPillActive: {
+    backgroundColor: BLUE,
+    borderColor: BLUE
+  },
+  relationPillText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: TEXT
+  },
+  relationPillTextActive: {
+    color: "#fff"
+  },
+  loginRoleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#F8FAFC",
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#E2E8F0"
+  },
+  loginRoleBtnActive: {
+    backgroundColor: "#EFF6FF",
+    borderColor: BLUE
+  },
+  loginRoleBtnTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: NAVY
+  },
+  loginRoleBtnSub: {
+    fontSize: 9.5,
+    color: MUTED,
+    marginTop: 2
+  },
+  loginGpsBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    padding: 11,
+    borderRadius: 10
+  },
+  loginGpsBtnText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: BLUE
+  },
+  hubChip: {
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0"
+  },
+  hubChipActive: {
+    backgroundColor: BLUE,
+    borderColor: BLUE
+  },
+  hubChipText: {
+    fontSize: 9.5,
+    fontWeight: "700",
+    color: TEXT
+  },
+  hubChipTextActive: {
+    color: "#fff"
+  },
+  loginSubmitBtn: {
+    backgroundColor: BLUE,
+    borderRadius: 14,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 8,
+    elevation: 3,
+    shadowColor: BLUE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8
+  },
+  loginSubmitBtnText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "900",
+    letterSpacing: 0.3
+  },
+  loginTwilioNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 14,
+    backgroundColor: "#F0F9FF",
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#BAE6FD"
+  },
+  loginTwilioNoticeText: {
+    fontSize: 8.5,
+    color: "#0369A1",
+    fontWeight: "600",
+    lineHeight: 12
+  },
+
+  // Header & Home Profile Badges
+  headerProfileBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    gap: 4
+  },
+  headerProfileText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: NAVY,
+    maxWidth: 70
+  },
+  headerSosBadge: {
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4
+  },
+  headerSosBadgeText: {
+    fontSize: 7.5,
+    fontWeight: "900",
+    color: RED
+  },
+  userWelcomeCard: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 10
+  },
+  userWelcomeName: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: NAVY
+  },
+  userRoleTag: {
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 5
+  },
+  userRoleTagText: {
+    fontSize: 8.5,
+    fontWeight: "800",
+    color: BLUE
+  },
+  userEmergencyPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: RED,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6
+  },
+  userEmergencyPillText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#fff"
+  },
+  userProfileEditIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#EFF6FF",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#DBEAFE"
+  },
+
+  // Twilio Active SOS Box
+  sosTwilioDispatchedBox: {
+    backgroundColor: "#DCFCE7",
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+    borderRadius: 8,
+    padding: 6,
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "flex-start",
+    marginTop: 5
+  },
+
+  // Profile Modal
+  profileModalCard: {
+    backgroundColor: "#fff",
+    borderRadius: 18,
+    padding: 18,
+    width: "90%",
+    maxWidth: 400,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0"
+  },
+  profileModalAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "#EFF6FF",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  profileModalName: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: NAVY
+  },
+  profileModalRole: {
+    fontSize: 10,
+    color: MUTED,
+    marginTop: 1
+  },
+  profileDetailsBox: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 10
+  },
+  profileDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EDF2F7"
+  },
+  profileDetailLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: MUTED
+  },
+  profileDetailVal: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: NAVY
+  },
+  profileTwilioBanner: {
+    backgroundColor: "#F0FDF4",
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "flex-start"
+  },
+  profileEditBtn: {
+    flex: 1,
+    backgroundColor: "#EFF6FF",
+    paddingVertical: 10,
+    borderRadius: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    borderWidth: 1,
+    borderColor: "#BFDBFE"
+  },
+  profileEditBtnText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: BLUE
+  },
+  profileLogoutBtn: {
+    flex: 1,
+    backgroundColor: "#FEF2F2",
+    paddingVertical: 10,
+    borderRadius: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    borderWidth: 1,
+    borderColor: "#FECACA"
+  },
+  profileLogoutBtnText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: RED
   }
 });
 

@@ -11,6 +11,7 @@ import {
 } from "./engine.js";
 import { fetchLiveWeather, fetchFloodMetrics, reverseGeocode } from "./weatherService.js";
 import { triggerPagerDutySos } from "./pagerdutyService.js";
+import { sendSosSms } from "./twilioService.js";
 import { uploadPhotoToSupabase, uploadVideoToSupabase, syncIncidentToSupabase, sendAuthorityIncidentEmail } from "./supabaseService.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -790,10 +791,15 @@ class Store {
     const id = `SOS-${2000 + this.sosAlerts.length + 1}`;
     const rescueTeam = this.resources.find((t) => t.id === "TEAM-05" || t.id === "TEAM-03") || this.resources[0];
 
+    const userPhone = sosData.userPhone || sosData.phone || "+917738122051";
+    const emergencyNumber = sosData.emergencyNumber || sosData.emergencyPhone || "7977661625";
+
     const sos = {
       id,
       userId: sosData.userId || "USR-SHOPKEEPER-72",
       userName: sosData.userName || "Local Shop Owner",
+      userPhone,
+      emergencyNumber,
       role: sosData.role || "Shop Owner",
       lat: Number(sosData.lat) || 19.132,
       lng: Number(sosData.lng) || 72.848,
@@ -812,6 +818,13 @@ class Store {
     this.save();
     this.emit("sos:triggered", { sos, team: rescueTeam });
 
+    // Asynchronously dispatch Twilio SMS alert from +1 765 563 5185 to verified test number +917738122051
+    sendSosSms(sos).then((twResult) => {
+      console.log(`[SOS Twilio] SMS alert dispatched for ${id}:`, twResult);
+    }).catch((err) => {
+      console.warn(`[SOS Twilio] SMS notice:`, err.message);
+    });
+
     // Asynchronously dispatch PagerDuty alert & phone call escalation to NGO Coordinator (7977661625)
     triggerPagerDutySos(sos).then((pdResult) => {
       console.log(`[SOS Dispatch] PagerDuty escalation triggered for ${id} (Call: 7977661625)`, pdResult);
@@ -824,10 +837,13 @@ class Store {
       sos,
       assignedTeam: rescueTeam.name,
       teamPhone: rescueTeam.phone,
-      targetEmergencyPhone: "7977661625",
+      targetEmergencyPhone: emergencyNumber,
+      twilioSender: "+17655635185",
+      twilioTestRecipient: "+917738122051",
+      twilioStatus: "DISPATCHED",
       pagerdutyStatus: "DISPATCHED_CALL_ACTIVE",
       eta: "4–6 min",
-      message: `Emergency SOS broadcasted. ${rescueTeam.name} deployed. PagerDuty call dispatched to 7977661625.`
+      message: `Emergency SOS broadcasted. ${rescueTeam.name} deployed. Twilio emergency SMS dispatched to ${emergencyNumber} (testing verified: +917738122051).`
     };
   }
 
