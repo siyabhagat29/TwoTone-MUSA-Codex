@@ -1310,7 +1310,7 @@ function OnboardingFlow({ lang, setLang, role, setRole, onComplete, requestLocat
             )}
 
             <TouchableOpacity
-              style={[s.primary, { marginBottom: 12 }]}
+              style={[s.primary, { marginTop: 8, marginBottom: 10 }]}
               onPress={handleGpsLocation}
               disabled={loadingGps}
             >
@@ -1319,36 +1319,12 @@ function OnboardingFlow({ lang, setLang, role, setRole, onComplete, requestLocat
               ) : (
                 <>
                   <Ionicons name="navigate" size={18} color="#fff" />
-                  <Text style={s.primaryText}>🎯 Detect Shop GPS Location</Text>
+                  <Text style={s.primaryText}>
+                    {role === "Shop Owner" ? "🎯 Detect Shop GPS Location" : "🎯 Detect Live GPS Location"}
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
-
-            <Text style={{ fontSize: 11, fontWeight: "800", color: NAVY, marginBottom: 8, marginTop: 4 }}>
-              Or choose your commercial market area:
-            </Text>
-
-            <ScrollView style={{ maxHeight: 220 }}>
-              {MUMBAI_MARKET_HUBS.map((hub) => (
-                <TouchableOpacity
-                  key={hub.id}
-                  style={s.marketHubItem}
-                  onPress={() => {
-                    requestLocation();
-                    onComplete();
-                  }}
-                >
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <Text style={{ fontSize: 16 }}>🏪</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.marketHubTitle}>{hub.name}</Text>
-                      <Text style={s.marketHubSub}>{hub.area} · {hub.ward}</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
           </View>
         )}
       </View>

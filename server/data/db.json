@@ -17,7 +17,7 @@
       "tempC": 29.4,
       "riverDischarge": 4.06,
       "dischargeRatio": 0.99,
-      "lastUpdated": "2026-09-20T08:34:18.530Z",
+      "lastUpdated": "2026-09-20T08:51:18.831Z",
       "cause": "Surface Runoff Accumulation",
       "causeCode": "MIXED_RUNOFF",
       "riskLevel": "ORANGE"
@@ -39,7 +39,7 @@
       "tempC": 29.4,
       "riverDischarge": 2.03,
       "dischargeRatio": 1.01,
-      "lastUpdated": "2026-09-20T08:34:18.748Z",
+      "lastUpdated": "2026-09-20T08:51:19.030Z",
       "cause": "Surface Runoff Accumulation",
       "causeCode": "MIXED_RUNOFF",
       "riskLevel": "GREEN"
@@ -61,7 +61,7 @@
       "tempC": 29.4,
       "riverDischarge": 4.06,
       "dischargeRatio": 0.99,
-      "lastUpdated": "2026-09-20T08:34:18.945Z",
+      "lastUpdated": "2026-09-20T08:51:19.230Z",
       "cause": "Surface Runoff Accumulation",
       "causeCode": "MIXED_RUNOFF",
       "riskLevel": "GREEN"
@@ -83,7 +83,7 @@
       "tempC": 29.7,
       "riverDischarge": 2.03,
       "dischargeRatio": 1.01,
-      "lastUpdated": "2026-09-20T08:34:19.170Z",
+      "lastUpdated": "2026-09-20T08:51:19.465Z",
       "cause": "Surface Runoff Accumulation",
       "causeCode": "MIXED_RUNOFF",
       "riskLevel": "ORANGE"
@@ -1624,5 +1624,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-09-20T08:34:19.172Z"
+  "updatedAt": "2026-09-20T08:51:19.465Z"
 }
