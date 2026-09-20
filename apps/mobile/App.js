@@ -637,7 +637,7 @@ export default function App() {
       const [zRes, aRes, eRes, sRes, bRes, lRes] = await Promise.all([
         fetchWithTimeout(`${apiUrl}/zones`),
         fetchWithTimeout(`${apiUrl}/alerts`),
-        fetchWithTimeout(`${apiUrl}/emergency-services?lat=${lat}&lng=${lng}`),
+        fetchWithTimeout(`${apiUrl}/emergency-services?lat=${lat}&lng=${lng}&radius_km=5`),
         fetchWithTimeout(shelterUrl),
         fetchWithTimeout(`${apiUrl}/flood-buddy/nearby`),
         fetchWithTimeout(`${apiUrl}/lightning`)
@@ -1359,16 +1359,17 @@ function Home({
 }) {
   const [categoryFilter, setCategoryFilter] = useState("all"); // all | medical | fire | police | shelter
 
-  // Filtered List
+  // Filtered List across 4 key emergency categories
   const filteredEms = emergencyServices.filter((ems) => {
     if (categoryFilter === "all") return true;
     if (categoryFilter === "medical") return ems.category === "medical";
     if (categoryFilter === "fire") return ems.category === "fire";
     if (categoryFilter === "police") return ems.category === "police";
+    if (categoryFilter === "shelter" || categoryFilter === "ngo") return ems.category === "ngo" || ems.category === "shelter";
     return false;
   });
 
-  const showShelters = categoryFilter === "all" || categoryFilter === "shelter";
+  const showShelters = categoryFilter === "all" || categoryFilter === "shelter" || categoryFilter === "ngo";
 
   return (
     <ScrollView
@@ -1460,19 +1461,19 @@ function Home({
       {/* 3. Dynamic Nearby Emergency Services & Relief Infrastructure Header */}
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4, marginBottom: 6 }}>
         <Text style={s.sectionTitle}>📍 {t.nearbyServices}</Text>
-        <Text style={{ fontSize: 10, color: MUTED, fontWeight: "600" }}>
-          {userAddress ? userAddress.slice(0, 24) : "Current Location"}
+        <Text style={{ fontSize: 10, color: BLUE, fontWeight: "700" }}>
+          {userAddress ? `${userAddress.slice(0, 18)} · 5 km radius` : "Within 5 km radius"}
         </Text>
       </View>
 
-      {/* Category Filter Chips */}
+      {/* Category Filter Chips (4 Core Categories + All) */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 10 }}>
         {[
-          { id: "all", label: "All Nearby" },
-          { id: "medical", label: "🏥 Hospitals & ICU" },
+          { id: "all", label: "All Units (5 km)" },
+          { id: "medical", label: "🏥 Hospitals & ICUs" },
           { id: "fire", label: "🚒 Fire & Water-Rescue" },
           { id: "police", label: "👮 Police & Security" },
-          { id: "shelter", label: "🏕️ NGO Shelters & Tents" }
+          { id: "shelter", label: "⛺ NGOs & Relief Centers" }
         ].map((cat) => {
           const isActive = categoryFilter === cat.id;
           return (
@@ -1509,7 +1510,9 @@ function Home({
           </View>
         )}
 
-        {showShelters && shelters.map((sh) => (
+        {showShelters && shelters.map((sh) => {
+          const shMapsUrl = sh.maps_url || sh.mapsUrl || ((sh.latitude || sh.lat) && (sh.longitude || sh.lng) ? `https://www.google.com/maps/dir/?api=1&destination=${sh.latitude || sh.lat},${sh.longitude || sh.lng}&travelmode=driving` : null);
+          return (
           <View style={[s.emsCard, { borderLeftWidth: 4, borderLeftColor: sh.is_verified ? GREEN : "#0284c7" }]} key={sh.id}>
             <Text style={{ fontSize: 26 }}>{sh.icon || (sh.type?.includes("food") ? "🍲" : sh.type?.includes("tent") ? "⛺" : "🏕️")}</Text>
             <View style={{ flex: 1 }}>
@@ -1538,7 +1541,7 @@ function Home({
               <Text style={s.emsSub}>{sh.address} · <Text style={{ color: GREEN, fontWeight: "700" }}>{sh.status || "Safe / Open"}</Text></Text>
               {sh.capacity && <Text style={[s.emsSub, { fontSize: 10, color: MUTED }]}>Capacity: {sh.capacity}</Text>}
               
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 6, flexWrap: "wrap", gap: 6 }}>
                 <TouchableOpacity
                   style={{ flexDirection: "row", alignItems: "center", gap: 5 }}
                   onPress={() => {
@@ -1550,29 +1553,33 @@ function Home({
                   <Text style={{ fontSize: 11, color: BLUE, fontWeight: "800" }}>{sh.phone || sh.contact || "+91 7977661625"}</Text>
                 </TouchableOpacity>
 
-                <View style={{ flexDirection: "row", gap: 6 }}>
-                  {sh.maps_url && (
+                <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+                  {shMapsUrl && (
                     <TouchableOpacity
-                      style={{ backgroundColor: "#F1F5F9", paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 }}
-                      onPress={() => Linking.openURL(sh.maps_url).catch(() => null)}
+                      style={{ backgroundColor: BLUE, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 7, flexDirection: "row", alignItems: "center", gap: 4 }}
+                      onPress={() => Linking.openURL(shMapsUrl).catch(() => null)}
                     >
-                      <Text style={{ fontSize: 9, color: "#334155", fontWeight: "700" }}>📍 Google Maps</Text>
+                      <Ionicons name="navigate" size={11} color="#fff" />
+                      <Text style={{ fontSize: 10, color: "#fff", fontWeight: "800" }}>Navigate in Google Maps ↗</Text>
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity
-                    style={{ backgroundColor: "#EFF6FF", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}
+                    style={{ backgroundColor: "#EFF6FF", paddingHorizontal: 8, paddingVertical: 5, borderRadius: 7 }}
                     onPress={onNavigateToMap}
                   >
-                    <Text style={{ fontSize: 10, color: BLUE, fontWeight: "800" }}>🗺️ View Route</Text>
+                    <Text style={{ fontSize: 10, color: BLUE, fontWeight: "800" }}>🗺️ Route</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             </View>
           </View>
-        ))}
+          );
+        })}
 
         {/* Emergency Services */}
-        {filteredEms.map((ems) => (
+        {filteredEms.map((ems) => {
+          const emsNavUrl = ems.navigateUrl || ems.mapsUrl || ((ems.latitude || ems.lat) && (ems.longitude || ems.lng) ? `https://www.google.com/maps/dir/?api=1&destination=${ems.latitude || ems.lat},${ems.longitude || ems.lng}&travelmode=driving` : null);
+          return (
           <View style={s.emsCard} key={ems.id}>
             <Text style={{ fontSize: 26 }}>{ems.icon}</Text>
             <View style={{ flex: 1 }}>
@@ -1582,21 +1589,76 @@ function Home({
                   <Text style={{ fontSize: 9, fontWeight: "800", color: BLUE }}>{ems.distanceKm} km</Text>
                 </View>
               </View>
+
+              {/* Badges & Rating */}
+              <View style={{ flexDirection: "row", gap: 5, marginTop: 3, flexWrap: "wrap", alignItems: "center" }}>
+                <View style={{ backgroundColor: "#F1F5F9", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 9, fontWeight: "700", color: "#475569" }}>🏷️ {ems.group || ems.subType || "Emergency Unit"}</Text>
+                </View>
+                {ems.source === "Google Maps" ? (
+                  <View style={{ backgroundColor: "#EFF6FF", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 9, fontWeight: "800", color: "#2563eb" }}>📍 Google Maps</Text>
+                  </View>
+                ) : (
+                  <View style={{ backgroundColor: "#DCFCE7", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 9, fontWeight: "800", color: "#15803d" }}>✓ Verified Civic Hub</Text>
+                  </View>
+                )}
+                {ems.rating && (
+                  <View style={{ backgroundColor: "#FEF3C7", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 9, fontWeight: "800", color: "#b45309" }}>⭐ {ems.rating} ({ems.userRatingsTotal || 0})</Text>
+                  </View>
+                )}
+              </View>
+
               <Text style={s.emsSub}>{ems.station} · <Text style={{ color: GREEN, fontWeight: "700" }}>{ems.status || "Active 24/7"}</Text></Text>
               {ems.capacity && <Text style={[s.emsSub, { fontSize: 10, color: MUTED }]}>Equipped: {ems.capacity}</Text>}
-              <TouchableOpacity
-                style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 4 }}
-                onPress={() => {
-                  const num = (ems.phone || "").split("/")[0].replace(/[^0-9+]/g, "");
-                  if (num) Linking.openURL(`tel:${num}`).catch(() => Alert.alert("Emergency Call", `${ems.name}: ${ems.phone}`));
-                }}
-              >
-                <Ionicons name="call" size={12} color={BLUE} />
-                <Text style={{ fontSize: 11, color: BLUE, fontWeight: "800" }}>{ems.phone}</Text>
-              </TouchableOpacity>
+
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 6, flexWrap: "wrap", gap: 6 }}>
+                <TouchableOpacity
+                  style={{ flexDirection: "row", alignItems: "center", gap: 5 }}
+                  onPress={() => {
+                    const num = (ems.phone || "").split("/")[0].replace(/[^0-9+]/g, "");
+                    if (num) Linking.openURL(`tel:${num}`).catch(() => Alert.alert("Emergency Call", `${ems.name}: ${ems.phone}`));
+                  }}
+                >
+                  <Ionicons name="call" size={12} color={BLUE} />
+                  <Text style={{ fontSize: 11, color: BLUE, fontWeight: "800" }}>{ems.phone}</Text>
+                </TouchableOpacity>
+
+                {emsNavUrl && (
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: BLUE,
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 8,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 4,
+                      elevation: 2
+                    }}
+                    onPress={() => Linking.openURL(emsNavUrl).catch(() => null)}
+                  >
+                    <Ionicons name="navigate" size={12} color="#fff" />
+                    <Text style={{ fontSize: 10, color: "#fff", fontWeight: "900" }}>Navigate in Google Maps ↗</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           </View>
-        ))}
+          );
+        })}
+
+        {filteredEms.length === 0 && (!showShelters || shelters.length === 0) && (
+          <View style={{ backgroundColor: "#F8FAFC", borderRadius: 10, padding: 18, alignItems: "center", borderWidth: 1, borderColor: "#E2E8F0", marginTop: 4 }}>
+            <Text style={{ fontSize: 24, marginBottom: 4 }}>🔍</Text>
+            <Text style={{ fontSize: 12, fontWeight: "800", color: TEXT }}>No Units Found in this Category</Text>
+            <Text style={{ fontSize: 10, color: MUTED, marginTop: 2, textAlign: "center" }}>
+              No emergency facilities discovered for this category within 5 km.
+            </Text>
+          </View>
+        )}
       </View>
     </ScrollView>
   );
@@ -2218,16 +2280,30 @@ function MapScreen({ zones, emergencyServices, shelters, activeZone, userLoc, us
               <View style={{ marginTop: 8 }}>
                 <Text style={{ fontSize: 10, color: MUTED }}>Station: {selectedPin.data.station}</Text>
                 <Text style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>{t.distanceLabel}: {selectedPin.data.distanceKm} km</Text>
-                <TouchableOpacity
-                  style={[s.primary, { height: 38, marginTop: 8 }]}
-                  onPress={() => {
-                    const num = (selectedPin.data.phone || "").split("/")[0].replace(/[^0-9+]/g, "");
-                    if (num) Linking.openURL(`tel:${num}`).catch(() => Alert.alert("Emergency Call", `${selectedPin.data.name}: ${selectedPin.data.phone}`));
-                  }}
-                >
-                  <Ionicons name="call" size={14} color="#fff" />
-                  <Text style={s.primaryText}>{t.callBtn} {selectedPin.data.phone}</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+                  <TouchableOpacity
+                    style={[s.primary, { flex: 1, height: 38 }]}
+                    onPress={() => {
+                      const num = (selectedPin.data.phone || "").split("/")[0].replace(/[^0-9+]/g, "");
+                      if (num) Linking.openURL(`tel:${num}`).catch(() => Alert.alert("Emergency Call", `${selectedPin.data.name}: ${selectedPin.data.phone}`));
+                    }}
+                  >
+                    <Ionicons name="call" size={14} color="#fff" />
+                    <Text style={s.primaryText}>{t.callBtn}</Text>
+                  </TouchableOpacity>
+                  {(selectedPin.data.navigateUrl || selectedPin.data.mapsUrl || ((selectedPin.data.latitude || selectedPin.data.lat) && (selectedPin.data.longitude || selectedPin.data.lng))) && (
+                    <TouchableOpacity
+                      style={[s.secondary, { flex: 1.3, height: 38, backgroundColor: BLUE, borderColor: BLUE }]}
+                      onPress={() => {
+                        const url = selectedPin.data.navigateUrl || selectedPin.data.mapsUrl || `https://www.google.com/maps/dir/?api=1&destination=${selectedPin.data.latitude || selectedPin.data.lat},${selectedPin.data.longitude || selectedPin.data.lng}&travelmode=driving`;
+                        Linking.openURL(url).catch(() => null);
+                      }}
+                    >
+                      <Ionicons name="navigate" size={14} color="#fff" />
+                      <Text style={[s.secondaryText, { color: "#fff", fontWeight: "800", fontSize: 11 }]}>Google Maps ↗</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             )}
           </View>
@@ -2281,6 +2357,18 @@ function MapScreen({ zones, emergencyServices, shelters, activeZone, userLoc, us
                 <Ionicons name="navigate" size={15} color="#fff" />
                 <Text style={s.primaryText}>{t.startNavBtn}</Text>
               </TouchableOpacity>
+              {Boolean(selectedShelter.maps_url || selectedShelter.mapsUrl || ((selectedShelter.latitude || selectedShelter.lat) && (selectedShelter.longitude || selectedShelter.lng))) && (
+                <TouchableOpacity
+                  style={[s.secondary, { flex: 1, height: 38, borderColor: BLUE, backgroundColor: "#EFF6FF" }]}
+                  onPress={() => {
+                    const url = selectedShelter.maps_url || selectedShelter.mapsUrl || `https://www.google.com/maps/dir/?api=1&destination=${selectedShelter.latitude || selectedShelter.lat},${selectedShelter.longitude || selectedShelter.lng}&travelmode=driving`;
+                    Linking.openURL(url).catch(() => null);
+                  }}
+                >
+                  <Ionicons name="map" size={14} color={BLUE} />
+                  <Text style={[s.secondaryText, { color: BLUE, fontWeight: "800", fontSize: 11 }]}>Google Maps ↗</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}

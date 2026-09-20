@@ -102,6 +102,16 @@ function LeafletMap({
     }
   }, []);
 
+  // Auto-resize Leaflet canvas on container width changes
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const observer = new ResizeObserver(() => {
+      mapInstance.current?.invalidateSize();
+    });
+    observer.observe(mapRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   // Animate pan/zoom whenever center coordinates change dynamically (if no active route)
   useEffect(() => {
     if (mapInstance.current && center && center.length === 2 && center[0] && center[1] && !activeRoute) {
@@ -932,6 +942,12 @@ function Dashboard({
   const totalRain = zones.reduce((sum, z) => sum + (z.rainfall || 0), 0);
   const avgRain = zones.length > 0 ? (totalRain / zones.length).toFixed(1) : 0;
   const availableTeams = resources.filter((r) => r.status === "Available").length;
+  const [emsCategoryFilter, setEmsCategoryFilter] = useState("all");
+
+  const filteredEmergencyServices = emergencyServices.filter((ems) => {
+    if (emsCategoryFilter === "all") return true;
+    return ems.category === emsCategoryFilter;
+  });
 
   return (
     <div className="content">
@@ -1006,35 +1022,27 @@ function Dashboard({
           </div>
         </section>
 
-        {/* Live Incident Feed Sidebar */}
-        <section className="panel">
+        {/* Live Incident Queue */}
+        <section className="panel incident-panel">
           <div className="panel-head">
             <div>
               <h3>Live Incident Feed</h3>
               <span>Incoming verified ground reports ({incidents.length})</span>
             </div>
-            <NavLink to="/incidents" className="link">
-              View All <ChevronRight size={14} />
-            </NavLink>
+            <NavLink to="/incidents" className="link">View All <ChevronRight size={14} /></NavLink>
           </div>
           <div className="incident-feed-list">
-            {incidents.length === 0 ? (
-              <div style={{ padding: "30px", textAlign: "center", color: "#8a9ba8", fontSize: "12px" }}>
-                No active citizen incidents reported yet.
-              </div>
-            ) : (
-              incidents.slice(0, 6).map((inc) => (
-                <IncidentCard
-                  key={inc.id}
-                  incident={inc}
-                  onAutoDispatch={onAutoDispatch}
-                  onVerify={onVerify}
-                  onFalseAlarm={onFalseAlarm}
-                  onOpenOverride={onOpenOverride}
-                  onViewPhoto={onViewPhoto}
-                />
-              ))
-            )}
+            {incidents.slice(0, 5).map((inc) => (
+              <IncidentCard
+                key={inc.id}
+                incident={inc}
+                onAutoDispatch={onAutoDispatch}
+                onVerify={onVerify}
+                onFalseAlarm={onFalseAlarm}
+                onOpenOverride={onOpenOverride}
+                onViewPhoto={onViewPhoto}
+              />
+            ))}
           </div>
         </section>
       </div>
@@ -1046,7 +1054,7 @@ function Dashboard({
             <div>
               <h3>📍 Nearby Emergency Services & Safe Evacuation Shelters</h3>
               <span>
-                Live discovery for <b>{userLocationName}</b> ({userLat?.toFixed(4)}, {userLng?.toFixed(4)}) · Radius: 10 km
+                Live discovery for <b>{userLocationName}</b> ({userLat?.toFixed(4)}, {userLng?.toFixed(4)}) · Radius: 5 km
               </span>
             </div>
             <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
@@ -1056,171 +1064,307 @@ function Dashboard({
                 </span>
               )}
               <span style={{ fontSize: "11px", color: "#2563eb", fontWeight: "bold" }}>
-                {emergencyServices.length} Emergency Units · {shelters.length} Evacuation Shelters
+                {emsCategoryFilter === "all"
+                  ? `${emergencyServices.length + shelters.length} Total Facilities (within 5 km)`
+                  : emsCategoryFilter === "ngo"
+                  ? `${emergencyServices.filter((x) => x.category === "ngo").length + shelters.length} NGOs & Relief Centers (within 5 km)`
+                  : `${filteredEmergencyServices.length} Units (within 5 km)`}
               </span>
             </div>
           </div>
 
+          {/* Category Filter Pills (4 Requested Categories + All) */}
+          <div style={{ padding: "12px 18px 4px", display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+            {[
+              { id: "all", label: "All Units (within 5 km)", count: emergencyServices.length + shelters.length },
+              { id: "medical", label: "🏥 Hospitals & ICUs", count: emergencyServices.filter((x) => x.category === "medical").length },
+              { id: "fire", label: "🚒 Fire & Water Rescue", count: emergencyServices.filter((x) => x.category === "fire").length },
+              { id: "police", label: "👮 Police & Security", count: emergencyServices.filter((x) => x.category === "police").length },
+              { id: "ngo", label: "⛺ NGOs & Relief Centers", count: emergencyServices.filter((x) => x.category === "ngo").length + shelters.length }
+            ].map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setEmsCategoryFilter(cat.id)}
+                style={{
+                  border: "1px solid",
+                  borderColor: emsCategoryFilter === cat.id ? "#2563eb" : "#cbd5e1",
+                  background: emsCategoryFilter === cat.id ? "#2563eb" : "#fff",
+                  color: emsCategoryFilter === cat.id ? "#fff" : "#475569",
+                  padding: "5px 12px",
+                  borderRadius: "20px",
+                  fontSize: "11px",
+                  fontWeight: "700",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  transition: "all 0.15s ease"
+                }}
+              >
+                <span>{cat.label}</span>
+                <span
+                  style={{
+                    background: emsCategoryFilter === cat.id ? "rgba(255,255,255,0.25)" : "#f1f5f9",
+                    color: emsCategoryFilter === cat.id ? "#fff" : "#64748b",
+                    padding: "1px 6px",
+                    borderRadius: "10px",
+                    fontSize: "10px"
+                  }}
+                >
+                  {cat.count}
+                </span>
+              </button>
+            ))}
+          </div>
+
           <div className="resource-grid">
-            {/* 1. Emergency Medical, Fire, Police Services */}
-            {emergencyServices.map((ems) => (
-              <div className="resource-card" key={ems.id} style={{ borderLeft: "4px solid #2563eb" }}>
+            {/* 1. Emergency Medical, Fire, Police, NGO Services */}
+            {filteredEmergencyServices.map((ems) => (
+              <div
+                className="resource-card"
+                key={ems.id}
+                style={{
+                  borderLeft: `4px solid ${
+                    ems.category === "medical"
+                      ? "#ef4444"
+                      : ems.category === "fire"
+                      ? "#f97316"
+                      : ems.category === "police"
+                      ? "#3b82f6"
+                      : "#10b981"
+                  }`
+                }}
+              >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
                     <span style={{ fontSize: "24px" }}>{ems.icon}</span>
                     <div>
                       <b style={{ fontSize: "13px", color: "#0f172a" }}>{ems.name}</b>
-                      <div style={{ fontSize: "10px", color: "#64748b" }}>{ems.station} · {ems.type}</div>
+                      <div style={{ fontSize: "10px", color: "#64748b" }}>{ems.station} · {ems.subType || ems.type}</div>
                     </div>
                   </div>
                   <span className="status-badge" style={{ background: "#eff6ff", color: "#2563eb", fontWeight: "800", fontSize: "10px" }}>
                     {ems.distanceKm} km away
                   </span>
                 </div>
-                <div style={{ marginTop: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", color: "#334155" }}>
-                  <span><b>Direct Helpline:</b> {ems.phone}</span>
-                  <span style={{ color: "#16a34a", fontWeight: "700" }}>● {ems.status || "Active 24/7"}</span>
+
+                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "6px", alignItems: "center" }}>
+                  <span style={{ background: "#f1f5f9", color: "#475569", fontSize: "9px", fontWeight: "700", padding: "2px 7px", borderRadius: "5px" }}>
+                    🏷️ {ems.group || ems.subType}
+                  </span>
+                  {ems.source === "Google Maps" ? (
+                    <span style={{ background: "#eff6ff", color: "#2563eb", fontSize: "9px", fontWeight: "800", padding: "2px 7px", borderRadius: "5px" }}>
+                      📍 Google Maps
+                    </span>
+                  ) : (
+                    <span style={{ background: "#ecfdf5", color: "#047857", fontSize: "9px", fontWeight: "800", padding: "2px 7px", borderRadius: "5px" }}>
+                      ✓ Verified Civic Hub
+                    </span>
+                  )}
+                  {ems.rating && (
+                    <span style={{ background: "#fef3c7", color: "#b45309", fontSize: "9px", fontWeight: "800", padding: "2px 6px", borderRadius: "5px" }}>
+                      ⭐ {ems.rating} ({ems.userRatingsTotal || 0})
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ marginTop: "10px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", color: "#334155", flexWrap: "wrap", gap: "8px" }}>
+                  <span><b>Helpline:</b> {ems.phone}</span>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <span style={{ color: "#16a34a", fontWeight: "700" }}>● {ems.status || "Active 24/7"}</span>
+                    {(ems.navigateUrl || ems.mapsUrl || (ems.lat && ems.lng)) && (
+                      <a
+                        href={ems.navigateUrl || ems.mapsUrl || `https://www.google.com/maps/dir/?api=1&destination=${ems.lat},${ems.lng}&travelmode=driving`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                          color: "#fff",
+                          padding: "5px 11px",
+                          borderRadius: "7px",
+                          fontWeight: "800",
+                          textDecoration: "none",
+                          fontSize: "11px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          boxShadow: "0 2px 6px rgba(37,99,235,0.25)"
+                        }}
+                      >
+                        🗺️ Navigate in Google Maps ↗
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
 
-            {/* 2. Evacuation Shelters State Views */}
-            {shelterLoading ? (
-              <div style={{ gridColumn: "1 / -1", padding: "32px 20px", textAlign: "center", background: "#f8fafc", borderRadius: "10px", border: "1px dashed #93c5fd" }}>
-                <Loader2 size={28} color="#2563eb" style={{ animation: "spin 1s linear infinite", margin: "0 auto 8px" }} />
-                <b style={{ color: "#1e293b", fontSize: "13px" }}>Discovering Safe Evacuation Shelters & Relief Hubs...</b>
+            {/* Empty State when no units match */}
+            {filteredEmergencyServices.length === 0 && emsCategoryFilter !== "all" && emsCategoryFilter !== "ngo" && (
+              <div style={{ gridColumn: "1 / -1", padding: "32px 20px", textAlign: "center", background: "#f8fafc", borderRadius: "10px", border: "1px dashed #cbd5e1" }}>
+                <div style={{ fontSize: "28px", marginBottom: "4px" }}>🔍</div>
+                <b style={{ color: "#334155", fontSize: "13px" }}>No Units Discovered in this Category within 5 km</b>
                 <div style={{ fontSize: "11px", color: "#64748b", marginTop: "4px" }}>
-                  Querying OpenStreetMap Nominatim and Overpass POI servers for civic centers, colleges, halls, stadiums & relief camps within 10 km of {userLocationName}...
+                  No facilities found matching this category within 5 km of <b>{userLocationName}</b>.
                 </div>
               </div>
-            ) : shelterStatus === "invalid" ? (
-              <div style={{ gridColumn: "1 / -1", padding: "24px", textAlign: "center", background: "#fef2f2", borderRadius: "10px", border: "1px solid #fecaca" }}>
-                <AlertTriangle size={28} color="#dc2626" style={{ margin: "0 auto 6px" }} />
-                <b style={{ color: "#991b1b" }}>Invalid Location</b>
-                <div style={{ fontSize: "11px", color: "#b91c1c", marginTop: "4px" }}>
-                  {shelterError || "Could not find geographic coordinates for the searched area. Please verify spelling."}
-                </div>
-              </div>
-            ) : shelterStatus === "error" ? (
-              <div style={{ gridColumn: "1 / -1", padding: "24px", textAlign: "center", background: "#fff7ed", borderRadius: "10px", border: "1px solid #fed7aa" }}>
-                <AlertOctagon size={28} color="#ea580c" style={{ margin: "0 auto 6px" }} />
-                <b style={{ color: "#9a3412" }}>Discovery Service Error</b>
-                <div style={{ fontSize: "11px", color: "#c2410c", marginTop: "4px" }}>
-                  {shelterError || "Failed to load shelter data from backend."}
-                </div>
-                {onRetryShelters && (
-                  <button
-                    onClick={onRetryShelters}
-                    className="primary small"
-                    style={{ marginTop: "10px" }}
-                  >
-                    <RefreshCw size={12} /> Retry Shelter Discovery
-                  </button>
-                )}
-              </div>
-            ) : shelterStatus === "offline" ? (
-              <div style={{ gridColumn: "1 / -1", padding: "24px", textAlign: "center", background: "#f1f5f9", borderRadius: "10px", border: "1px solid #cbd5e1" }}>
-                <WifiOff size={28} color="#64748b" style={{ margin: "0 auto 6px" }} />
-                <b style={{ color: "#334155" }}>Offline Mode</b>
-                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "4px" }}>
-                  Internet connection unavailable. Reconnect to load live evacuation shelters.
-                </div>
-              </div>
-            ) : shelters.length === 0 ? (
-              <div style={{ gridColumn: "1 / -1", padding: "28px", textAlign: "center", background: "#f8fafc", borderRadius: "10px", border: "1px dashed #cbd5e1" }}>
-                <div style={{ fontSize: "28px", marginBottom: "4px" }}>🏕️</div>
-                <b style={{ color: "#334155", fontSize: "13px" }}>No Shelters Discovered within 10 km</b>
-                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "4px" }}>
-                  No verified public evacuation centers or civic refuge spaces found for <b>{userLocationName}</b>. Try searching an adjacent area or market hub above.
-                </div>
-              </div>
-            ) : (
-              shelters.map((sh) => {
-                const isSelected = selectedShelter && selectedShelter.id === sh.id;
-                const isVerified = Boolean(sh.is_verified || sh.isVerified);
-                return (
-                  <div
-                    className="resource-card"
-                    key={sh.id}
-                    style={{
-                      borderLeft: `4px solid ${isSelected ? "#e11d48" : isVerified ? "#16a34a" : "#0284c7"}`,
-                      background: isSelected ? "#fff1f2" : "#fff"
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                        <span style={{ fontSize: "24px" }}>{sh.icon || "🏕️"}</span>
-                        <div>
-                          <b style={{ fontSize: "13px", color: isSelected ? "#9f1239" : "#0f172a" }}>{sh.name}</b>
-                          <div style={{ display: "flex", gap: "4px", marginTop: "2px", flexWrap: "wrap" }}>
-                            <span style={{ fontSize: "9px", background: "#f1f5f9", color: "#475569", padding: "1px 5px", borderRadius: "4px", fontWeight: "600" }}>
-                              🏷️ {sh.type || sh.shelterType || "Relief Center"}
-                            </span>
-                            <span style={{ fontSize: "9px", background: isVerified ? "#dcfce7" : "#e0f2fe", color: isVerified ? "#15803d" : "#0369a1", padding: "1px 5px", borderRadius: "4px", fontWeight: "700" }}>
-                              {isVerified ? "✓ Verified Shelter" : `Discovered (${sh.provider || "OSM"})`}
-                            </span>
-                          </div>
-                          {sh.agency && <div style={{ fontSize: "10px", color: "#0284c7", fontWeight: "600", marginTop: "2px" }}>🤝 Assigned: {sh.agency}</div>}
-                          <div style={{ fontSize: "10px", color: "#64748b" }}>{sh.address}</div>
-                        </div>
-                      </div>
-                      <div style={{ textAlign: "right" }}>
-                        <span className="status-badge" style={{ background: isSelected ? "#ffe4e6" : isVerified ? "#ecfdf5" : "#eff6ff", color: isSelected ? "#e11d48" : isVerified ? "#16a34a" : "#0284c7", fontWeight: "800", fontSize: "10px" }}>
-                          {sh.distance_km ?? sh.distanceKm} km away
-                        </span>
-                        <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px", fontWeight: "600" }}>
-                          ~{sh.eta_minutes ?? sh.etaMin ?? 5} min ETA
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ marginTop: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", color: "#334155" }}>
-                      <span><b>Capacity:</b> {sh.capacity} ({sh.currentOccupancy || 0} occupied)</span>
-                      <span style={{ color: "#16a34a", fontWeight: "700" }}>● {sh.status || "Safe / Open"}</span>
-                    </div>
-                    <div style={{ marginTop: "10px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", flexWrap: "wrap", borderTop: "1px solid #f1f5f9", paddingTop: "8px" }}>
-                      {sh.phone || sh.contact ? (
-                        <span style={{ fontSize: "10px", color: "#2563eb", fontWeight: "700" }}>
-                          📞 Helpline: {sh.phone || sh.contact}
-                        </span>
-                      ) : <span />}
-                      <div style={{ display: "flex", gap: "6px" }}>
-                        <button
-                          onClick={() => {
-                            if (onSelectShelter) onSelectShelter(sh);
-                            window.scrollTo({ top: 0, behavior: "smooth" });
-                          }}
-                          style={{
-                            background: isSelected ? "#059669" : "linear-gradient(135deg, #2563eb, #1d4ed8)",
-                            color: "#fff",
-                            border: "none",
-                            padding: "5px 10px",
-                            borderRadius: "6px",
-                            fontSize: "11px",
-                            fontWeight: "800",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                            boxShadow: "0 2px 6px rgba(37,99,235,0.25)"
-                          }}
-                        >
-                          {isSelected ? "✓ Active Evacuation Route" : "🛣️ View Safest Route"}
-                        </button>
-                        {sh.maps_url && (
-                          <a
-                            href={sh.maps_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ fontSize: "10px", color: "#64748b", fontWeight: "600", textDecoration: "none", background: "#f1f5f9", padding: "5px 8px", borderRadius: "6px", display: "flex", alignItems: "center" }}
-                          >
-                            Google Maps &rarr;
-                          </a>
-                        )}
-                      </div>
+            )}
+
+            {/* 2. Evacuation Shelters & Relief Centers (Shown ONLY for All Units or NGOs & Relief Centers) */}
+            {(emsCategoryFilter === "all" || emsCategoryFilter === "ngo") && (
+              <>
+                {shelterLoading ? (
+                  <div style={{ gridColumn: "1 / -1", padding: "32px 20px", textAlign: "center", background: "#f8fafc", borderRadius: "10px", border: "1px dashed #93c5fd" }}>
+                    <Loader2 size={28} color="#2563eb" style={{ animation: "spin 1s linear infinite", margin: "0 auto 8px" }} />
+                    <b style={{ color: "#1e293b", fontSize: "13px" }}>Discovering Safe Evacuation Shelters & Relief Hubs...</b>
+                    <div style={{ fontSize: "11px", color: "#64748b", marginTop: "4px" }}>
+                      Querying OpenStreetMap Nominatim and Overpass POI servers for civic centers, colleges, halls, stadiums & relief camps within 10 km of {userLocationName}...
                     </div>
                   </div>
-                );
-              })
+                ) : shelterStatus === "invalid" ? (
+                  <div style={{ gridColumn: "1 / -1", padding: "24px", textAlign: "center", background: "#fef2f2", borderRadius: "10px", border: "1px solid #fecaca" }}>
+                    <AlertTriangle size={28} color="#dc2626" style={{ margin: "0 auto 6px" }} />
+                    <b style={{ color: "#991b1b" }}>Invalid Location</b>
+                    <div style={{ fontSize: "11px", color: "#b91c1c", marginTop: "4px" }}>
+                      Coordinates ({userLat.toFixed(3)}, {userLng.toFixed(3)}) are outside valid service zones.
+                    </div>
+                  </div>
+                ) : shelterStatus === "error" ? (
+                  <div style={{ gridColumn: "1 / -1", padding: "24px", textAlign: "center", background: "#fef2f2", borderRadius: "10px", border: "1px solid #fecaca" }}>
+                    <AlertTriangle size={28} color="#dc2626" style={{ margin: "0 auto 6px" }} />
+                    <b style={{ color: "#991b1b" }}>Unable to Fetch Shelters</b>
+                    <div style={{ fontSize: "11px", color: "#b91c1c", marginTop: "4px" }}>
+                      {shelterError || "Failed to load shelter data from backend."}
+                    </div>
+                    {onRetryShelters && (
+                      <button
+                        onClick={onRetryShelters}
+                        className="primary small"
+                        style={{ marginTop: "10px" }}
+                      >
+                        <RefreshCw size={12} /> Retry Shelter Discovery
+                      </button>
+                    )}
+                  </div>
+                ) : shelterStatus === "offline" ? (
+                  <div style={{ gridColumn: "1 / -1", padding: "24px", textAlign: "center", background: "#f1f5f9", borderRadius: "10px", border: "1px solid #cbd5e1" }}>
+                    <WifiOff size={28} color="#64748b" style={{ margin: "0 auto 6px" }} />
+                    <b style={{ color: "#334155" }}>Offline Mode</b>
+                    <div style={{ fontSize: "11px", color: "#64748b", marginTop: "4px" }}>
+                      Internet connection unavailable. Reconnect to load live evacuation shelters.
+                    </div>
+                  </div>
+                ) : shelters.length === 0 ? (
+                  <div style={{ gridColumn: "1 / -1", padding: "28px", textAlign: "center", background: "#f8fafc", borderRadius: "10px", border: "1px dashed #cbd5e1" }}>
+                    <div style={{ fontSize: "28px", marginBottom: "4px" }}>🏕️</div>
+                    <b style={{ color: "#334155", fontSize: "13px" }}>No Shelters Discovered within 10 km</b>
+                    <div style={{ fontSize: "11px", color: "#64748b", marginTop: "4px" }}>
+                      No verified public evacuation centers or civic refuge spaces found for <b>{userLocationName}</b>. Try searching an adjacent area or market hub above.
+                    </div>
+                  </div>
+                ) : (
+                  shelters.map((sh) => {
+                    const isSelected = selectedShelter && selectedShelter.id === sh.id;
+                    const isVerified = Boolean(sh.is_verified || sh.isVerified);
+                    const shMapsUrl = sh.maps_url || sh.mapsUrl || ((sh.latitude || sh.lat) && (sh.longitude || sh.lng) ? `https://www.google.com/maps/dir/?api=1&destination=${sh.latitude || sh.lat},${sh.longitude || sh.lng}&travelmode=driving` : null);
+                    return (
+                      <div
+                        className="resource-card"
+                        key={sh.id}
+                        style={{
+                          borderLeft: `4px solid ${isSelected ? "#e11d48" : isVerified ? "#16a34a" : "#0284c7"}`,
+                          background: isSelected ? "#fff1f2" : "#fff"
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                            <span style={{ fontSize: "24px" }}>{sh.icon || "🏕️"}</span>
+                            <div>
+                              <b style={{ fontSize: "13px", color: isSelected ? "#9f1239" : "#0f172a" }}>{sh.name}</b>
+                              <div style={{ display: "flex", gap: "4px", marginTop: "2px", flexWrap: "wrap" }}>
+                                <span style={{ fontSize: "9px", background: "#f1f5f9", color: "#475569", padding: "1px 5px", borderRadius: "4px", fontWeight: "600" }}>
+                                  🏷️ {sh.type || sh.shelterType || "Relief Center"}
+                                </span>
+                                <span style={{ fontSize: "9px", background: isVerified ? "#dcfce7" : "#e0f2fe", color: isVerified ? "#15803d" : "#0369a1", padding: "1px 5px", borderRadius: "4px", fontWeight: "700" }}>
+                                  {isVerified ? "✓ Verified Shelter" : `Discovered (${sh.provider || "OSM"})`}
+                                </span>
+                              </div>
+                              {sh.agency && <div style={{ fontSize: "10px", color: "#0284c7", fontWeight: "600", marginTop: "2px" }}>🤝 Assigned: {sh.agency}</div>}
+                              <div style={{ fontSize: "10px", color: "#64748b" }}>{sh.address}</div>
+                            </div>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <span className="status-badge" style={{ background: isSelected ? "#ffe4e6" : isVerified ? "#ecfdf5" : "#eff6ff", color: isSelected ? "#e11d48" : isVerified ? "#16a34a" : "#0284c7", fontWeight: "800", fontSize: "10px" }}>
+                              {sh.distance_km ?? sh.distanceKm} km away
+                            </span>
+                            <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px", fontWeight: "600" }}>
+                              ~{sh.eta_minutes ?? sh.etaMin ?? 5} min ETA
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ marginTop: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", color: "#334155" }}>
+                          <span><b>Capacity:</b> {sh.capacity} ({sh.currentOccupancy || 0} occupied)</span>
+                          <span style={{ color: "#16a34a", fontWeight: "700" }}>● {sh.status || "Safe / Open"}</span>
+                        </div>
+                        <div style={{ marginTop: "10px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", flexWrap: "wrap", borderTop: "1px solid #f1f5f9", paddingTop: "8px" }}>
+                          {sh.phone || sh.contact ? (
+                            <span style={{ fontSize: "10px", color: "#2563eb", fontWeight: "700" }}>
+                              📞 Helpline: {sh.phone || sh.contact}
+                            </span>
+                          ) : <span />}
+                          <div style={{ display: "flex", gap: "6px" }}>
+                            <button
+                              onClick={() => {
+                                if (onSelectShelter) onSelectShelter(sh);
+                                window.scrollTo({ top: 0, behavior: "smooth" });
+                              }}
+                              style={{
+                                background: isSelected ? "#059669" : "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                                color: "#fff",
+                                border: "none",
+                                padding: "5px 10px",
+                                borderRadius: "6px",
+                                fontSize: "11px",
+                                fontWeight: "800",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                boxShadow: "0 2px 6px rgba(37,99,235,0.25)"
+                              }}
+                            >
+                              {isSelected ? "✓ Active Evacuation Route" : "🛣️ View Safest Route"}
+                            </button>
+                            {shMapsUrl && (
+                              <a
+                                href={shMapsUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  fontSize: "11px",
+                                  color: "#2563eb",
+                                  fontWeight: "800",
+                                  textDecoration: "none",
+                                  background: "#eff6ff",
+                                  border: "1px solid #bfdbfe",
+                                  padding: "5px 10px",
+                                  borderRadius: "6px",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  boxShadow: "0 1px 3px rgba(37,99,235,0.15)"
+                                }}
+                              >
+                                🗺️ Navigate in Google Maps ↗
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </>
             )}
           </div>
         </section>
@@ -2137,7 +2281,7 @@ function App() {
           console.warn("[web] Shelter discovery warning:", err.message);
           return [];
         }),
-        apiFetch(`/emergency-services?lat=${lat}&lng=${lng}`).catch(() => []),
+        apiFetch(`/emergency-services?lat=${lat}&lng=${lng}&radius_km=5`).catch(() => []),
         apiFetch(`/resources?lat=${lat}&lng=${lng}`).catch(() => []),
         apiFetch(`/zones?lat=${lat}&lng=${lng}`).catch(() => [])
       ]);
@@ -2279,7 +2423,7 @@ function App() {
         apiFetch("/alerts").catch(() => []),
         apiFetch(`/resources?lat=${userLat}&lng=${userLng}`).catch(() => []),
         apiFetch("/chronic-blockages").catch(() => []),
-        apiFetch(`/emergency-services?lat=${userLat}&lng=${userLng}`).catch(() => [])
+        apiFetch(`/emergency-services?lat=${userLat}&lng=${userLng}&radius_km=5`).catch(() => [])
       ]);
       setZones(z);
       setIncidents(inc);

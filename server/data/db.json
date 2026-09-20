@@ -12,12 +12,12 @@
       "reports": 2,
       "trend": "stable",
       "temperature": 28.6,
-      "humidity": 85,
-      "totalTodayRain": 3.4,
-      "tempC": 27.3,
-      "riverDischarge": 5.28,
-      "dischargeRatio": 0.98,
-      "lastUpdated": "2026-09-19T13:31:36.611Z",
+      "humidity": 79,
+      "totalTodayRain": 0.4,
+      "tempC": 29.3,
+      "riverDischarge": 4.06,
+      "dischargeRatio": 0.99,
+      "lastUpdated": "2026-09-20T07:05:54.060Z",
       "cause": "Surface Runoff Accumulation",
       "causeCode": "MIXED_RUNOFF",
       "riskLevel": "ORANGE"
@@ -28,20 +28,20 @@
       "ward": "Ward 72",
       "lat": 19.129,
       "lng": 72.852,
-      "risk": 35,
-      "waterLevel": 50,
+      "risk": 1,
+      "waterLevel": 0,
       "rainfall": 2.2,
-      "reports": 1,
+      "reports": 0,
       "trend": "stable",
       "temperature": 28.6,
-      "humidity": 85,
-      "totalTodayRain": 3.4,
-      "tempC": 27.3,
-      "riverDischarge": 2.44,
-      "dischargeRatio": 1,
-      "lastUpdated": "2026-09-19T13:31:36.744Z",
-      "cause": "Surface Runoff Accumulation",
-      "causeCode": "MIXED_RUNOFF",
+      "humidity": 79,
+      "totalTodayRain": 0.4,
+      "tempC": 29.3,
+      "riverDischarge": 2.03,
+      "dischargeRatio": 1.01,
+      "lastUpdated": "2026-09-20T07:05:54.208Z",
+      "cause": "Normal Drainage",
+      "causeCode": "NORMAL_DRAINAGE",
       "riskLevel": "GREEN"
     },
     {
@@ -56,12 +56,12 @@
       "reports": 0,
       "trend": "stable",
       "temperature": 28.6,
-      "humidity": 85,
-      "totalTodayRain": 3.4,
-      "tempC": 27.3,
-      "riverDischarge": 5.28,
-      "dischargeRatio": 0.98,
-      "lastUpdated": "2026-09-19T13:31:36.878Z",
+      "humidity": 79,
+      "totalTodayRain": 0.4,
+      "tempC": 29.3,
+      "riverDischarge": 4.06,
+      "dischargeRatio": 0.99,
+      "lastUpdated": "2026-09-20T07:05:54.358Z",
       "cause": "Normal Drainage",
       "causeCode": "NORMAL_DRAINAGE",
       "riskLevel": "GREEN"
@@ -72,18 +72,18 @@
       "ward": "Ward 73",
       "lat": 19.121,
       "lng": 72.855,
-      "risk": 63,
+      "risk": 61,
       "waterLevel": 90,
       "rainfall": 2.1,
-      "reports": 2,
+      "reports": 1,
       "trend": "stable",
       "temperature": 28.8,
-      "humidity": 85,
-      "totalTodayRain": 6.4,
-      "tempC": 27.4,
-      "riverDischarge": 2.44,
-      "dischargeRatio": 1,
-      "lastUpdated": "2026-09-19T13:31:37.010Z",
+      "humidity": 76,
+      "totalTodayRain": 1,
+      "tempC": 29.7,
+      "riverDischarge": 2.03,
+      "dischargeRatio": 1.01,
+      "lastUpdated": "2026-09-20T07:05:54.594Z",
       "cause": "Surface Runoff Accumulation",
       "causeCode": "MIXED_RUNOFF",
       "riskLevel": "ORANGE"
@@ -96,7 +96,7 @@
       "reporter": "Prakash Deshmukh",
       "role": "Resident",
       "time": "06:32 pm",
-      "status": "Received",
+      "status": "False Alarm",
       "severity": 58,
       "cause": "Suspected Blocked Drain",
       "causeCode": "SUSPECTED_BLOCKED_DRAIN",
@@ -140,7 +140,9 @@
         }
       ],
       "duplicateOf": null,
-      "createdAt": "2026-09-19T13:02:39.074Z"
+      "createdAt": "2026-09-19T13:02:39.074Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-20T06:49:01.441Z"
     },
     {
       "id": "INC-1006",
@@ -148,7 +150,7 @@
       "reporter": "Shop Owner",
       "role": "Shop Owner",
       "time": "04:31 pm",
-      "status": "Received",
+      "status": "False Alarm",
       "severity": 58,
       "cause": "Normal Drainage",
       "causeCode": "NORMAL_DRAINAGE",
@@ -307,7 +309,9 @@
         }
       ],
       "duplicateOf": null,
-      "createdAt": "2026-09-19T11:01:09.210Z"
+      "createdAt": "2026-09-19T11:01:09.210Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-20T06:11:51.775Z"
     },
     {
       "id": "INC-1005",
@@ -609,22 +613,22 @@
         "App",
         "SMS"
       ],
-      "createdAt": "2026-09-19T13:28:19.457Z"
+      "createdAt": "2026-09-20T06:49:01.442Z"
     },
     {
-      "id": "ALT-0463",
+      "id": "ALT-0461",
       "source": "flood",
       "zoneId": "Z-04",
       "zoneName": "Lake View Road",
       "level": "ORANGE",
       "title": "Elevated flood risk at Lake View Road",
-      "message": "Lake View Road is showing risk score 63/100. Likely cause: Surface Runoff Accumulation. Live rain: 2.1 mm, water depth: 90 cm.",
+      "message": "Lake View Road is showing risk score 61/100. Likely cause: Surface Runoff Accumulation. Live rain: 2.1 mm, water depth: 90 cm.",
       "eta": "20 min",
       "channels": [
         "App",
         "SMS"
       ],
-      "createdAt": "2026-09-19T13:28:19.457Z"
+      "createdAt": "2026-09-20T06:49:01.442Z"
     }
   ],
   "dispatches": [
@@ -748,6 +752,20 @@
     }
   ],
   "sosAlerts": [
+    {
+      "id": "SOS-2017",
+      "userId": "USR-SHOP-01",
+      "userName": "Station Rd Shopkeeper",
+      "role": "Shop Owner",
+      "lat": 19.132,
+      "lng": 72.848,
+      "address": "Station Road, Ward 72",
+      "emergencyStatus": "ACTIVE_SOS",
+      "assignedTeam": "Rapid Emergency Drainage Squad",
+      "assignedTeamPhone": "+91-98200-55663",
+      "eta": "6–9 min",
+      "timestamp": "2026-09-20T06:21:41.908Z"
+    },
     {
       "id": "SOS-2016",
       "userId": "USR-SHOP-01",
@@ -1080,5 +1098,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-09-19T13:31:37.010Z"
+  "updatedAt": "2026-09-20T07:05:54.598Z"
 }

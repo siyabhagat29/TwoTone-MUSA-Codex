@@ -78,12 +78,14 @@ app.get("/api/resources", (req, res) => {
 });
 app.get("/api/chronic-blockages", (_, res) => res.json(store.getChronicBlockages()));
 
-// Emergency Services & Flood Evacuation Shelters (Dynamic Live Overpass & GIS Resolution)
+// Emergency Services (Google Maps Nearby Search + 4 Categories: Hospitals & ICUs, Fire & Rescue, Police, NGOs & Tents)
 app.get("/api/emergency-services", async (req, res) => {
   try {
     const lat = Number(req.query.lat || req.query.latitude) || 19.132;
     const lng = Number(req.query.lng || req.query.longitude) || 72.848;
-    const services = await fetchLiveNearbyEmergencyServices(lat, lng);
+    const radius = Number(req.query.radius_km || req.query.radius) || 5;
+    const category = req.query.category || "all";
+    const services = await fetchLiveNearbyEmergencyServices(lat, lng, radius, category);
     res.json(services);
   } catch (err) {
     res.json(store.getEmergencyServices(req.query.lat, req.query.lng));
