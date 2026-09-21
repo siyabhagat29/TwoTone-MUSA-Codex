@@ -1125,6 +1125,10 @@ class Store {
     const zone = this.zones.find((z) => z.id === zoneId);
     const zoneRainfall = zone ? zone.rainfall : 0;
 
+    const isDrainObserved = reportData.drainObservation === "Clearly blocked / overflowing" ||
+                            reportData.drainObservation === "blocked" ||
+                            Boolean(reportData.blockedDrainSignal);
+
     const divergence = classifyCause({
       rainfall: zoneRainfall,
       waterLevel: waterCm,

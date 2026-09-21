@@ -1286,9 +1286,16 @@ function Dashboard({
     return ems.category === emsCategoryFilter;
   });
 
-  const sortedIncidents = [...incidents].sort(
-    (a, b) => new Date(b.userTimestamp || b.updatedAt || b.createdAt || b.time || 0) - new Date(a.userTimestamp || a.updatedAt || a.createdAt || a.time || 0)
-  );
+  const [dashboardIncidentFilter, setDashboardIncidentFilter] = useState("all");
+
+  const humanReviewCount = sortedIncidents.filter((i) => isHumanInterventionNeeded(i)).length;
+  const aiVerifiedCount = sortedIncidents.filter((i) => i.aiVerification?.is_flooding === true || i.aiVerified).length;
+
+  const dashboardDisplayedIncidents = sortedIncidents.filter((i) => {
+    if (dashboardIncidentFilter === "review") return isHumanInterventionNeeded(i);
+    if (dashboardIncidentFilter === "ai") return i.aiVerification?.is_flooding === true || i.aiVerified;
+    return true;
+  });
 
   return (
     <div className="content">
@@ -1367,26 +1374,56 @@ function Dashboard({
 
         {/* Live Incident Queue */}
         <section className="panel incident-panel">
-          <div className="panel-head">
+          <div className="panel-head" style={{ flexWrap: "wrap", gap: "8px" }}>
             <div>
               <h3>Live Incident Feed</h3>
-              <span>Incoming verified ground reports ({incidents.length})</span>
+              <span>Incoming ground reports ({incidents.length})</span>
             </div>
-            <NavLink to="/incidents" className="link">View All <ChevronRight size={14} /></NavLink>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+              <div className="segmented" style={{ transform: "scale(0.88)", transformOrigin: "right center" }}>
+                <button
+                  className={dashboardIncidentFilter === "all" ? "selected" : ""}
+                  onClick={() => setDashboardIncidentFilter("all")}
+                >
+                  All ({sortedIncidents.length})
+                </button>
+                <button
+                  className={dashboardIncidentFilter === "review" ? "selected" : ""}
+                  onClick={() => setDashboardIncidentFilter("review")}
+                  style={{ color: dashboardIncidentFilter === "review" ? undefined : "#c2410c", fontWeight: "700" }}
+                >
+                  ⚠️ Review ({humanReviewCount})
+                </button>
+                <button
+                  className={dashboardIncidentFilter === "ai" ? "selected" : ""}
+                  onClick={() => setDashboardIncidentFilter("ai")}
+                  style={{ color: dashboardIncidentFilter === "ai" ? undefined : "#16a34a", fontWeight: "700" }}
+                >
+                  🌊 AI Floods ({aiVerifiedCount})
+                </button>
+              </div>
+              <NavLink to="/incidents" className="link">View All <ChevronRight size={14} /></NavLink>
+            </div>
           </div>
           <div className="incident-feed-list">
-            {sortedIncidents.slice(0, 5).map((inc) => (
-              <IncidentCard
-                key={inc.id}
-                incident={inc}
-                resources={resources}
-                onAutoDispatch={onAutoDispatch}
-                onVerify={onVerify}
-                onFalseAlarm={onFalseAlarm}
-                onOpenOverride={onOpenOverride}
-                onViewPhoto={onViewPhoto}
-              />
-            ))}
+            {dashboardDisplayedIncidents.length === 0 ? (
+              <div style={{ padding: "20px", textAlign: "center", color: "#64748b", fontSize: "12px" }}>
+                No incidents match the selected filter.
+              </div>
+            ) : (
+              dashboardDisplayedIncidents.slice(0, 6).map((inc) => (
+                <IncidentCard
+                  key={inc.id}
+                  incident={inc}
+                  resources={resources}
+                  onAutoDispatch={onAutoDispatch}
+                  onVerify={onVerify}
+                  onFalseAlarm={onFalseAlarm}
+                  onOpenOverride={onOpenOverride}
+                  onViewPhoto={onViewPhoto}
+                />
+              ))
+            )}
           </div>
         </section>
       </div>
@@ -1774,6 +1811,23 @@ function Dashboard({
   );
 }
 
+// Helper to identify if an incident needs human intervention / manual review
+export function isHumanInterventionNeeded(inc) {
+  if (!inc) return false;
+  if (inc.status === "False Alarm" || inc.status === "Completed") return false;
+  if (inc.aiVerification) {
+    if (inc.aiVerification.is_flooding === false) return true;
+    const conf = inc.aiVerification.confidence_score ?? inc.aiVerification.confidence ?? 0;
+    if (conf < 0.70) return true;
+    if (inc.aiVerification.longest_consecutive_run != null && inc.aiVerification.longest_consecutive_run < 5) return true;
+    return false;
+  }
+  if (inc.aiVerified === false || (inc.cvConfidence && inc.cvConfidence < 70)) {
+    return true;
+  }
+  return false;
+}
+
 // Individual Incident Card with Ground Photo Evidence preview, CV confidence, Divergence cause tag, duplicate merge drawer, and auto-dispatch
 function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFalseAlarm, onOpenOverride, onViewPhoto }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -1845,11 +1899,30 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
           <span className={`status ${inc.status?.toLowerCase().replace(" ", "-")}`}>{inc.status}</span>
         </div>
         <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
-          {inc.aiVerified && (
+          {isHumanInterventionNeeded(inc) ? (
+            <span className="human-review-badge">
+              ⚠️ Human Intervention Required
+            </span>
+          ) : inc.aiVerification?.is_flooding ? (
+            <span style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px",
+              fontSize: "10px",
+              fontWeight: "800",
+              background: "#f0fdf4",
+              color: "#16a34a",
+              border: "1px solid #bbf7d0",
+              padding: "2px 7px",
+              borderRadius: "6px"
+            }}>
+              🌊 AI: Flooding Confirmed ({((inc.aiVerification.confidence_score || inc.aiVerification.confidence || 0) * 100).toFixed(0)}%)
+            </span>
+          ) : inc.aiVerified ? (
             <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "10px", fontWeight: "800", background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", padding: "2px 7px", borderRadius: "6px" }}>
               🤖 AI Flood Model: Verified {inc.aiFloodConfidence ? `(${(inc.aiFloodConfidence * 100).toFixed(0)}%)` : ""}
             </span>
-          )}
+          ) : null}
           {/* CV Confidence Score */}
           <span className={`cv-badge ${inc.cvConfidence >= 80 ? "high" : ""}`}>
             <Sparkles size={11} />
@@ -1925,6 +1998,38 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
           </span>
         )}
       </div>
+
+      {/* AI Telemetry & Human Intervention Callout Box */}
+      {isHumanInterventionNeeded(inc) ? (
+        <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: "8px", padding: "8px 10px", margin: "8px 0" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", color: "#c2410c", fontWeight: "800", fontSize: "11px" }}>
+            <span>⚠️ HUMAN INTERVENTION REQUIRED</span>
+            <span>AI Score: {((inc.aiVerification?.confidence_score ?? inc.aiVerification?.confidence ?? inc.cvConfidence ?? 0) * (inc.aiVerification?.confidence_score != null ? 100 : 1)).toFixed(0)}% (Below 70% threshold)</span>
+          </div>
+          <div style={{ fontSize: "10px", color: "#7c2d12", marginTop: "3px", lineHeight: "1.4" }}>
+            {inc.aiVerification?.frames_analyzed ? (
+              <>
+                Out of <b>{inc.aiVerification.frames_analyzed} frames</b> analyzed, only <b>{inc.aiVerification.flood_positive_frames || 0} frames</b> met flood threshold ({((inc.aiVerification.flood_ratio || 0) * 100).toFixed(0)}% ratio, longest run: {inc.aiVerification.longest_consecutive_run || 0} frames).
+              </>
+            ) : (
+              <>AI model detected low/no automatic flood signal for this ground evidence.</>
+            )}
+            {" "}<b>Authority Action:</b> Review visual evidence below manually to confirm waterlogging, dispatch rapid unit, or mark false alarm.
+          </div>
+        </div>
+      ) : inc.aiVerification?.is_flooding ? (
+        <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "8px 10px", margin: "8px 0" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", color: "#166534", fontWeight: "800", fontSize: "11px" }}>
+            <span>🌊 AI VISION: FLOODING CONFIRMED</span>
+            <span>Confidence: {((inc.aiVerification?.confidence_score ?? inc.aiVerification?.confidence ?? 0.95) * 100).toFixed(1)}%</span>
+          </div>
+          {inc.aiVerification?.frames_analyzed ? (
+            <div style={{ fontSize: "10px", color: "#15803D", marginTop: "3px" }}>
+              Out of <b>{inc.aiVerification.frames_analyzed} frames</b> analyzed, <b>{inc.aiVerification.flood_positive_frames} frames</b> detected flood ({((inc.aiVerification.flood_ratio || 0) * 100).toFixed(0)}% ratio) · Longest consecutive run: <b>{inc.aiVerification.longest_consecutive_run} frames</b>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* Nearest Available Resource Unit */}
       {nearestResource && !isDispatched && (
@@ -2352,6 +2457,22 @@ function MediaLightboxModal({ mediaUrl, incident, isVideo, onClose }) {
               </a>
             </div>
           </div>
+
+          {incident?.aiVerification && (
+            <div style={{ marginTop: "8px", background: incident.aiVerification.is_flooding ? "#f0fdf4" : "#fef2f2", border: `1px solid ${incident.aiVerification.is_flooding ? "#86efac" : "#fecaca"}`, borderRadius: "6px", padding: "8px 12px", textAlign: "left", fontSize: "11px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: "800", color: incident.aiVerification.is_flooding ? "#166534" : "#991b1b" }}>
+                <span>🤖 Authority AI Vision Verification: {incident.aiVerification.is_flooding ? "🌊 Sustained Flooding Confirmed" : "✓ No Flooding Signal Detected"}</span>
+                <span>Confidence: {((incident.aiVerification.confidence_score || incident.aiVerification.confidence || 0) * 100).toFixed(1)}%</span>
+              </div>
+              {Boolean(incident.aiVerification.frames_analyzed) && (
+                <div style={{ marginTop: "4px", fontSize: "10px", color: "#334155", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                  <span>Frames Analyzed: <b>{incident.aiVerification.frames_analyzed}</b></span>
+                  <span>Longest Flood Run: <b>{incident.aiVerification.longest_consecutive_run || 0} frames</b></span>
+                  <span>Flood Ratio: <b>{((incident.aiVerification.flood_ratio || 0) * 100).toFixed(1)}%</b></span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <div className="modal-footer">
           <button className="primary" onClick={onClose}>Close Preview</button>
@@ -2373,18 +2494,45 @@ function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch
   const sortedIncidents = [...incidents].sort(
     (a, b) => new Date(b.userTimestamp || b.updatedAt || b.createdAt || b.time || 0) - new Date(a.userTimestamp || a.updatedAt || a.createdAt || a.time || 0)
   );
-  const filtered = filter === "All" ? sortedIncidents : sortedIncidents.filter((i) => i.role === filter || i.status === filter);
+
+  const humanInterventionCount = sortedIncidents.filter((i) => isHumanInterventionNeeded(i)).length;
+  const aiVerifiedCount = sortedIncidents.filter((i) => i.aiVerification?.is_flooding === true || i.aiVerified).length;
+
+  const filtered = filter === "All"
+    ? sortedIncidents
+    : filter === "ReviewNeeded"
+    ? sortedIncidents.filter((i) => isHumanInterventionNeeded(i))
+    : filter === "AiConfirmed"
+    ? sortedIncidents.filter((i) => i.aiVerification?.is_flooding === true || i.aiVerified)
+    : sortedIncidents.filter((i) => i.role === filter || i.status === filter);
 
   return (
     <div className="content">
       <PageHeader
         eyebrow="GROUND TRUTH · PERSISTENT DATABASE & AI CONFIDENCE"
         title="Citizen Incident Queue & Deduplication"
-        sub="Live verified evidence submitted from mobile devices including GPS telemetry, video footage, and CV depth verification (sorted newest first)."
+        sub="Live verified evidence submitted from mobile devices with AI flood telemetry, frame-by-frame diagnostics, and human intervention review filters."
       >
         <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
           <div className="segmented">
-            {["All", "Received", "Verified", "Dispatched", "False Alarm"].map((x) => (
+            <button className={filter === "All" ? "selected" : ""} onClick={() => setFilter("All")}>
+              All ({sortedIncidents.length})
+            </button>
+            <button
+              className={filter === "ReviewNeeded" ? "selected" : ""}
+              onClick={() => setFilter("ReviewNeeded")}
+              style={{ color: filter === "ReviewNeeded" ? undefined : "#c2410c", fontWeight: "700" }}
+            >
+              ⚠️ Human Review Needed ({humanInterventionCount})
+            </button>
+            <button
+              className={filter === "AiConfirmed" ? "selected" : ""}
+              onClick={() => setFilter("AiConfirmed")}
+              style={{ color: filter === "AiConfirmed" ? undefined : "#16a34a", fontWeight: "700" }}
+            >
+              🌊 AI Verified ({aiVerifiedCount})
+            </button>
+            {["Received", "Verified", "Dispatched", "False Alarm"].map((x) => (
               <button className={filter === x ? "selected" : ""} onClick={() => setFilter(x)} key={x}>
                 {x}
               </button>
@@ -2414,18 +2562,27 @@ function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch
         </div>
       </PageHeader>
       <div className="incident-feed-list" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", maxHeight: "none" }}>
-        {filtered.map((inc) => (
-          <IncidentCard
-            key={inc.id}
-            incident={inc}
-            resources={resources}
-            onAutoDispatch={onAutoDispatch}
-            onVerify={onVerify}
-            onFalseAlarm={onFalseAlarm}
-            onOpenOverride={onOpenOverride}
-            onViewPhoto={onViewPhoto}
-          />
-        ))}
+        {filtered.length === 0 ? (
+          <div style={{ padding: "40px", textAlign: "center", color: "#64748b", background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", gridColumn: "1 / -1" }}>
+            <h3>No Incidents in Selected Filter</h3>
+            <p style={{ fontSize: "12px", marginTop: "6px" }}>
+              {filter === "ReviewNeeded" ? "All current citizen reports have been verified by AI or resolved." : "No reports matching this category."}
+            </p>
+          </div>
+        ) : (
+          filtered.map((inc) => (
+            <IncidentCard
+              key={inc.id}
+              incident={inc}
+              resources={resources}
+              onAutoDispatch={onAutoDispatch}
+              onVerify={onVerify}
+              onFalseAlarm={onFalseAlarm}
+              onOpenOverride={onOpenOverride}
+              onViewPhoto={onViewPhoto}
+            />
+          ))
+        )}
       </div>
     </div>
   );

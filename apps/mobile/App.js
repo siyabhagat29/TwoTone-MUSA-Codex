@@ -3199,13 +3199,6 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
         }
         if (data.aiVerification) {
           setAiResult(data.aiVerification);
-          if (data.aiVerification.is_flooding === false) {
-            Alert.alert(
-              t.noFloodPopupTitle || "No Flooding Detected",
-              t.noFloodPopupMsg || "There is no flooding detected in the evidence. Report cannot be filed.",
-              [{ text: "OK" }]
-            );
-          }
           return data.aiVerification;
         }
       } else {
@@ -3321,16 +3314,6 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
   };
 
   const submit = async () => {
-    // 1. Check if prior AI scan explicitly determined NO flooding
-    if (aiResult && aiResult.is_flooding === false) {
-      Alert.alert(
-        t.noFloodPopupTitle || "No Flooding Detected",
-        t.noFloodPopupMsg || "There is no flooding detected, report cannot be filed.",
-        [{ text: "OK" }]
-      );
-      return;
-    }
-
     setSubmitting(true);
     try {
       const now = new Date();
@@ -3406,17 +3389,6 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
         }
       }
 
-      // STRICT CHECK: If AI model detected NO flooding, reject report immediately
-      if (verifiedAi && verifiedAi.is_flooding === false) {
-        setSubmitting(false);
-        Alert.alert(
-          t.noFloodPopupTitle || "No Flooding Detected",
-          t.noFloodPopupMsg || "There is no flooding detected, report cannot be filed.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
-
       const payload = {
         role,
         waterLevel: waterDepthChoice,
@@ -3451,23 +3423,11 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
         body: JSON.stringify(payload)
       }, 30000);
 
-      // If backend rejected report due to no flooding detected:
-      if (res.status === 422) {
-        const errData = await res.json().catch(() => ({}));
-        setSubmitting(false);
-        Alert.alert(
-          t.noFloodPopupTitle || "No Flooding Detected",
-          errData.message || t.noFloodPopupMsg || "There is no flooding detected, report cannot be filed.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
-
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
-      const mediaMsg = videoUri ? "Video uploaded & AI flood verified" : "Photo uploaded & AI flood verified";
-      Alert.alert("Report Received", `Assigned ID: ${data.id}. ${mediaMsg} for Authority Dispatch.`, [
+      const mediaMsg = videoUri ? "Video attached & transmitted" : photoUri ? "Photo attached & transmitted" : "Details recorded";
+      Alert.alert("Report Received", `Assigned ID: ${data.id}. ${mediaMsg} for Municipal Emergency Response.`, [
         { text: "OK", onPress: () => onSaved(data) }
       ]);
     } catch (err) {
@@ -3622,69 +3582,17 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
               </View>
             )}
 
-            {!aiVerifying && !aiError && aiResult && aiResult.is_flooding && (
-              <View style={{ backgroundColor: "#F0FDF4", borderWidth: 1, borderColor: "#86EFAC", padding: 12, borderRadius: 8 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Ionicons name="water" size={22} color="#16A34A" />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 13, color: "#166534", fontWeight: "900" }}>
-                      🌊 FLOODING DETECTED
-                    </Text>
-                    <Text style={{ fontSize: 10, color: "#15803D", marginTop: 2 }}>
-                      Confidence: {(aiResult.confidence * 100).toFixed(0)}%
-                    </Text>
-                  </View>
-                </View>
-                {Boolean(aiResult.frames_analyzed) && (
-                  <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#BBF7D0", flexDirection: "row", justifyContent: "space-between" }}>
-                    <Text style={{ fontSize: 10, color: "#166534" }}>
-                      Frames analyzed: <Text style={{ fontWeight: "800" }}>{aiResult.frames_analyzed}</Text>
-                    </Text>
-                    <Text style={{ fontSize: 10, color: "#166534" }}>
-                      Flood-positive: <Text style={{ fontWeight: "800" }}>{aiResult.flood_positive_frames}</Text>
-                    </Text>
-                    <Text style={{ fontSize: 10, color: "#166534" }}>
-                      Flood ratio: <Text style={{ fontWeight: "800" }}>{((aiResult.flood_ratio || 0) * 100).toFixed(0)}%</Text>
-                    </Text>
-                  </View>
-                )}
-                {aiResult.reason ? (
-                  <Text style={{ fontSize: 9, color: "#15803D", marginTop: 4, fontStyle: "italic" }}>
-                    {aiResult.reason}
+            {!aiVerifying && !aiError && (photoPreview || videoPreview) && (
+              <View style={{ backgroundColor: "#F0FDF4", borderWidth: 1, borderColor: "#86EFAC", padding: 10, borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Ionicons name="checkmark-circle" size={20} color="#16A34A" />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 12, color: "#166534", fontWeight: "800" }}>
+                    ✓ Evidence Attached & Ready
                   </Text>
-                ) : null}
-              </View>
-            )}
-
-            {!aiVerifying && !aiError && aiResult && !aiResult.is_flooding && (
-              <View style={{ backgroundColor: "#FEF2F2", borderWidth: 1, borderColor: "#FECACA", padding: 12, borderRadius: 8 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Ionicons name="checkmark-circle-outline" size={22} color="#DC2626" />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 13, color: "#991B1B", fontWeight: "900" }}>
-                      ✓ NO FLOODING DETECTED
-                    </Text>
-                    <Text style={{ fontSize: 10, color: "#B91C1C", marginTop: 2 }}>
-                      Confidence: {(aiResult.confidence * 100).toFixed(0)}%
-                    </Text>
-                  </View>
+                  <Text style={{ fontSize: 10, color: "#15803D", marginTop: 1 }}>
+                    Visual evidence will be securely transmitted with your report to Disaster Response Authorities.
+                  </Text>
                 </View>
-                {Boolean(aiResult.frames_analyzed) && (
-                  <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#FECACA", flexDirection: "row", justifyContent: "space-between" }}>
-                    <Text style={{ fontSize: 10, color: "#991B1B" }}>
-                      Frames analyzed: <Text style={{ fontWeight: "800" }}>{aiResult.frames_analyzed}</Text>
-                    </Text>
-                    <Text style={{ fontSize: 10, color: "#991B1B" }}>
-                      Flood-positive: <Text style={{ fontWeight: "800" }}>{aiResult.flood_positive_frames}</Text>
-                    </Text>
-                    <Text style={{ fontSize: 10, color: "#991B1B" }}>
-                      Flood ratio: <Text style={{ fontWeight: "800" }}>{((aiResult.flood_ratio || 0) * 100).toFixed(0)}%</Text>
-                    </Text>
-                  </View>
-                )}
-                <Text style={{ fontSize: 10, color: "#B91C1C", marginTop: 6 }}>
-                  Our AI model did not detect flooding in this evidence. Report cannot be filed.
-                </Text>
               </View>
             )}
           </View>

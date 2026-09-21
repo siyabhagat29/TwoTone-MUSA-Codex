@@ -573,35 +573,32 @@ app.post("/api/verify-flood-evidence", async (req, res) => {
   }
 });
 
-// Real Incident Report from Mobile or Web (Guarded by AI Flood Detection Model)
+// Real Incident Report from Mobile or Web (AI Flood Detection telemetry recorded for Authorities)
 app.post("/api/reports", async (req, res) => {
   try {
     let aiVerification = req.body.aiVerification;
     const hasMedia = Boolean(req.body.photoUrl || req.body.videoUrl || req.body.photo || req.body.video);
 
-    // If media was attached but no aiVerification supplied yet, verify it now
+    // If media was attached but no aiVerification supplied yet, verify it for authorities
     if (hasMedia && !aiVerification) {
       const mediaUrl = req.body.videoUrl || req.body.photoUrl;
       if (mediaUrl) {
-        aiVerification = await checkFloodAiMedia({ url: mediaUrl });
+        try {
+          aiVerification = await checkFloodAiMedia({ url: mediaUrl });
+        } catch (mediaErr) {
+          console.warn("[Media AI Verification notice]:", mediaErr.message);
+        }
       }
-    }
-
-    // STRICT VALIDATION: If visual evidence is uploaded and AI flood model confirms NO flooding, block the report
-    if (hasMedia && aiVerification && aiVerification.is_flooding === false) {
-      console.warn(`⛔ [Report Blocked] AI Flood Model detected NO flooding: ${aiVerification.reason || 'Normal conditions'}`);
-      return res.status(422).json({
-        success: false,
-        error: "NO_FLOOD_DETECTED",
-        message: "There is no flooding detected in the uploaded visual evidence. Incident report cannot be filed.",
-        aiVerification
-      });
     }
 
     let address = req.body.address;
     if (!address && req.body.lat && req.body.lng) {
-      const geo = await reverseGeocode(req.body.lat, req.body.lng);
-      address = geo.road ? `${geo.road}, ${geo.ward}` : geo.displayName;
+      try {
+        const geo = await reverseGeocode(req.body.lat, req.body.lng);
+        address = geo.road ? `${geo.road}, ${geo.ward}` : geo.displayName;
+      } catch (geoErr) {
+        console.warn("[reverseGeocode notice]:", geoErr.message);
+      }
     }
 
     const report = await store.addReport({
@@ -611,14 +608,17 @@ app.post("/api/reports", async (req, res) => {
       aiFloodConfidence: aiVerification?.confidence || null,
       aiVerification
     });
+
     let agentOrchestration = null;
     try {
       agentOrchestration = await coordinateIncident(report, { resources: store.getResources() });
     } catch (agentErr) {
       console.warn("[multi-agent] Report orchestration warning:", agentErr.message);
     }
+
     res.status(201).json({ ...report, agentOrchestration });
   } catch (err) {
+    console.error("❌ [API /reports Error]:", err);
     res.status(500).json({ error: err.message });
   }
 });

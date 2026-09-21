@@ -1079,6 +1079,27 @@ nav a, .sidebar-bottom > a {
   border-color: #a7f3d0;
 }
 
+.human-review-badge {
+  font-size: 9px;
+  font-weight: 800;
+  background: #fff7ed;
+  color: #c2410c;
+  padding: 3px 7px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #fed7aa;
+}
+
+.human-review-panel {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 8px 0;
+}
+
 .cause-tag {
   display: inline-flex;
   align-items: center;

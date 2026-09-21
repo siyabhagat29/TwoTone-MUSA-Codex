@@ -38,10 +38,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # Configurable Video Processing & Classification Constants
-VIDEO_SAMPLE_INTERVAL = 1.0   # Target sampling interval in seconds (1 frame per second)
-MAX_VIDEO_FRAMES = 120        # Cap maximum frames analyzed to protect memory
-VIDEO_FLOOD_THRESHOLD = 0.60  # Ratio of positive frames required for video-level Flood classification
-FRAME_FLOOD_THRESHOLD = 0.45  # Probability threshold for a single frame to be classified as flood-positive
+MAX_VIDEO_FRAMES = 120              # Up to 120 frames uniformly distributed across the entire video duration
+FRAME_FLOOD_THRESHOLD = 0.70        # Raised from 0.50 to 0.70 (individual frame confidence requirement)
+MIN_CONSECUTIVE_FRAMES = 5          # Temporal contiguity: minimum consecutive positive frames required
+MIN_RUN_AVG_CONFIDENCE = 0.75       # Average confidence score required across the longest qualifying consecutive run
 
 # Locate model file
 WORKSPACE_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -100,8 +100,7 @@ def evaluate_image_array(img_rgb: np.ndarray) -> Dict[str, Any]:
     flood_score = float(preds[0])
     normal_score = float(preds[1])
     
-    # Classification rule based on training calibration:
-    # Index 0 is Flooding sigmoid probability
+    # Classification rule: Sigmoid probability >= threshold
     is_flood = bool(flood_score >= FRAME_FLOOD_THRESHOLD)
     confidence = flood_score if is_flood else normal_score
 
@@ -118,21 +117,64 @@ def evaluate_image_array(img_rgb: np.ndarray) -> Dict[str, Any]:
         "reason": "Visible water accumulation/flooding detected" if is_flood else "No visible waterlogging or flood accumulation detected"
     }
 
+def find_longest_consecutive_run(scores: list, threshold: float):
+    """
+    Identifies all contiguous runs of frames where score >= threshold in temporal order.
+    Returns:
+      (longest_run_length, longest_run_avg_score, longest_run_indices)
+    """
+    if not scores:
+        return 0, 0.0, []
+
+    longest_run = []
+    current_run = []
+
+    for idx, score in enumerate(scores):
+        if score >= threshold:
+            current_run.append((idx, score))
+        else:
+            if len(current_run) > len(longest_run):
+                longest_run = current_run
+            elif len(current_run) == len(longest_run) and current_run:
+                cur_avg = sum(s for _, s in current_run) / len(current_run)
+                best_avg = sum(s for _, s in longest_run) / len(longest_run) if longest_run else 0.0
+                if cur_avg > best_avg:
+                    longest_run = current_run
+            current_run = []
+
+    if len(current_run) > len(longest_run):
+        longest_run = current_run
+    elif len(current_run) == len(longest_run) and current_run:
+        cur_avg = sum(s for _, s in current_run) / len(current_run)
+        best_avg = sum(s for _, s in longest_run) / len(longest_run) if longest_run else 0.0
+        if cur_avg > best_avg:
+            longest_run = current_run
+
+    if not longest_run:
+        return 0, 0.0, []
+
+    longest_indices = [idx for idx, _ in longest_run]
+    longest_scores = [s for _, s in longest_run]
+    avg_score = float(np.mean(longest_scores))
+    return len(longest_run), avg_score, longest_indices
+
 def evaluate_video_file(video_path: str) -> Dict[str, Any]:
     """
-    Robust sequential frame reader and batched MobileNet inference pipeline.
-    Reads video sequentially to prevent seek errors on varied codecs/containers.
+    Complete video ingestion pipeline:
+    1. Probes input video for total frame count, FPS, and duration.
+    2. Dynamically calculates uniform sample points to extract up to 120 frames across the entire duration.
+    3. Runs batched MobileNet inference.
+    4. Evaluates each frame against FRAME_FLOOD_THRESHOLD (>= 0.70).
+    5. Checks temporal contiguity: finds longest consecutive run of flood-positive frames (>= 5 frames required).
+    6. Calculates average confidence score across the longest consecutive run (>= 0.75 required).
+    7. Returns both binary decision and continuous confidence_score for Divergence Engine integration.
     """
     filename = Path(video_path).name
     file_size = os.path.getsize(video_path) if os.path.exists(video_path) else 0
 
-    print(f"[VIDEO] Received file: {filename}")
-    print(f"[VIDEO] File size: {file_size} bytes")
-    print(f"[VIDEO] Opening video: {video_path}...")
-
+    print(f"[VIDEO] Received file: {filename} ({file_size} bytes)")
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        print(f"[VIDEO] VideoCapture.isOpened() == False for file: {video_path}")
         raise ValueError(f"Unable to open or decode video file: {filename}")
 
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -141,26 +183,32 @@ def evaluate_video_file(video_path: str) -> Dict[str, Any]:
         fps = 25.0
 
     duration_sec = (total_frames / fps) if (total_frames > 0 and fps > 0) else 0.0
-    print(f"[VIDEO] FPS: {round(fps, 2)} | Total frames: {total_frames} | Duration: {round(duration_sec, 2)}s")
 
-    # Determine dynamic sampling stride
-    sample_stride = max(1, int(round(fps * VIDEO_SAMPLE_INTERVAL)))
-    if total_frames > 0 and (total_frames / sample_stride) > MAX_VIDEO_FRAMES:
-        sample_stride = max(1, int(np.ceil(total_frames / MAX_VIDEO_FRAMES)))
+    # If container reports valid frame count, compute exact uniform indices across video
+    if total_frames > 0:
+        num_target_frames = min(total_frames, MAX_VIDEO_FRAMES)
+        target_indices = set(np.linspace(0, total_frames - 1, num=num_target_frames, dtype=int).tolist())
+    else:
+        num_target_frames = MAX_VIDEO_FRAMES
+        target_indices = None
 
-    print(f"[VIDEO] Sampling every {sample_stride} frames (Target: ~{VIDEO_SAMPLE_INTERVAL}s interval, max {MAX_VIDEO_FRAMES} frames)")
+    effective_sample_fps = round(num_target_frames / duration_sec, 2) if duration_sec > 0 else fps
+    print(f"[VIDEO] Video duration: {round(duration_sec, 2)}s | Total stream frames: {total_frames} @ {round(fps, 1)} FPS")
+    print(f"[VIDEO] Uniform sampling target: {num_target_frames} frames across full duration (effective {effective_sample_fps} FPS)")
 
     frames = []
     frame_index = 0
     actual_read_count = 0
 
-    # Sequential frame extraction avoids broken non-keyframe seeking in OpenCV
     while True:
         ret, frame_bgr = cap.read()
         if not ret or frame_bgr is None:
             break
         actual_read_count += 1
-        if frame_index % sample_stride == 0:
+
+        should_sample = (frame_index in target_indices) if target_indices is not None else (frame_index % max(1, int(fps)) == 0)
+
+        if should_sample:
             frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
             frame_resized = cv2.resize(frame_rgb, (224, 224)).astype(np.float32)
             frames.append(frame_resized)
@@ -171,12 +219,12 @@ def evaluate_video_file(video_path: str) -> Dict[str, Any]:
     cap.release()
 
     if not frames:
-        print(f"[VIDEO] Zero decodable frames extracted from {filename} (read attempts: {actual_read_count})")
-        raise ValueError(f"Unable to decode video or no readable frames found in {filename}.")
+        raise ValueError(f"Zero readable frames could be decoded from video: {filename}")
 
-    print(f"[VIDEO] Frames extracted: {len(frames)} (from {actual_read_count} decodable stream frames)")
-    print(f"[VIDEO] Running model inference on batch of {len(frames)} frames...")
+    frames_analyzed = len(frames)
+    print(f"[VIDEO] Successfully extracted {frames_analyzed} frames for analysis.")
 
+    # Batched model inference
     batch = np.array(frames, dtype=np.float32)
     batch_preprocessed = preprocess_input(batch)
     batch_preds = model.predict(batch_preprocessed, verbose=0)
@@ -184,38 +232,50 @@ def evaluate_video_file(video_path: str) -> Dict[str, Any]:
     flood_scores = [float(p[0]) for p in batch_preds]
     normal_scores = [float(p[1]) for p in batch_preds]
 
-    # Calculate frame-level flood metrics
+    # 1. Total positive frame counts and overall ratio
     flood_positive_frames = sum(1 for f_score in flood_scores if f_score >= FRAME_FLOOD_THRESHOLD)
-    frames_analyzed = len(frames)
     flood_ratio = flood_positive_frames / frames_analyzed if frames_analyzed > 0 else 0.0
 
-    # Classify video based on configured ratio threshold
-    is_flood = bool(flood_ratio >= VIDEO_FLOOD_THRESHOLD)
+    # 2. Temporal contiguity: Longest consecutive run of positive frames
+    longest_run_len, longest_run_avg, longest_indices = find_longest_consecutive_run(flood_scores, FRAME_FLOOD_THRESHOLD)
 
-    # Calculate aggregated confidence
-    if is_flood and flood_positive_frames > 0:
-        pos_scores = [s for s in flood_scores if s >= FRAME_FLOOD_THRESHOLD]
-        confidence = float(np.mean(pos_scores))
-    elif not is_flood and (frames_analyzed - flood_positive_frames) > 0:
-        neg_scores = [n for n, f in zip(normal_scores, flood_scores) if f < FRAME_FLOOD_THRESHOLD]
-        confidence = float(np.mean(neg_scores))
-    else:
+    # 3. Decision criteria: Temporal Contiguity + High Sustained Confidence
+    #    - Requires a sustained consecutive run of >= MIN_CONSECUTIVE_FRAMES (5 frames)
+    #    - Requires the average confidence within that run to be >= MIN_RUN_AVG_CONFIDENCE (0.75)
+    #    This accurately detects both full-length floods and rapid transitions without false-negative ratio penalties.
+    has_qualifying_run = bool(longest_run_len >= MIN_CONSECUTIVE_FRAMES)
+    meets_avg_confidence = bool(longest_run_avg >= MIN_RUN_AVG_CONFIDENCE)
+    is_flood = bool(has_qualifying_run and meets_avg_confidence)
+
+    # 4. Continuous confidence score (for Divergence Engine integration)
+    #    Average confidence of qualifying run if qualified, or 0.0 if not qualified
+    confidence_score = round(longest_run_avg, 4) if is_flood else 0.0
+
+    # 5. Backward compatible confidence score
+    if is_flood:
+        confidence = float(longest_run_avg)
+    elif normal_scores:
         confidence = float(np.mean(normal_scores))
-
+    else:
+        confidence = 0.50
     confidence = min(max(confidence, 0.50), 0.99)
+
     max_flood_score = max(flood_scores) if flood_scores else 0.0
     avg_flood_score = float(np.mean(flood_scores)) if flood_scores else 0.0
 
     result_label = "Flooding" if is_flood else "No Flooding"
-    print(f"[VIDEO] Predictions generated: {len(batch_preds)}")
-    print(f"[VIDEO] Flood-positive frames: {flood_positive_frames}/{frames_analyzed}")
-    print(f"[VIDEO] Flood ratio: {round(flood_ratio * 100, 1)}% (Threshold: {int(VIDEO_FLOOD_THRESHOLD * 100)}%)")
-    print(f"[VIDEO] Final result: {result_label} (Confidence: {round(confidence * 100, 1)}%)")
+    print(f"[VIDEO] Results: Longest run = {longest_run_len} frames (Avg conf: {round(longest_run_avg * 100, 1)}%) | Total positive = {flood_positive_frames}/{frames_analyzed} ({round(flood_ratio * 100, 1)}%) -> {result_label} (Confidence Score: {confidence_score})")
 
     reason = (
-        f"Analyzed {frames_analyzed} frames ({flood_positive_frames} positive, {round(flood_ratio * 100, 1)}% flood ratio). Sustained water accumulation confirmed."
+        f"Video analysis confirmed sustained flooding: longest consecutive run of {longest_run_len} frames "
+        f"(>= {MIN_CONSECUTIVE_FRAMES} required) with average confidence {round(longest_run_avg * 100, 1)}% "
+        f"(>= {int(MIN_RUN_AVG_CONFIDENCE * 100)}% required) at frame threshold {int(FRAME_FLOOD_THRESHOLD * 100)}%."
         if is_flood
-        else f"Analyzed {frames_analyzed} frames ({flood_positive_frames} positive, {round(flood_ratio * 100, 1)}% flood ratio). Below {int(VIDEO_FLOOD_THRESHOLD * 100)}% flood threshold."
+        else (
+            f"No sustained flooding detected: longest consecutive flood run was {longest_run_len} frames "
+            f"(required >= {MIN_CONSECUTIVE_FRAMES}) with run avg confidence {round(longest_run_avg * 100, 1)}% "
+            f"(required >= {int(MIN_RUN_AVG_CONFIDENCE * 100)}%). Non-flood condition confirmed."
+        )
     )
 
     return {
@@ -225,11 +285,18 @@ def evaluate_video_file(video_path: str) -> Dict[str, Any]:
         "label": result_label,
         "is_flooding": is_flood,
         "flood_detected": is_flood,
+        "confidence_score": confidence_score,
         "confidence": round(confidence, 4),
+        "longest_consecutive_run": longest_run_len,
+        "longest_run_avg_score": round(longest_run_avg, 4),
+        "min_consecutive_required": MIN_CONSECUTIVE_FRAMES,
+        "min_run_avg_required": MIN_RUN_AVG_CONFIDENCE,
+        "frame_threshold": FRAME_FLOOD_THRESHOLD,
         "frames_analyzed": frames_analyzed,
         "flood_positive_frames": flood_positive_frames,
         "flood_ratio": round(flood_ratio, 4),
         "duration_seconds": round(duration_sec, 2),
+        "effective_fps": effective_sample_fps,
         "flood_score": round(max_flood_score, 4),
         "avg_flood_score": round(avg_flood_score, 4),
         "reason": reason
@@ -265,6 +332,10 @@ def predict_from_path(req: PredictPathRequest):
                 target_path = str(local_candidate)
         elif url.startswith("file://"):
             local_candidate = Path(url.replace("file://", ""))
+            if local_candidate.exists():
+                target_path = str(local_candidate)
+        else:
+            local_candidate = WORKSPACE_ROOT / "server" / "public" / "uploads" / url
             if local_candidate.exists():
                 target_path = str(local_candidate)
 
