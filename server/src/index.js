@@ -438,7 +438,7 @@ app.post("/api/weather/sync", async (_, res) => {
 
 import { spawn } from "child_process";
 
-const FLOOD_AI_URL = process.env.FLOOD_AI_URL || "http://127.0.0.1:5002";
+const FLOOD_AI_URL = process.env.FLOOD_AI_URL || "http://127.0.0.1:5003";
 let floodAiProc = null;
 
 function ensureFloodAiProcess() {
@@ -446,19 +446,19 @@ function ensureFloodAiProcess() {
     .then((r) => r.json())
     .then((data) => {
       if (data && data.model_loaded) {
-        console.log("🌊 [FloodAI] Microservice verified running and model loaded.");
+        console.log("🌊 [FloodAI] Microservice verified running and model loaded on port 5003.");
       }
     })
     .catch(() => {
       if (!floodAiProc) {
-        console.log("🌊 [FloodAI] Starting Python flood detection microservice on port 5002...");
+        console.log("🌊 [FloodAI] Starting Python flood detection microservice on port 5003...");
         const pythonCmd = process.platform === "win32" ? "python" : "python3";
         const scriptPath = path.join(__dirname, "flood_detector_service.py");
         floodAiProc = spawn(pythonCmd, [scriptPath], {
           cwd: path.resolve(__dirname, "../../"),
           stdio: "inherit",
           shell: true,
-          env: { ...process.env, FORCE_COLOR: "1" }
+          env: { ...process.env, FLOOD_AI_PORT: "5003", FORCE_COLOR: "1" }
         });
         floodAiProc.on("exit", (code) => {
           floodAiProc = null;
@@ -473,7 +473,7 @@ ensureFloodAiProcess();
 setInterval(ensureFloodAiProcess, 30000);
 
 async function checkFloodAiMedia({ filePath, url }) {
-  const urls = [FLOOD_AI_URL, "http://localhost:5002", "http://127.0.0.1:5002"];
+  const urls = [FLOOD_AI_URL, "http://127.0.0.1:5003", "http://localhost:5003", "http://127.0.0.1:5002", "http://localhost:5002"];
   const uniqueUrls = [...new Set(urls)];
 
   for (const baseUrl of uniqueUrls) {

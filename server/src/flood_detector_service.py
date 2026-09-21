@@ -60,6 +60,13 @@ print(f"🌊 [FloodAI] Initializing model from: {MODEL_PATH}")
 
 model = None
 try:
+    if hasattr(keras, "layers") and hasattr(keras.layers, "Dense"):
+        _orig_dense_init = keras.layers.Dense.__init__
+        def _compat_dense_init(self, *args, **kwargs):
+            kwargs.pop("quantization_config", None)
+            return _orig_dense_init(self, *args, **kwargs)
+        keras.layers.Dense.__init__ = _compat_dense_init
+
     model = keras.models.load_model(str(MODEL_PATH))
     # Warm up model with a dummy tensor
     dummy_input = np.zeros((1, 224, 224, 3), dtype=np.float32)
@@ -94,8 +101,8 @@ def evaluate_image_array(img_rgb: np.ndarray) -> Dict[str, Any]:
     normal_score = float(preds[1])
     
     # Classification rule based on training calibration:
-    # Index 0 is Flooding, Index 1 is Normal
-    is_flood = bool(flood_score > normal_score and flood_score >= FRAME_FLOOD_THRESHOLD)
+    # Index 0 is Flooding sigmoid probability
+    is_flood = bool(flood_score >= FRAME_FLOOD_THRESHOLD)
     confidence = flood_score if is_flood else normal_score
 
     return {
