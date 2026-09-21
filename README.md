@@ -64,24 +64,38 @@ This repository keeps external services mocked by default so the demo runs witho
 
 ## Run
 
-### Web
+### Run Everything (Web + Backend API)
 ```bash
 npm install
+npm run dev
+```
+- **Authority Web Dashboard**: [http://localhost:5173](http://localhost:5173)
+- **Node API Server**: [http://localhost:5001](http://localhost:5001)
+
+To run web, server, and the mobile bundler together:
+```bash
+npm run dev:all
+```
+
+### Individual Services
+
+#### Web Dashboard
+```bash
 npm run web
 ```
-Open the Vite URL shown in the terminal.
+Runs Vite dev server on `http://localhost:5173`.
 
-### API
+#### Backend API
 ```bash
 npm run server
 ```
-API runs on `http://localhost:5000`.
+Runs Express API on `http://localhost:5001`.
 
-### Mobile
+#### Mobile App (Resident / Vendor)
 ```bash
-cd apps/mobile
-npm install
-npx expo start
+npm run mobile
+# or
+cd apps/mobile && npx expo start
 ```
 
 ## Environment

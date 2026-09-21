@@ -4,6 +4,8 @@
   "version": "1.0.0",
   "workspaces": ["apps/web", "server"],
   "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:all": "node scripts/dev.mjs --with-mobile",
     "web": "npm --workspace apps/web run dev",
     "server": "npm --workspace server run dev",
     "mobile": "npm --prefix apps/mobile start",
