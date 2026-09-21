@@ -13,17 +13,17 @@ VarshaRaksha is an AI-powered disaster management ecosystem engineered to bridge
 <table align="center" width="100%">
   <tr>
     <td align="center" width="33%">
-      <img src="./image.png" alt="AI Verified Incident Feed" width="100%" style="border-radius: 8px; border: 1px solid #e2e8f0;"/>
+      <img src="./docs/assets/authority_ai_verified.png" alt="AI Verified Incident Feed" width="100%" style="border-radius: 8px; border: 1px solid #e2e8f0;"/>
       <br/>
       <b>🌊 1. AI-Verified Flood Feed</b>
     </td>
     <td align="center" width="33%">
-      <img src="./image%20copy.png" alt="Human Intervention Required Feed" width="100%" style="border-radius: 8px; border: 1px solid #e2e8f0;"/>
+      <img src="./docs/assets/authority_human_review.png" alt="Human Intervention Required Feed" width="100%" style="border-radius: 8px; border: 1px solid #e2e8f0;"/>
       <br/>
       <b>⚠️ 2. Human Intervention Required</b>
     </td>
     <td align="center" width="33%">
-      <img src="./image%20copy%202.png" alt="Quarantined Spam Feed" width="100%" style="border-radius: 8px; border: 1px solid #e2e8f0;"/>
+      <img src="./docs/assets/authority_quarantined_spam.png" alt="Quarantined Spam Feed" width="100%" style="border-radius: 8px; border: 1px solid #e2e8f0;"/>
       <br/>
       <b>🚫 3. Quarantined Spam Feed</b>
     </td>
@@ -31,14 +31,14 @@ VarshaRaksha is an AI-powered disaster management ecosystem engineered to bridge
 </table>
 
 #### 🔍 Authority Interface Breakdown:
-1. **AI-Verified Flood Feed (`image.png`)**:
+1. **AI-Verified Flood Feed**:
    - Analyzes up to 120 video frames using a fine-tuned MobileNet computer vision microservice.
    - Requires a sustained consecutive run of $\ge 5$ flood-positive frames with an average confidence score $\ge 0.75$ and frame threshold $\ge 0.70$.
    - Confirmed waterlogging incidents are auto-tagged with root causes (*Drain Blockage* vs. *Rainfall Overload*) and surfaced directly with rapid-unit dispatch options.
-2. **Human Intervention Review Queue (`image copy.png`)**:
+2. **Human Intervention Review Queue**:
    - Flags low-confidence ($< 70\%$) or unconfirmed ground reports with an amber warning banner.
    - Enables dispatchers to inspect full video/photo evidence in a frame-by-frame lightbox modal and take one-click decisions (*Mark Verified*, *False Alarm*, or *Override Dispatch*).
-3. **Quarantined Spam & Reputation Ledger (`image copy 2.png`)**:
+3. **Quarantined Spam & Reputation Ledger**:
    - Automatically tracks user trust scores. If a user accumulates $\ge 3$ confirmed false alarms, future submissions are quarantined to keep the live feed uncluttered.
    - For flagged users, automated Twilio SMS blasting is suppressed on SOS calls (requiring manual voice callback), with a one-click *Reset User Trust & Unban* button for authorities.
 
@@ -49,12 +49,12 @@ VarshaRaksha is an AI-powered disaster management ecosystem engineered to bridge
 <table align="center" width="100%">
   <tr>
     <td align="center" width="50%">
-      <img src="./WhatsApp%20Image%202026-09-21%20at%2015.03.28.jpeg" alt="One-Touch Emergency SOS" width="65%" style="border-radius: 8px; border: 1px solid #e2e8f0;"/>
+      <img src="./docs/assets/mobile_shopkeeper_sos.jpeg" alt="One-Touch Emergency SOS" width="65%" style="border-radius: 8px; border: 1px solid #e2e8f0;"/>
       <br/>
       <b>🔴 1. Shopkeeper Home & 1-Tap SOS</b>
     </td>
     <td align="center" width="50%">
-      <img src="./WhatsApp%20Image%202026-09-21%20at%2015.04.10.jpeg" alt="Safe Route & Evacuation Shelters" width="65%" style="border-radius: 8px; border: 1px solid #e2e8f0;"/>
+      <img src="./docs/assets/mobile_safe_shelter.jpeg" alt="Safe Route & Evacuation Shelters" width="65%" style="border-radius: 8px; border: 1px solid #e2e8f0;"/>
       <br/>
       <b>🏠 2. Safe Corridor Evacuation & Shelters</b>
     </td>
@@ -62,11 +62,11 @@ VarshaRaksha is an AI-powered disaster management ecosystem engineered to bridge
 </table>
 
 #### 📱 Mobile Interface Breakdown:
-1. **Shopkeeper Home & One-Touch Emergency SOS (`WhatsApp Image ... 15.03.28.jpeg`)**:
+1. **Shopkeeper Home & One-Touch Emergency SOS**:
    - Minimalist, high-contrast UI designed for high-stress crisis scenarios.
    - Features a prominent, zero-latency **One-Touch Emergency SOS Button** that captures instant GPS coordinates and alerts nearest municipal rescue units without waiting for AI validation.
    - Provides live ward status, lightning storm risk advisories, and the citizen incident report form (where AI confidence percentages are hidden from citizens to avoid panic).
-2. **Safe Corridor Route & Verified Shelters (`WhatsApp Image ... 15.04.10.jpeg`)**:
+2. **Safe Corridor Route & Verified Shelters**:
    - Displays real-time safe evacuation routes that dynamically circumvent active waterlogged streets and choked culverts.
    - Guides shopkeepers and families to elevated high-ground municipal shelters equipped with power backup, clean water, and boat staging hubs.
 
