@@ -1289,6 +1289,10 @@ function Dashboard({
 
   const [dashboardIncidentFilter, setDashboardIncidentFilter] = useState("all");
 
+  const sortedIncidents = Array.isArray(incidents)
+    ? [...incidents].sort((a, b) => new Date(b.userTimestamp || b.updatedAt || b.createdAt || b.time || 0) - new Date(a.userTimestamp || a.updatedAt || a.createdAt || a.time || 0))
+    : [];
+
   const activeDashboardIncidents = sortedIncidents.filter((i) => !i.isQuarantined && i.status !== "Quarantined Spam");
   const humanReviewCount = activeDashboardIncidents.filter((i) => isHumanInterventionNeeded(i)).length;
   const aiVerifiedCount = activeDashboardIncidents.filter((i) => i.aiVerification?.is_flooding === true || i.aiVerified).length;
