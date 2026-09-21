@@ -13,7 +13,7 @@ import "./styles.css";
 const API = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
 
 // Leaflet Map Component with real OpenStreetMap tiles
-function LeafletMap({ zones = [], incidents = [], height = "360px", center = [19.128, 72.848], zoom = 14 }) {
+function LeafletMap({ zones = [], incidents = [], height = "360px", center = [19.128, 72.848], zoom = 14, showRainfall = false, showDrainageRisk = false }) {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const markersLayer = useRef(null);
@@ -95,6 +95,34 @@ function LeafletMap({ zones = [], incidents = [], height = "360px", center = [19
       marker.addTo(layer);
     });
 
+    // Add Rainfall overlay (heatmap/circles) if toggled
+    if (showRainfall) {
+      zones.forEach(z => {
+        if (!z.lat || !z.lng || !z.rainfall) return;
+        L.circle([z.lat, z.lng], {
+          color: '#3b82f6',
+          fillColor: '#60a5fa',
+          fillOpacity: 0.3 + Math.min(0.5, z.rainfall / 100),
+          radius: 200 + (z.rainfall * 5)
+        }).bindPopup(`<b>${z.name}</b><br/>Rainfall: ${z.rainfall} mm`).addTo(layer);
+      });
+    }
+
+    // Add Drainage Risk overlay if toggled
+    if (showDrainageRisk) {
+      // Find hotspots from incidents (cause = Blocked drain)
+      const hotspots = incidents.filter(i => i.cause === 'Blocked drain' || i.note?.toLowerCase().includes('drain'));
+      hotspots.forEach(h => {
+        if (!h.lat || !h.lng) return;
+        L.circle([h.lat, h.lng], {
+          color: '#eab308',
+          fillColor: '#fef08a',
+          fillOpacity: 0.5,
+          radius: 150
+        }).bindPopup(`<b>Drainage Risk Area</b><br/>Suspected Blocked Drain`).addTo(layer);
+      });
+    }
+
     // Adjust bounds if zones exist
     if (zones.length > 0) {
       const validCoords = zones.filter((z) => z.lat && z.lng).map((z) => [z.lat, z.lng]);
@@ -102,7 +130,7 @@ function LeafletMap({ zones = [], incidents = [], height = "360px", center = [19
         map.setView(validCoords[0], zoom);
       }
     }
-  }, [zones, incidents, zoom]);
+  }, [zones, incidents, zoom, showRainfall, showDrainageRisk]);
 
   return <div ref={mapRef} style={{ width: "100%", height, borderRadius: "14px", overflow: "hidden" }} />;
 }
@@ -118,6 +146,7 @@ function App() {
   const [zones, setZones] = useState([]);
   const [incidents, setIncidents] = useState([]);
   const [alerts, setAlerts] = useState([]);
+  const [dispatches, setDispatches] = useState([]);
   const [toast, setToast] = useState("");
   const [syncing, setSyncing] = useState(false);
 
@@ -128,14 +157,16 @@ function App() {
 
   const loadData = async () => {
     try {
-      const [z, i, a] = await Promise.all([
+      const [z, i, a, d] = await Promise.all([
         apiFetch("/zones"),
         apiFetch("/incidents"),
-        apiFetch("/alerts")
+        apiFetch("/alerts"),
+        apiFetch("/dispatches")
       ]);
       setZones(z);
       setIncidents(i);
       setAlerts(a);
+      setDispatches(d);
     } catch (err) {
       console.warn("Failed to load live data:", err.message);
     }
@@ -198,7 +229,7 @@ function App() {
           />
           <Route
             path="/dispatch"
-            element={<Dispatch incidents={incidents} notify={notify} onReload={loadData} />}
+            element={<Dispatch incidents={incidents} dispatches={dispatches} notify={notify} onReload={loadData} />}
           />
           <Route path="/drainage" element={<Drainage zones={zones} incidents={incidents} notify={notify} />} />
           <Route path="/analytics" element={<Analytics zones={zones} incidents={incidents} />} />
@@ -535,6 +566,7 @@ function IncidentTable({ incidents }) {
                 <small>
                   {x.time} · {x.address || x.zoneId}
                 </small>
+                {x.mergedCount > 0 && <span style={{fontSize:'10px', background:'#eef2ff', color:'#4f46e5', padding:'2px 4px', borderRadius:'4px', marginLeft:'4px', display:'inline-block', marginTop:'4px'}}>{x.mergedCount} reports merged</span>}
               </td>
               <td>
                 {x.reporter}
@@ -545,6 +577,7 @@ function IncidentTable({ incidents }) {
                   <i style={{ width: `${x.severity}%` }}></i>
                   {x.severity}
                 </span>
+                {x.confidenceScore && <div style={{fontSize:'10px', marginTop:'2px', color:'#64748b'}}>Conf: {x.confidenceScore}%</div>}
               </td>
               <td>{x.cause}</td>
               <td>
@@ -559,6 +592,9 @@ function IncidentTable({ incidents }) {
 }
 
 function RiskMap({ zones, incidents, notify }) {
+  const [showRainfall, setShowRainfall] = useState(false);
+  const [showDrainageRisk, setShowDrainageRisk] = useState(false);
+  
   return (
     <div className="content">
       <PageHeader
@@ -566,6 +602,12 @@ function RiskMap({ zones, incidents, notify }) {
         title="Live street-level risk map"
         sub="Explore real geographic flood zones, Open-Meteo precipitation, and GPS citizen report clusters."
       >
+        <button className={`ghost ${showRainfall ? 'selected' : ''}`} onClick={() => setShowRainfall(!showRainfall)}>
+          <CloudRain size={16} /> Rainfall Overlay
+        </button>
+        <button className={`ghost ${showDrainageRisk ? 'selected' : ''}`} onClick={() => setShowDrainageRisk(!showDrainageRisk)}>
+          <Wrench size={16} /> Drainage Risk (from reported incidents)
+        </button>
         <button className="ghost" onClick={() => notify("Map tiles reloaded from OpenStreetMap.")}>
           <Layers3 size={16} /> Refresh layers
         </button>
@@ -573,7 +615,7 @@ function RiskMap({ zones, incidents, notify }) {
       <div className="map-layout">
         <section className="panel full-map">
           <div style={{ height: "620px", position: "relative" }}>
-            <LeafletMap zones={zones} incidents={incidents} height="620px" zoom={14} />
+            <LeafletMap zones={zones} incidents={incidents} height="620px" zoom={14} showRainfall={showRainfall} showDrainageRisk={showDrainageRisk} />
           </div>
         </section>
         <section className="panel zone-list">
@@ -665,6 +707,18 @@ function Incidents({ incidents, notify, onReload }) {
     }
   };
 
+  const markFalseAlarm = async (id) => {
+    try {
+      const el = document.getElementById(`status-${id}`);
+      if (el) el.innerText = "False Alarm";
+      await apiFetch(`/incidents/${id}/false-alarm`, { method: "POST" });
+      notify(`Incident ${id} marked as False Alarm.`);
+      onReload();
+    } catch (err) {
+      notify("Action failed: " + err.message);
+    }
+  };
+
   return (
     <div className="content">
       <PageHeader
@@ -698,12 +752,17 @@ function Incidents({ incidents, notify, onReload }) {
                   <div className="evidence">
                     <span>{i.gps ? "✓ GPS Verified" : "Manual Area"}</span>
                     <span>✓ Timestamp: {i.time}</span>
-                    <span>Status: {i.status}</span>
+                    <span>Status: <span id={`status-${i.id}`}>{i.status}</span></span>
                   </div>
-                  {i.status !== "Verified" && i.status !== "Dispatched" && (
-                    <button className="primary small" onClick={() => verify(i.id)}>
-                      Verify report
-                    </button>
+                  {i.status !== "Verified" && i.status !== "Dispatched" && i.status !== "False Alarm" && (
+                    <div style={{display:'flex', gap:'8px', marginTop:'8px'}}>
+                      <button className="primary small" onClick={() => verify(i.id)}>
+                        Verify report
+                      </button>
+                      <button className="ghost small" onClick={() => markFalseAlarm(i.id)}>
+                        False alarm
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -715,9 +774,10 @@ function Incidents({ incidents, notify, onReload }) {
   );
 }
 
-function Dispatch({ incidents, notify, onReload }) {
+function Dispatch({ incidents, dispatches, notify, onReload }) {
   const [selected, setSelected] = useState(incidents[0] || null);
-  const [team, setTeam] = useState("Municipal Drainage Crew");
+  const [team, setTeam] = useState("");
+  const [override, setOverride] = useState(false);
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
@@ -725,6 +785,16 @@ function Dispatch({ incidents, notify, onReload }) {
       setSelected(incidents[0]);
     }
   }, [incidents, selected]);
+
+  useEffect(() => {
+    if (selected && !override) {
+      if (selected.cause === "Blocked drain" || selected.note?.toLowerCase().includes("drain")) {
+        setTeam("Municipal Drainage Crew");
+      } else {
+        setTeam("Pumping / High-Volume Extraction Team");
+      }
+    }
+  }, [selected, override]);
 
   const send = async () => {
     if (!selected) return;
@@ -799,12 +869,17 @@ function Dispatch({ incidents, notify, onReload }) {
           </div>
           <label>
             Recommended response team
-            <select value={team} onChange={(e) => setTeam(e.target.value)}>
+            <select value={team} onChange={(e) => setTeam(e.target.value)} disabled={!override}>
               <option>Municipal Drainage Crew</option>
               <option>Pumping / High-Volume Extraction Team</option>
               <option>General Emergency Response Team</option>
               <option>Traffic Police & Route Diversion Crew</option>
             </select>
+          </label>
+          <label className="check-row" style={{marginTop:'8px', marginBottom:'16px'}}>
+            <input type="checkbox" checked={override} onChange={(e)=>setOverride(e.target.checked)}/> 
+            Manual Override
+            <span></span>
           </label>
           <div className="route-card">
             <div>
@@ -821,6 +896,17 @@ function Dispatch({ incidents, notify, onReload }) {
             <button className="primary" onClick={send} disabled={!selected || sending}>
               <Send size={16} /> {sending ? "Assigning..." : "Dispatch team"}
             </button>
+          </div>
+          <div style={{marginTop:'24px', borderTop:'1px solid #e2e8f0', paddingTop:'16px'}}>
+            <h3 style={{fontSize:'13px', marginBottom:'12px'}}>Resource Availability Tracker</h3>
+            {dispatches?.length === 0 ? <small style={{color:'#64748b'}}>No active dispatches.</small> : (
+              dispatches?.map(d => (
+                <div key={d.id} style={{display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px dashed #e2e8f0', fontSize:'12px'}}>
+                  <span><b>{d.team}</b> (to {d.incident})</span>
+                  <span style={{color: d.status === 'En route' ? '#f59e0b' : '#10b981', fontWeight:'600'}}>{d.status} · {d.eta}</span>
+                </div>
+              ))
+            )}
           </div>
         </section>
       </div>

@@ -98,6 +98,13 @@ app.post("/api/incidents/:id/verify", (req, res) => {
   res.json({ success: true, incident: inc });
 });
 
+// Mark as False Alarm
+app.post("/api/incidents/:id/false-alarm", (req, res) => {
+  const inc = store.markFalseAlarm(req.params.id);
+  if (!inc) return res.status(404).json({ error: "Incident not found" });
+  res.json({ success: true, incident: inc });
+});
+
 // Real Dispatch Action
 app.post("/api/dispatch", (req, res) => {
   try {

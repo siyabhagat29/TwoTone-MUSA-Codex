@@ -192,6 +192,11 @@ class Store {
     // Calculate severity
     const severity = Math.min(100, Math.round(waterCm * 0.8 + 20));
 
+    // Simple heuristic for confidence score (placeholder for CV Model)
+    let conf = 70; // Base score
+    if (reportData.photo) conf += 15;
+    if (reportData.note && /urgent|severe|help|immediately|fast/i.test(reportData.note)) conf += 10;
+
     const incident = {
       id,
       zoneId,
@@ -210,6 +215,7 @@ class Store {
       photoUrl: reportData.photoUrl || (reportData.photo ? "attached" : null),
       gps: Boolean(reportData.lat && reportData.lng),
       duplicateOf: null,
+      confidenceScore: Math.min(99, conf),
       createdAt: new Date().toISOString()
     };
 
@@ -248,6 +254,21 @@ class Store {
     const inc = this.incidents.find((i) => i.id === incidentId);
     if (inc) {
       inc.status = "Verified";
+      this.save();
+      return inc;
+    }
+    return null;
+  }
+
+  /**
+   * Mark an incident as False Alarm
+   */
+  markFalseAlarm(incidentId) {
+    const inc = this.incidents.find((i) => i.id === incidentId);
+    if (inc) {
+      inc.status = "False Alarm";
+      // Deduplicate again so it might disconnect from merged groups
+      this.incidents = dedupeReports(this.incidents);
       this.save();
       return inc;
     }

@@ -23,10 +23,28 @@ export function classifyCause({ rainfall, waterLevel, blockedDrainSignal }) {
 
 export function dedupeReports(reports) {
   const seen = new Map();
-  return reports.map((r) => {
-    const key = `${r.zoneId}-${Math.round(r.waterLevel / 10)}-${r.photoHash || "none"}`;
-    if (seen.has(key)) return { ...r, duplicateOf: seen.get(key) };
+  const counts = new Map();
+
+  const deduped = reports.map((r) => {
+    if (r.status === "False Alarm") return { ...r, duplicateOf: null };
+    const key = `${r.zoneId}-${Math.round(r.waterLevel / 10)}-${r.cause || "none"}`;
+    if (seen.has(key)) {
+      const parentId = seen.get(key);
+      counts.set(parentId, (counts.get(parentId) || 0) + 1);
+      return { ...r, duplicateOf: parentId };
+    }
     seen.set(key, r.id);
+    counts.set(r.id, 0);
     return { ...r, duplicateOf: null };
+  });
+
+  return deduped.map(r => {
+    if (!r.duplicateOf) {
+      r.mergedCount = counts.get(r.id) || 0;
+      if (r.mergedCount > 0) {
+        r.confidenceScore = Math.min(99, (r.confidenceScore || 70) + (r.mergedCount * 5));
+      }
+    }
+    return r;
   });
 }
