@@ -374,6 +374,7 @@ class Store {
     this.chronicBlockages = [...initialChronicBlockages];
     this.sosAlerts = [];
     this.alertFeedbacks = [];
+    this.userReputations = {};
     this.subscribers = new Set();
     this.init();
   }
@@ -413,6 +414,7 @@ class Store {
         this.sosAlerts = data.sosAlerts || [];
         this.alertFeedbacks = data.alertFeedbacks || [];
         this.chronicBlockages = data.chronicBlockages?.length ? data.chronicBlockages : this.chronicBlockages;
+        this.userReputations = data.userReputations || {};
         this.syncResourceStatuses();
 
         // Ensure any mobile reports buried inside INC-1002 are surfaced as standalone incidents
@@ -522,6 +524,7 @@ class Store {
             sosAlerts: this.sosAlerts,
             alertFeedbacks: this.alertFeedbacks,
             chronicBlockages: this.chronicBlockages,
+            userReputations: this.userReputations,
             updatedAt: new Date().toISOString()
           },
           null,
@@ -576,6 +579,113 @@ class Store {
 
   getDispatches() {
     return this.dispatches;
+  }
+
+  normalizeUserKey(key) {
+    if (!key) return "ANONYMOUS";
+    return String(key).trim().replace(/\s+/g, "").toLowerCase();
+  }
+
+  getUserReputation(userKey, extraInfo = {}) {
+    const cleanKey = this.normalizeUserKey(userKey);
+    if (!this.userReputations[cleanKey]) {
+      this.userReputations[cleanKey] = {
+        identifier: cleanKey,
+        userName: extraInfo.userName || extraInfo.reporter || "Citizen",
+        userPhone: extraInfo.userPhone || (cleanKey.startsWith("+") || /^\d+$/.test(cleanKey) ? cleanKey : null),
+        totalSubmissions: 0,
+        verifiedCount: 0,
+        falseAlarmCount: 0,
+        trustScore: 1.0,
+        status: "NORMAL", // "TRUSTED", "NORMAL", "WARNING", "QUARANTINED"
+        isQuarantined: false,
+        quarantineReason: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        history: []
+      };
+    }
+    return this.userReputations[cleanKey];
+  }
+
+  recordReportSubmission(userKey, extraInfo = {}) {
+    const rep = this.getUserReputation(userKey, extraInfo);
+    rep.totalSubmissions = (rep.totalSubmissions || 0) + 1;
+    rep.updatedAt = new Date().toISOString();
+    if (extraInfo.userName && (!rep.userName || rep.userName === "Citizen")) rep.userName = extraInfo.userName;
+    if (extraInfo.userPhone && !rep.userPhone) rep.userPhone = extraInfo.userPhone;
+    this.save();
+    return rep;
+  }
+
+  recordVerification(userKey, incidentId) {
+    const rep = this.getUserReputation(userKey);
+    rep.verifiedCount = (rep.verifiedCount || 0) + 1;
+    // Calculate trust score (1.0 maximum, drops with false alarms)
+    const total = rep.verifiedCount + rep.falseAlarmCount;
+    rep.trustScore = total > 0 ? Math.min(1.0, Number(((rep.verifiedCount + 1) / (total + 1)).toFixed(2))) : 1.0;
+    
+    if (rep.falseAlarmCount < 3) {
+      rep.isQuarantined = false;
+      rep.status = rep.verifiedCount >= 3 ? "TRUSTED" : "NORMAL";
+    }
+    rep.updatedAt = new Date().toISOString();
+    rep.history.unshift({ action: "VERIFIED", incidentId, timestamp: new Date().toISOString() });
+    this.save();
+    this.emit("reputation:updated", rep);
+    return rep;
+  }
+
+  recordFalseAlarmStrike(userKey, incidentId, reason = "False Alarm") {
+    const rep = this.getUserReputation(userKey);
+    rep.falseAlarmCount = (rep.falseAlarmCount || 0) + 1;
+    const total = rep.verifiedCount + rep.falseAlarmCount * 2;
+    rep.trustScore = Math.max(0.0, Number(((rep.verifiedCount + 1) / (total + 1)).toFixed(2)));
+    
+    // Quarantine threshold: 3 or more false alarms
+    if (rep.falseAlarmCount >= 3) {
+      rep.isQuarantined = true;
+      rep.status = "QUARANTINED";
+      rep.quarantineReason = `Exceeded false alarm threshold (${rep.falseAlarmCount} strikes): ${reason}`;
+    } else if (rep.falseAlarmCount >= 1) {
+      rep.status = "WARNING";
+    }
+    
+    rep.updatedAt = new Date().toISOString();
+    rep.history.unshift({ action: "FALSE_ALARM_STRIKE", incidentId, reason, timestamp: new Date().toISOString() });
+    this.save();
+    this.emit("reputation:updated", rep);
+    return rep;
+  }
+
+  resetUserReputation(userKey) {
+    const cleanKey = this.normalizeUserKey(userKey);
+    const rep = this.getUserReputation(cleanKey);
+    rep.falseAlarmCount = 0;
+    rep.trustScore = 1.0;
+    rep.status = "NORMAL";
+    rep.isQuarantined = false;
+    rep.quarantineReason = null;
+    rep.updatedAt = new Date().toISOString();
+    rep.history.unshift({ action: "RESET_BY_AUTHORITY", timestamp: new Date().toISOString() });
+
+    // Un-quarantine all incidents from this user
+    for (const inc of this.incidents) {
+      const incUser = this.normalizeUserKey(inc.userPhone || inc.reporter);
+      if (incUser === cleanKey && inc.isQuarantined) {
+        inc.isQuarantined = false;
+        inc.quarantineReason = null;
+      }
+    }
+
+    this.save();
+    this.emit("reputation:updated", rep);
+    this.emit("reputation:reset", { identifier: cleanKey, rep });
+    return rep;
+  }
+
+  getAllUserReputations() {
+    return Object.values(this.userReputations).sort((a, b) => b.falseAlarmCount - a.falseAlarmCount);
   }
 
   getResources(userLat, userLng) {
@@ -800,6 +910,14 @@ class Store {
     const userPhone = sosData.userPhone || sosData.phone || "+917738122051";
     const emergencyNumber = sosData.emergencyNumber || sosData.emergencyPhone || "7977661625";
 
+    // Track user submission and check false-alarm quarantine status
+    const userKey = userPhone || sosData.userName || "ANONYMOUS";
+    const reputation = this.recordReportSubmission(userKey, {
+      userName: sosData.userName || "Local Shop Owner",
+      userPhone
+    });
+    const isUserQuarantined = Boolean(reputation.isQuarantined);
+
     const sos = {
       id,
       userId: sosData.userId || "USR-SHOPKEEPER-72",
@@ -814,7 +932,10 @@ class Store {
       assignedTeam: rescueTeam.name,
       assignedTeamPhone: rescueTeam.phone,
       eta: "6–9 min",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      isQuarantined: isUserQuarantined,
+      quarantineReason: isUserQuarantined ? reputation.quarantineReason : null,
+      smsSuppressed: isUserQuarantined
     };
 
     // Compute next unique incident ID for administrator incident feed
@@ -842,13 +963,21 @@ class Store {
       userTimestamp,
       timestamp: userTimestamp,
       status: "ACTIVE_SOS",
-      severity: 95,
-      cause: "🚨 Emergency Life-Safety SOS",
-      causeCode: "SOS_EMERGENCY",
-      causeDescription: `Immediate distress signal triggered by ${sos.userName} (${sos.role}). User Phone: ${sos.userPhone} · Emergency Contact: ${sos.emergencyNumber}`,
+      severity: isUserQuarantined ? 50 : 95,
+      isQuarantined: isUserQuarantined,
+      quarantineReason: isUserQuarantined ? reputation.quarantineReason : null,
+      reporterReputation: reputation,
+      smsSuppressed: isUserQuarantined,
+      cause: isUserQuarantined ? "⚠️ Flagged User SOS (Spam Risk)" : "🚨 Emergency Life-Safety SOS",
+      causeCode: isUserQuarantined ? "SOS_FLAGGED_USER" : "SOS_EMERGENCY",
+      causeDescription: isUserQuarantined
+        ? `Distress signal from user with ${reputation.falseAlarmCount} prior false alarms. Automated SMS suppressed to protect emergency lines. Callback required: ${sos.userPhone}.`
+        : `Immediate distress signal triggered by ${sos.userName} (${sos.role}). User Phone: ${sos.userPhone} · Emergency Contact: ${sos.emergencyNumber}`,
       recommendedTeam: rescueTeam.name,
       recommendedTeamId: rescueTeam.id,
-      routingRationale: `Immediate high-priority deployment of ${rescueTeam.name} to active GPS distress coordinate.`,
+      routingRationale: isUserQuarantined
+        ? `Quarantine active: Dispatch held pending manual phone confirmation.`
+        : `Immediate high-priority deployment of ${rescueTeam.name} to active GPS distress coordinate.`,
       waterLevel: 55,
       drainObservation: "Distress / Flooding",
       onsetSpeed: "Immediate",
@@ -858,7 +987,9 @@ class Store {
       geohash: "te7u8",
       evidenceHash: `0xSOS${Date.now().toString(16)}`,
       address: sos.address,
-      note: `EMERGENCY SOS BROADCAST: User ${sos.userName} triggered life-safety alarm at ${sos.address}. Contact: ${sos.userPhone}`,
+      note: isUserQuarantined
+        ? `⚠️ QUARANTINED SOS BROADCAST: User ${sos.userName} has ${reputation.falseAlarmCount} prior false alarms. Automated SMS suppressed.`
+        : `EMERGENCY SOS BROADCAST: User ${sos.userName} triggered life-safety alarm at ${sos.address}. Contact: ${sos.userPhone}`,
       photo: false,
       photoUrl: null,
       video: false,
@@ -872,12 +1003,12 @@ class Store {
         address: sos.address,
         capturedAt: userTimestamp
       },
-      cvConfidence: 100,
-      cvConfidenceDecimal: 1.0,
-      aiVerified: true,
-      aiFloodConfidence: 1.0,
-      cvModelLabel: "EMERGENCY_SOS_DIRECT_DISPATCH",
-      cvStatus: "Verified",
+      cvConfidence: isUserQuarantined ? 10 : 100,
+      cvConfidenceDecimal: isUserQuarantined ? 0.10 : 1.0,
+      aiVerified: !isUserQuarantined,
+      aiFloodConfidence: isUserQuarantined ? 0.10 : 1.0,
+      cvModelLabel: isUserQuarantined ? "QUARANTINED_USER_SOS" : "EMERGENCY_SOS_DIRECT_DISPATCH",
+      cvStatus: isUserQuarantined ? "Unverified" : "Verified",
       mergedCount: 1,
       mergedReports: [],
       relatedIncidentId: null,
@@ -892,15 +1023,18 @@ class Store {
       id: alertId,
       sosId: id,
       incidentId: incidentId,
-      title: `🚨 CRITICAL SOS: ${sos.userName}`,
-      description: `Immediate distress signal triggered at ${sos.address}. Contact: ${sos.userPhone} (Emergency: ${sos.emergencyNumber})`,
-      severity: "CRITICAL",
+      title: isUserQuarantined ? `⚠️ FLAGGED USER SOS: ${sos.userName}` : `🚨 CRITICAL SOS: ${sos.userName}`,
+      description: isUserQuarantined
+        ? `Quarantined reporter (${reputation.falseAlarmCount} false alarms). Auto-SMS suppressed. Contact: ${sos.userPhone}`
+        : `Immediate distress signal triggered at ${sos.address}. Contact: ${sos.userPhone} (Emergency: ${sos.emergencyNumber})`,
+      severity: isUserQuarantined ? "WARNING" : "CRITICAL",
       zoneId: "ZONE-01",
       area: sos.address,
       userPhone: sos.userPhone,
       emergencyNumber: sos.emergencyNumber,
       userName: sos.userName,
       role: sos.role,
+      isQuarantined: isUserQuarantined,
       timestamp: userTimestamp,
       type: "SOS",
       isSos: true,
@@ -915,32 +1049,41 @@ class Store {
     this.emit("report:created", { incident: sosIncident, zoneId: "ZONE-01" });
     this.emit("incident:created", { incident: sosIncident, zoneId: "ZONE-01" });
 
-    // Asynchronously dispatch Twilio SMS alert from +1 765 563 5185 to verified test number +917738122051
-    sendSosSms(sos).then((twResult) => {
-      console.log(`[SOS Twilio] SMS alert dispatched for ${id}:`, twResult);
-    }).catch((err) => {
-      console.warn(`[SOS Twilio] SMS notice:`, err.message);
-    });
+    // Only dispatch Twilio SMS and PagerDuty if the user is NOT quarantined
+    if (!isUserQuarantined) {
+      // Asynchronously dispatch Twilio SMS alert from +1 765 563 5185 to verified test number +917738122051
+      sendSosSms(sos).then((twResult) => {
+        console.log(`[SOS Twilio] SMS alert dispatched for ${id}:`, twResult);
+      }).catch((err) => {
+        console.warn(`[SOS Twilio] SMS notice:`, err.message);
+      });
 
-    // Asynchronously dispatch PagerDuty alert & phone call escalation to NGO Coordinator (7977661625)
-    triggerPagerDutySos(sos).then((pdResult) => {
-      console.log(`[SOS Dispatch] PagerDuty escalation triggered for ${id} (Call: 7977661625)`, pdResult);
-    }).catch((err) => {
-      console.warn(`[SOS Dispatch] PagerDuty notice:`, err.message);
-    });
+      // Asynchronously dispatch PagerDuty alert & phone call escalation to NGO Coordinator (7977661625)
+      triggerPagerDutySos(sos).then((pdResult) => {
+        console.log(`[SOS Dispatch] PagerDuty escalation triggered for ${id} (Call: 7977661625)`, pdResult);
+      }).catch((err) => {
+        console.warn(`[SOS Dispatch] PagerDuty notice:`, err.message);
+      });
+    } else {
+      console.warn(`[SOS Quarantine] Suppressed automated Twilio SMS & PagerDuty for ${id} due to repeat false alarms (${reputation.falseAlarmCount} strikes).`);
+    }
 
     return {
       success: true,
       sos,
-      assignedTeam: rescueTeam.name,
+      isQuarantined: isUserQuarantined,
+      smsSuppressed: isUserQuarantined,
+      assignedTeam: isUserQuarantined ? "Verification Required (Manual Call)" : rescueTeam.name,
       teamPhone: rescueTeam.phone,
       targetEmergencyPhone: emergencyNumber,
       twilioSender: "+17655635185",
       twilioTestRecipient: "+917738122051",
-      twilioStatus: "DISPATCHED",
-      pagerdutyStatus: "DISPATCHED_CALL_ACTIVE",
-      eta: "4–6 min",
-      message: `Emergency SOS broadcasted. ${rescueTeam.name} deployed. Twilio emergency SMS dispatched to ${emergencyNumber} (testing verified: +917738122051).`
+      twilioStatus: isUserQuarantined ? "SUPPRESSED_DUE_TO_QUARANTINE" : "DISPATCHED",
+      pagerdutyStatus: isUserQuarantined ? "HELD_PENDING_CONFIRMATION" : "DISPATCHED_CALL_ACTIVE",
+      eta: isUserQuarantined ? "Pending Call" : "4–6 min",
+      message: isUserQuarantined
+        ? `SOS recorded. Note: User has ${reputation.falseAlarmCount} prior false alarms. Automated SMS alert suppressed to protect emergency channels. Control room will verify via voice call.`
+        : `Emergency SOS broadcasted. ${rescueTeam.name} deployed. Twilio emergency SMS dispatched to ${emergencyNumber} (testing verified: +917738122051).`
     };
   }
 
@@ -1211,23 +1354,37 @@ class Store {
       });
     }
 
-    // Every citizen report is created as a full, visible incident card on the dashboard feed
+    // Track user submission and check false-alarm quarantine status
+    const userKey = reportData.userPhone || reportData.phone || reportData.reporter || reportData.userId || "ANONYMOUS";
+    const reputation = this.recordReportSubmission(userKey, {
+      userName: reportData.reporter || "Citizen",
+      userPhone: reportData.userPhone || reportData.phone
+    });
+    const isUserQuarantined = Boolean(reputation.isQuarantined);
+
+    // Every citizen report is created as an incident record
     const incident = {
       id,
       zoneId,
       reporter: reportData.reporter || (reportData.role === "Shop Owner" ? "Shop Owner" : "Area Resident"),
       role: reportData.role || "Shop Owner",
+      userPhone: reportData.userPhone || reportData.phone || null,
       time: formattedTime,
       userTimestamp,
       timestamp: userTimestamp,
-      status: "Received",
-      severity,
+      status: isUserQuarantined ? "Quarantined Spam" : "Received",
+      isQuarantined: isUserQuarantined,
+      quarantineReason: isUserQuarantined ? reputation.quarantineReason : null,
+      reporterReputation: reputation,
+      severity: isUserQuarantined ? 10 : severity,
       cause: divergence.name,
       causeCode: divergence.code,
-      causeDescription: divergence.description,
+      causeDescription: isUserQuarantined
+        ? `[Auto-Quarantined Spam] User has ${reputation.falseAlarmCount} prior false alarms. ${divergence.description}`
+        : divergence.description,
       recommendedTeam: autoRoute.team,
       recommendedTeamId: autoRoute.teamId,
-      routingRationale: autoRoute.rationale,
+      routingRationale: isUserQuarantined ? "Quarantined report — auto-routing suspended." : autoRoute.rationale,
       waterLevel: waterCm,
       drainObservation: reportData.drainObservation || "Unsure",
       onsetSpeed: reportData.onsetSpeed || "10–20 min",
@@ -1268,7 +1425,7 @@ class Store {
       updatedAt: userTimestamp
     };
 
-    if (divergence.code === "SUSPECTED_BLOCKED_DRAIN" || reportData.recurrence === "Yes") {
+    if (!isUserQuarantined && (divergence.code === "SUSPECTED_BLOCKED_DRAIN" || reportData.recurrence === "Yes")) {
       const match = this.chronicBlockages.find((b) => Math.hypot(b.lat - lat, b.lng - lng) < 0.005 || b.ward === zone?.ward);
       if (match) {
         match.flagCount += 1;
@@ -1283,17 +1440,19 @@ class Store {
     this.save();
     this.emit("report:created", { incident, zoneId });
 
-    if (activeExisting) {
+    if (activeExisting && !isUserQuarantined) {
       this.emit("report:merged", { incident: activeExisting, mergedCount: activeExisting.mergedCount, zoneId });
     }
 
-    // Asynchronously sync to Supabase database and email authority (aryanreddy2006@gmail.com)
-    (async () => {
-      await syncIncidentToSupabase(incident, publicPhotoUrl || incident.photoUrl);
-      await sendAuthorityIncidentEmail(incident, publicPhotoUrl || incident.photoUrl);
-    })().catch((err) => {
-      console.warn(`[Report Sync/Email Notice]:`, err.message);
-    });
+    // Asynchronously sync to Supabase database and email authority (aryanreddy2006@gmail.com) if not quarantined
+    if (!isUserQuarantined) {
+      (async () => {
+        await syncIncidentToSupabase(incident, publicPhotoUrl || incident.photoUrl);
+        await sendAuthorityIncidentEmail(incident, publicPhotoUrl || incident.photoUrl);
+      })().catch((err) => {
+        console.warn(`[Report Sync/Email Notice]:`, err.message);
+      });
+    }
 
     return incident;
   }
@@ -1301,7 +1460,7 @@ class Store {
   updateZoneMetrics(zoneId) {
     const zone = this.zones.find((z) => z.id === zoneId);
     if (!zone) return;
-    const activeReports = this.incidents.filter((i) => i.zoneId === zoneId && i.status !== "False Alarm");
+    const activeReports = this.incidents.filter((i) => i.zoneId === zoneId && i.status !== "False Alarm" && !i.isQuarantined);
     zone.reports = activeReports.length;
     if (activeReports.length > 0) {
       const maxWater = Math.max(...activeReports.map((r) => Number(r.waterLevel) || 0));
@@ -1331,6 +1490,8 @@ class Store {
     if (inc) {
       inc.status = "Verified";
       inc.verifiedAt = new Date().toISOString();
+      const userKey = inc.userPhone || inc.reporter || "ANONYMOUS";
+      this.recordVerification(userKey, incidentId);
       this.save();
       this.emit("incident:updated", { incident: inc, action: "verified" });
       return inc;
@@ -1344,6 +1505,9 @@ class Store {
       inc.status = "False Alarm";
       inc.falseAlarmReason = reason;
       inc.falseAlarmAt = new Date().toISOString();
+
+      const userKey = inc.userPhone || inc.reporter || "ANONYMOUS";
+      this.recordFalseAlarmStrike(userKey, incidentId, reason);
 
       const dispatch = this.dispatches.find((d) => d.incident === incidentId);
       if (dispatch) {

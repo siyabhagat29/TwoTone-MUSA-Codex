@@ -376,6 +376,22 @@ app.post("/api/alerts/:id/feedback", (req, res) => {
   }
 });
 
+// User Reputation & Spam Quarantine Endpoints
+app.get("/api/reputations", (_, res) => {
+  res.json(store.getAllUserReputations());
+});
+
+app.post("/api/reputations/reset", (req, res) => {
+  try {
+    const identifier = req.body?.identifier || req.body?.userPhone || req.body?.userName;
+    if (!identifier) return res.status(400).json({ error: "identifier, userPhone, or userName required" });
+    const rep = store.resetUserReputation(identifier);
+    res.json({ success: true, message: `Reputation strikes reset for ${identifier}`, reputation: rep });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Generate official maintenance report for chronic blockages
 app.post("/api/chronic-blockages/report", (_, res) => {
   const report = store.generateChronicReport();

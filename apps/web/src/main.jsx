@@ -1272,7 +1272,8 @@ function Dashboard({
   onFalseAlarm,
   onOpenOverride,
   onViewPhoto,
-  onGenerateReport
+  onGenerateReport,
+  onResetReputation
 }) {
   const critical = zones.filter((z) => z.risk >= 75).length;
   const elevated = zones.filter((z) => z.risk >= 45 && z.risk < 75).length;
@@ -1288,13 +1289,14 @@ function Dashboard({
 
   const [dashboardIncidentFilter, setDashboardIncidentFilter] = useState("all");
 
-  const humanReviewCount = sortedIncidents.filter((i) => isHumanInterventionNeeded(i)).length;
-  const aiVerifiedCount = sortedIncidents.filter((i) => i.aiVerification?.is_flooding === true || i.aiVerified).length;
+  const activeDashboardIncidents = sortedIncidents.filter((i) => !i.isQuarantined && i.status !== "Quarantined Spam");
+  const humanReviewCount = activeDashboardIncidents.filter((i) => isHumanInterventionNeeded(i)).length;
+  const aiVerifiedCount = activeDashboardIncidents.filter((i) => i.aiVerification?.is_flooding === true || i.aiVerified).length;
 
   const dashboardDisplayedIncidents = sortedIncidents.filter((i) => {
     if (dashboardIncidentFilter === "review") return isHumanInterventionNeeded(i);
     if (dashboardIncidentFilter === "ai") return i.aiVerification?.is_flooding === true || i.aiVerified;
-    return true;
+    return !i.isQuarantined && i.status !== "Quarantined Spam";
   });
 
   return (
@@ -1421,6 +1423,7 @@ function Dashboard({
                   onFalseAlarm={onFalseAlarm}
                   onOpenOverride={onOpenOverride}
                   onViewPhoto={onViewPhoto}
+                  onResetReputation={onResetReputation}
                 />
               ))
             )}
@@ -1814,7 +1817,7 @@ function Dashboard({
 // Helper to identify if an incident needs human intervention / manual review
 export function isHumanInterventionNeeded(inc) {
   if (!inc) return false;
-  if (inc.status === "False Alarm" || inc.status === "Completed") return false;
+  if (inc.status === "False Alarm" || inc.status === "Completed" || inc.isQuarantined || inc.status === "Quarantined Spam") return false;
   if (inc.aiVerification) {
     if (inc.aiVerification.is_flooding === false) return true;
     const conf = inc.aiVerification.confidence_score ?? inc.aiVerification.confidence ?? 0;
@@ -1829,7 +1832,7 @@ export function isHumanInterventionNeeded(inc) {
 }
 
 // Individual Incident Card with Ground Photo Evidence preview, CV confidence, Divergence cause tag, duplicate merge drawer, and auto-dispatch
-function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFalseAlarm, onOpenOverride, onViewPhoto }) {
+function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFalseAlarm, onOpenOverride, onViewPhoto, onResetReputation }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const inc = incident;
   const isSos = Boolean(inc.isSos || inc.type === "SOS" || inc.status === "ACTIVE_SOS" || inc.causeCode === "SOS_EMERGENCY");
@@ -1998,6 +2001,42 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
           </span>
         )}
       </div>
+
+      {/* Quarantined Repeat False Alarm User Callout Box */}
+      {inc.isQuarantined || inc.status === "Quarantined Spam" ? (
+        <div style={{ background: "#fdf2f8", border: "1px solid #fbcfe8", borderRadius: "8px", padding: "8px 10px", margin: "8px 0" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", color: "#9d174d", fontWeight: "800", fontSize: "11px" }}>
+            <span>🚫 REPEAT FALSE ALARM OFFENDER (QUARANTINED)</span>
+            <span>Strikes: {inc.reporterReputation?.falseAlarmCount || 3}+</span>
+          </div>
+          <div style={{ fontSize: "10px", color: "#831843", marginTop: "3px", lineHeight: "1.4" }}>
+            {inc.quarantineReason || "This user has submitted multiple confirmed false alarms. Submissions from this user are quarantined from active dispatch to prevent authority disruption."}
+            {isSos ? " (Automated Twilio SMS suppressed. Voice call required before dispatch.)" : ""}
+          </div>
+          <div style={{ marginTop: "6px", display: "flex", gap: "6px", alignItems: "center" }}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onResetReputation) {
+                  onResetReputation(inc.userPhone || inc.reporter);
+                }
+              }}
+              style={{
+                padding: "3px 8px",
+                background: "#9d174d",
+                color: "#fff",
+                border: "none",
+                borderRadius: "4px",
+                fontSize: "10px",
+                fontWeight: "700",
+                cursor: "pointer"
+              }}
+            >
+              ↺ Reset User Trust & Unban
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {/* AI Telemetry & Human Intervention Callout Box */}
       {isHumanInterventionNeeded(inc) ? (
@@ -2483,7 +2522,7 @@ function MediaLightboxModal({ mediaUrl, incident, isVideo, onClose }) {
 }
 
 // Dedicated Incident Management Page
-function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch, onVerify, onFalseAlarm, onOpenOverride, onViewPhoto }) {
+function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch, onVerify, onFalseAlarm, onOpenOverride, onViewPhoto, onResetReputation }) {
   const [filter, setFilter] = useState("All");
 
   useEffect(() => {
@@ -2495,16 +2534,20 @@ function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch
     (a, b) => new Date(b.userTimestamp || b.updatedAt || b.createdAt || b.time || 0) - new Date(a.userTimestamp || a.updatedAt || a.createdAt || a.time || 0)
   );
 
-  const humanInterventionCount = sortedIncidents.filter((i) => isHumanInterventionNeeded(i)).length;
-  const aiVerifiedCount = sortedIncidents.filter((i) => i.aiVerification?.is_flooding === true || i.aiVerified).length;
+  const activeIncidents = sortedIncidents.filter((i) => !i.isQuarantined && i.status !== "Quarantined Spam");
+  const quarantinedCount = sortedIncidents.filter((i) => i.isQuarantined || i.status === "Quarantined Spam").length;
+  const humanInterventionCount = activeIncidents.filter((i) => isHumanInterventionNeeded(i)).length;
+  const aiVerifiedCount = activeIncidents.filter((i) => i.aiVerification?.is_flooding === true || i.aiVerified).length;
 
   const filtered = filter === "All"
-    ? sortedIncidents
+    ? activeIncidents
     : filter === "ReviewNeeded"
-    ? sortedIncidents.filter((i) => isHumanInterventionNeeded(i))
+    ? activeIncidents.filter((i) => isHumanInterventionNeeded(i))
     : filter === "AiConfirmed"
-    ? sortedIncidents.filter((i) => i.aiVerification?.is_flooding === true || i.aiVerified)
-    : sortedIncidents.filter((i) => i.role === filter || i.status === filter);
+    ? activeIncidents.filter((i) => i.aiVerification?.is_flooding === true || i.aiVerified)
+    : filter === "Quarantined"
+    ? sortedIncidents.filter((i) => i.isQuarantined || i.status === "Quarantined Spam")
+    : activeIncidents.filter((i) => i.role === filter || i.status === filter);
 
   return (
     <div className="content">
@@ -2516,7 +2559,7 @@ function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch
         <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
           <div className="segmented">
             <button className={filter === "All" ? "selected" : ""} onClick={() => setFilter("All")}>
-              All ({sortedIncidents.length})
+              All ({activeIncidents.length})
             </button>
             <button
               className={filter === "ReviewNeeded" ? "selected" : ""}
@@ -2537,6 +2580,13 @@ function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch
                 {x}
               </button>
             ))}
+            <button
+              className={filter === "Quarantined" ? "selected" : ""}
+              onClick={() => setFilter("Quarantined")}
+              style={{ color: filter === "Quarantined" ? undefined : "#9d174d", fontWeight: "700" }}
+            >
+              🚫 Quarantined Spam ({quarantinedCount})
+            </button>
           </div>
           <button
             onClick={() => {
@@ -2566,7 +2616,11 @@ function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch
           <div style={{ padding: "40px", textAlign: "center", color: "#64748b", background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", gridColumn: "1 / -1" }}>
             <h3>No Incidents in Selected Filter</h3>
             <p style={{ fontSize: "12px", marginTop: "6px" }}>
-              {filter === "ReviewNeeded" ? "All current citizen reports have been verified by AI or resolved." : "No reports matching this category."}
+              {filter === "ReviewNeeded"
+                ? "All current citizen reports have been verified by AI or resolved."
+                : filter === "Quarantined"
+                ? "No quarantined spam reports recorded."
+                : "No reports matching this category."}
             </p>
           </div>
         ) : (
@@ -2580,6 +2634,7 @@ function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch
               onFalseAlarm={onFalseAlarm}
               onOpenOverride={onOpenOverride}
               onViewPhoto={onViewPhoto}
+              onResetReputation={onResetReputation}
             />
           ))
         )}
@@ -4732,10 +4787,24 @@ function App() {
   const handleFalseAlarm = async (id) => {
     try {
       await apiFetch(`/incidents/${id}/false-alarm`, { method: "POST" });
-      notify(`Incident ${id} marked as False Alarm.`);
+      notify(`Incident ${id} marked as False Alarm. User trust score updated.`);
       loadInitialData();
     } catch (err) {
       notify("Operation failed: " + err.message);
+    }
+  };
+
+  const handleResetReputation = async (identifier) => {
+    try {
+      await apiFetch(`/reputations/reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier })
+      });
+      notify(`User trust score restored for ${identifier}. Account unbanned.`);
+      loadInitialData();
+    } catch (err) {
+      notify("Failed to reset reputation: " + err.message);
     }
   };
 
@@ -4853,6 +4922,7 @@ function App() {
                   onOpenOverride={setOverrideIncident}
                   onViewPhoto={(url, inc, isVideo) => setPhotoModal({ url, incident: inc, isVideo })}
                   onGenerateReport={handleGenerateReport}
+                  onResetReputation={handleResetReputation}
                 />
               }
             />
@@ -4902,6 +4972,7 @@ function App() {
                   onFalseAlarm={handleFalseAlarm}
                   onOpenOverride={setOverrideIncident}
                   onViewPhoto={(url, inc, isVideo) => setPhotoModal({ url, incident: inc, isVideo })}
+                  onResetReputation={handleResetReputation}
                 />
               }
             />
