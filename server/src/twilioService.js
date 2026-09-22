@@ -11,7 +11,7 @@ const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || "";
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || "";
 const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER || "+17655635185";
 // Verified phone number for testing as designated by user
-const TWILIO_TEST_VERIFIED_NUMBER = process.env.TWILIO_TEST_VERIFIED_NUMBER || "+917738122051";
+const TWILIO_TEST_VERIFIED_NUMBER = process.env.TWILIO_TEST_VERIFIED_NUMBER || "+919869001892";
 
 /**
  * Dispatch an Emergency SOS SMS via Twilio API
@@ -31,7 +31,7 @@ export async function sendSosSms(sosData = {}) {
     };
   }
 
-  // Format the target phone number. Per instructions, send all test SMS to the verified phone number +917738122051
+  // Format the target phone number. Per instructions, send all test SMS to the verified phone number +919869001892
   const targetPhone = TWILIO_TEST_VERIFIED_NUMBER.replace(/\s+/g, "");
   const senderPhone = TWILIO_PHONE_NUMBER.replace(/\s+/g, "");
 

@@ -2021,15 +2021,70 @@ nav a, .sidebar-bottom > a {
 }
 
 /* =========================================================
-   Multi-Agent Control Center (Advanced Futuristic UI)
+   Multi-Agent Control Center (Futuristic Cyber-HUD UI)
    ========================================================= */
 
 .mac-container {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  max-width: 1440px;
+  max-width: 1480px;
   margin: 0 auto;
+}
+
+/* Telemetry Ribbon */
+.mac-telemetry-ribbon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 14px 22px;
+  color: #f8fafc;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  flex-wrap: wrap;
+}
+
+.mac-telemetry-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mac-telemetry-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+  display: grid;
+  place-items: center;
+}
+
+.mac-telemetry-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.mac-telemetry-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.mac-telemetry-value {
+  font-size: 13px;
+  font-weight: 800;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* Top Banner & Scenario Presets */
@@ -2039,16 +2094,16 @@ nav a, .sidebar-bottom > a {
   gap: 10px;
   flex-wrap: wrap;
   background: #ffffff;
-  padding: 12px 18px;
-  border-radius: 14px;
+  padding: 14px 20px;
+  border-radius: 16px;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
 }
 
 .mac-presets-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  color: #475569;
   text-transform: uppercase;
   letter-spacing: 0.8px;
   display: flex;
@@ -2057,112 +2112,132 @@ nav a, .sidebar-bottom > a {
 }
 
 .mac-preset-btn {
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  color: #334155;
-  padding: 6px 13px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
+  padding: 7px 14px;
   border-radius: 9999px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  transition: all 0.2s ease;
+  gap: 8px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .mac-preset-btn:hover {
-  background: #e2e8f0;
-  border-color: #94a3b8;
-  transform: translateY(-1px);
+  background: #f1f5f9;
+  border-color: #38bdf8;
+  color: #0284c7;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.15);
 }
 
 .mac-preset-btn.active {
-  background: #1e40af;
-  border-color: #1e40af;
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  border-color: #2563eb;
   color: #ffffff;
-  box-shadow: 0 3px 10px rgba(30, 64, 175, 0.3);
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
 }
 
-.mac-preset-btn.critical {
-  border-color: #fca5a5;
-  background: #fef2f2;
-  color: #991b1b;
+.mac-preset-tag {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.06);
 }
 
-.mac-preset-btn.critical:hover {
-  background: #fee2e2;
-  border-color: #ef4444;
+.mac-preset-btn.active .mac-preset-tag {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
 }
 
-/* Live Supervisor Visual Workflow (DAG) */
+/* Live Supervisor Visual Workflow (DAG Pipeline) */
 .mac-dag-panel {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+  background: linear-gradient(180deg, #0b1329 0%, #0f172a 100%);
+  border: 1px solid #1e293b;
+  border-radius: 20px;
+  padding: 24px;
+  color: #f8fafc;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.mac-dag-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.6), transparent);
 }
 
 .mac-dag-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 18px;
+  margin-bottom: 22px;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 14px;
 }
 
 .mac-dag-title {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .mac-dag-flow {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
   gap: 12px;
   position: relative;
 }
 
 .mac-dag-node {
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 12px;
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(8px);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 14px 12px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   position: relative;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
 }
 
 .mac-dag-node:hover {
-  transform: translateY(-3px);
-  border-color: #3b82f6;
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.15);
+  transform: translateY(-4px);
+  border-color: #38bdf8;
+  background: rgba(30, 41, 59, 0.95);
+  box-shadow: 0 8px 24px rgba(56, 189, 248, 0.25);
 }
 
 .mac-dag-node.active-step {
-  border-color: #2563eb;
-  background: #eff6ff;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
-  animation: mac-pulse 1.5s infinite;
+  border-color: #38bdf8;
+  background: linear-gradient(145deg, rgba(14, 165, 233, 0.2) 0%, rgba(30, 41, 59, 0.9) 100%);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.3), 0 8px 24px rgba(56, 189, 248, 0.3);
+  animation: mac-dag-pulse 1.8s infinite;
 }
 
 .mac-dag-node.completed {
-  border-color: #10b981;
-  background: #f0fdf4;
+  border-color: rgba(16, 185, 129, 0.5);
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.1) 0%, rgba(30, 41, 59, 0.8) 100%);
 }
 
-@keyframes mac-pulse {
+@keyframes mac-dag-pulse {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4);
+    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.5), 0 6px 18px rgba(56, 189, 248, 0.25);
   }
   50% {
-    box-shadow: 0 0 0 8px rgba(37, 99, 235, 0);
+    box-shadow: 0 0 0 8px rgba(56, 189, 248, 0), 0 10px 28px rgba(56, 189, 248, 0.4);
   }
 }
 
@@ -2174,26 +2249,34 @@ nav a, .sidebar-bottom > a {
 
 .mac-dag-node-step {
   font-size: 10px;
-  font-weight: 700;
-  color: #94a3b8;
-  letter-spacing: 0.5px;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 0.8px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
 }
 
 .mac-dag-node-icon {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: 8px;
-  background: #ffffff;
+  background: rgba(15, 23, 42, 0.8);
   display: grid;
   place-items: center;
-  color: #2563eb;
-  border: 1px solid #e2e8f0;
+  color: #38bdf8;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+
+.mac-dag-node:hover .mac-dag-node-icon {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #38bdf8;
 }
 
 .mac-dag-node-name {
   font-size: 12px;
   font-weight: 700;
-  color: #1e293b;
+  color: #f1f5f9;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2201,24 +2284,32 @@ nav a, .sidebar-bottom > a {
 
 .mac-dag-node-snippet {
   font-size: 11px;
-  color: #64748b;
-  line-height: 1.2;
+  color: #94a3b8;
+  line-height: 1.25;
   font-weight: 500;
-  background: #ffffff;
-  padding: 4px 6px;
+  background: rgba(15, 23, 42, 0.7);
+  padding: 5px 7px;
   border-radius: 6px;
-  border: 1px solid #f1f5f9;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mac-dag-node.completed .mac-dag-node-snippet {
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.2);
 }
 
 /* Studio & Control Columns */
 .mac-studio-grid {
   display: grid;
-  grid-template-columns: 1fr 1.3fr;
-  gap: 20px;
+  grid-template-columns: 1fr 1.35fr;
+  gap: 22px;
   align-items: start;
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1100px) {
   .mac-studio-grid {
     grid-template-columns: 1fr;
   }
@@ -2227,27 +2318,28 @@ nav a, .sidebar-bottom > a {
 .mac-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 22px;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+  position: relative;
 }
 
 .mac-card-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
 
 .mac-card-title h3 {
   margin: 0;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 800;
   color: #0f172a;
 }
 
 .mac-card-title p {
-  margin: 2px 0 0;
+  margin: 3px 0 0;
   font-size: 12px;
   color: #64748b;
 }
@@ -2256,13 +2348,13 @@ nav a, .sidebar-bottom > a {
 .mac-form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 14px;
+  gap: 7px;
+  margin-bottom: 16px;
 }
 
 .mac-form-label {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   color: #334155;
   display: flex;
   justify-content: space-between;
@@ -2271,19 +2363,20 @@ nav a, .sidebar-bottom > a {
 
 .mac-form-badge {
   font-size: 11px;
-  font-weight: 700;
-  padding: 2px 7px;
+  font-weight: 800;
+  padding: 3px 8px;
   border-radius: 6px;
 }
 
 .mac-form-input, .mac-form-select, .mac-form-textarea {
   width: 100%;
-  padding: 9px 12px;
-  border: 1px solid #cbd5e1;
+  padding: 10px 14px;
+  border: 1.5px solid #cbd5e1;
   border-radius: 10px;
   background: #ffffff;
   font-size: 13px;
-  color: #1e293b;
+  color: #0f172a;
+  font-weight: 500;
   transition: all 0.2s ease;
   box-sizing: border-box;
 }
@@ -2297,7 +2390,7 @@ nav a, .sidebar-bottom > a {
 .mac-range-slider {
   width: 100%;
   accent-color: #2563eb;
-  margin: 6px 0;
+  margin: 8px 0;
   cursor: pointer;
 }
 
@@ -2306,26 +2399,26 @@ nav a, .sidebar-bottom > a {
   background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
   border: 1.5px solid #f43f5e;
   border-radius: 14px;
-  padding: 16px 20px;
-  margin-bottom: 20px;
+  padding: 18px 22px;
+  margin-bottom: 22px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 14px;
-  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.15);
+  gap: 16px;
+  box-shadow: 0 6px 20px rgba(244, 63, 94, 0.18);
 }
 
 .mac-approval-banner.approved {
   background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
   border-color: #22c55e;
-  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.15);
+  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.18);
 }
 
 .mac-approval-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 .mac-approval-actions {
@@ -2338,76 +2431,87 @@ nav a, .sidebar-bottom > a {
 /* Decision Cards Grid */
 .mac-decision-kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
   gap: 12px;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
 
 .mac-kpi-box {
   background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.mac-kpi-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.04);
 }
 
 .mac-kpi-box.red {
   border-color: #fca5a5;
-  background: #fef2f2;
+  background: linear-gradient(180deg, #fff5f5 0%, #fef2f2 100%);
 }
 
 .mac-kpi-box.orange {
   border-color: #fde68a;
-  background: #fffbeb;
+  background: linear-gradient(180deg, #fffdf5 0%, #fffbeb 100%);
 }
 
 .mac-kpi-box.green {
   border-color: #a7f3d0;
-  background: #ecfdf5;
+  background: linear-gradient(180deg, #f5fdf9 0%, #ecfdf5 100%);
 }
 
 .mac-kpi-label {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 800;
   color: #64748b;
   text-transform: uppercase;
+  letter-spacing: 0.6px;
 }
 
 .mac-kpi-value {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 800;
   color: #0f172a;
+  line-height: 1.1;
 }
 
 .mac-kpi-sub {
   font-size: 11px;
   color: #64748b;
+  font-weight: 500;
 }
 
 /* Tabbed Deep Dive */
 .mac-tabs-nav {
   display: flex;
   gap: 8px;
-  border-bottom: 1px solid #e2e8f0;
-  padding-bottom: 8px;
-  margin-bottom: 16px;
+  border-bottom: 1.5px solid #e2e8f0;
+  padding-bottom: 10px;
+  margin-bottom: 18px;
   overflow-x: auto;
 }
 
 .mac-tab-btn {
-  background: none;
-  border: none;
+  background: #f8fafc;
+  border: 1px solid transparent;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   color: #64748b;
-  padding: 6px 14px;
-  border-radius: 8px;
+  padding: 8px 16px;
+  border-radius: 10px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   transition: all 0.2s ease;
   white-space: nowrap;
 }
@@ -2419,7 +2523,9 @@ nav a, .sidebar-bottom > a {
 
 .mac-tab-btn.active {
   background: #2563eb;
+  border-color: #2563eb;
   color: #ffffff;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
 }
 
 /* Agent Registry Modern Cards */
@@ -2443,7 +2549,7 @@ nav a, .sidebar-bottom > a {
 
 .mac-agent-card:hover {
   border-color: #3b82f6;
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.12);
   transform: translateY(-2px);
 }
 
@@ -2454,9 +2560,9 @@ nav a, .sidebar-bottom > a {
 }
 
 .mac-agent-icon-badge {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   background: #eff6ff;
   color: #2563eb;
   display: grid;
@@ -2468,67 +2574,69 @@ nav a, .sidebar-bottom > a {
 .mac-code-block {
   background: #0f172a;
   color: #e2e8f0;
-  padding: 14px;
-  border-radius: 10px;
+  padding: 16px;
+  border-radius: 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.55;
   overflow-x: auto;
-  max-height: 340px;
+  max-height: 380px;
   margin: 0;
+  border: 1px solid #334155;
 }
 
 /* What-If Comparative Grid */
 .mac-whatif-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
 }
 
 .mac-whatif-card {
-  background: #f8fafc;
+  background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 14px;
+  border-radius: 14px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   transition: all 0.2s ease;
 }
 
 .mac-whatif-card:hover {
   border-color: #94a3b8;
-  background: #ffffff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
 }
 
 /* Modal Overlay for Agent Inspector */
 .mac-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(4px);
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(6px);
   display: grid;
   place-items: center;
   z-index: 1000;
-  padding: 16px;
+  padding: 20px;
+  animation: mac-fade-in 0.2s ease-out;
 }
 
 .mac-modal-dialog {
   background: #ffffff;
-  border-radius: 18px;
+  border-radius: 20px;
   width: 100%;
-  max-width: 680px;
+  max-width: 720px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
-  border: 1px solid #e2e8f0;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  border: 1px solid #cbd5e1;
   display: flex;
   flex-direction: column;
 }
 
 .mac-modal-header {
-  padding: 18px 22px;
+  padding: 20px 24px;
   border-bottom: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
@@ -2536,20 +2644,25 @@ nav a, .sidebar-bottom > a {
 }
 
 .mac-modal-body {
-  padding: 22px;
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
 .mac-modal-footer {
-  padding: 14px 22px;
+  padding: 16px 24px;
   border-top: 1px solid #e2e8f0;
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 12px;
   background: #f8fafc;
-  border-radius: 0 0 18px 18px;
+  border-radius: 0 0 20px 20px;
+}
+
+@keyframes mac-fade-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 /* =========================================================

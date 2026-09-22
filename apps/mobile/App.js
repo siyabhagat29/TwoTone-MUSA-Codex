@@ -571,7 +571,7 @@ export default function App() {
         const saved = window.localStorage.getItem("vr_user_profile");
         if (saved) return JSON.parse(saved);
       }
-    } catch (_) {}
+    } catch (_) { }
     return null;
   });
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -579,7 +579,7 @@ export default function App() {
       if (typeof window !== "undefined" && window.localStorage) {
         return !!window.localStorage.getItem("vr_user_profile");
       }
-    } catch (_) {}
+    } catch (_) { }
     return false;
   });
   const [role, setRole] = useState(userProfile?.role || null);
@@ -646,28 +646,67 @@ export default function App() {
         setUserAddress("Station Road, Ward 72");
         return false;
       }
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      setShelters([]); // Clear previous shelters
-      setUserLoc(pos.coords);
 
-      let detectedAddr = `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
+      // Step 1: Instantly load cached GPS position (0-50ms) for ultra-fast startup
+      let initialCoords = null;
       try {
-        const geoRes = await fetchWithTimeout(`${apiUrl}/geocode/reverse?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`);
-        if (geoRes.ok) {
-          const geo = await geoRes.json();
-          if (geo?.road && geo?.ward) {
-            detectedAddr = `${geo.road}, ${geo.ward}`;
-          } else if (geo?.displayName) {
-            detectedAddr = geo.displayName.split(",").slice(0, 2).join(",");
-          } else if (geo?.road) {
-            detectedAddr = geo.road;
-          }
+        const lastKnown = await Location.getLastKnownPositionAsync({});
+        if (lastKnown?.coords) {
+          initialCoords = lastKnown.coords;
+          setUserLoc(initialCoords);
+          fetchLiveData(initialCoords);
         }
-      } catch {
-        // use fallback string
+      } catch (_) {}
+
+      // Step 2: Concurrently query fresh GPS fix with 3s fast timeout
+      const getGpsPromise = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("GPS_TIMEOUT")), 3000));
+
+      let activeCoords = initialCoords;
+      try {
+        const pos = await Promise.race([getGpsPromise, timeoutPromise]);
+        if (pos?.coords) {
+          activeCoords = pos.coords;
+          setUserLoc(activeCoords);
+        }
+      } catch (_) {
+        if (!activeCoords) {
+          try {
+            const fastPos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Lowest });
+            if (fastPos?.coords) {
+              activeCoords = fastPos.coords;
+              setUserLoc(activeCoords);
+            }
+          } catch (_) {}
+        }
       }
-      setUserAddress(detectedAddr);
-      await fetchLiveData(pos.coords, detectedAddr);
+
+      if (!activeCoords) {
+        activeCoords = { latitude: 19.132, longitude: 72.848 };
+        setUserLoc(activeCoords);
+      }
+
+      // Refresh live hydrological telemetry with confirmed coordinates
+      fetchLiveData(activeCoords);
+
+      // Step 3: Fetch reverse geocoded address asynchronously in parallel (non-blocking)
+      fetchWithTimeout(`${apiUrl}/geocode/reverse?lat=${activeCoords.latitude}&lng=${activeCoords.longitude}`, {}, 2500)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((geo) => {
+          if (geo) {
+            let detectedAddr = `${activeCoords.latitude.toFixed(4)}, ${activeCoords.longitude.toFixed(4)}`;
+            if (geo.road && geo.ward) {
+              detectedAddr = `${geo.road}, ${geo.ward}`;
+            } else if (geo.displayName) {
+              detectedAddr = geo.displayName.split(",").slice(0, 2).join(",");
+            } else if (geo.road) {
+              detectedAddr = geo.road;
+            }
+            setUserAddress(detectedAddr);
+          }
+        })
+        .catch(() => {});
+
       return true;
     } catch (err) {
       setGpsError(err.message);
@@ -772,7 +811,7 @@ export default function App() {
       if (typeof window !== "undefined" && window.localStorage) {
         window.localStorage.setItem("vr_user_profile", JSON.stringify(profile));
       }
-    } catch (_) {}
+    } catch (_) { }
     const currentLevel = activeZone.risk >= 75 ? "RED" : activeZone.risk >= 45 ? "ORANGE" : "GREEN";
     setPrevRiskLevel(currentLevel);
   };
@@ -786,7 +825,7 @@ export default function App() {
       if (typeof window !== "undefined" && window.localStorage) {
         window.localStorage.removeItem("vr_user_profile");
       }
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const handleTriggerSos = async () => {
@@ -794,8 +833,8 @@ export default function App() {
     setSosCooldown(60);
 
     const callerName = userProfile?.name || (role === "Shop Owner" ? "Station Rd Shopkeeper" : "Area Resident");
-    const callerPhone = userProfile?.phone || "+917738122051";
-    const emergencyNumber = userProfile?.emergencyNumber || "7977661625";
+    const callerPhone = userProfile?.phone || "+919869001892";
+    const emergencyNumber = userProfile?.emergencyNumber || "+919869001892";
 
     // Instant One-Tap SOS Dispatch without confirmation dialog
     try {
@@ -825,9 +864,9 @@ export default function App() {
           teamPhone: "+91 98200 55663",
           targetEmergencyPhone: emergencyNumber,
           twilioSender: "+17655635185",
-          twilioTestRecipient: "+917738122051",
+          twilioTestRecipient: "+919869001892",
           twilioStatus: "DISPATCHED",
-          message: `Emergency broadcast dispatched. Twilio emergency SMS sent to ${emergencyNumber} (testing verified: +917738122051).`
+          message: `Emergency broadcast dispatched. Twilio emergency SMS sent to ${emergencyNumber} (testing verified: +919869001892).`
         });
       }
     } catch (err) {
@@ -839,9 +878,9 @@ export default function App() {
         teamPhone: "+91 98200 55663",
         targetEmergencyPhone: emergencyNumber,
         twilioSender: "+17655635185",
-        twilioTestRecipient: "+917738122051",
+        twilioTestRecipient: "+919869001892",
         twilioStatus: "QUEUED",
-        message: `Emergency broadcast dispatched. Twilio emergency SMS sent to ${emergencyNumber} (testing verified: +917738122051).`
+        message: `Emergency broadcast dispatched. Twilio emergency SMS sent to ${emergencyNumber} (testing verified: +919869001892).`
       });
     }
   };
@@ -1350,7 +1389,7 @@ function LoginPage({
             const geo = await geoRes.json();
             detectedAddr = geo.road ? `${geo.road}, ${geo.ward || ""}` : (geo.displayName || detectedAddr);
           }
-        } catch {}
+        } catch { }
         setLocationInput(detectedAddr);
         setSelectedHub(null);
       } else {
@@ -3138,7 +3177,7 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
             const geo = await geoRes.json();
             addr = geo.road ? `${geo.road}, ${geo.ward || ""}` : (geo.displayName || addr);
           }
-        } catch {}
+        } catch { }
         setLocAddress(addr);
       }
     } catch (err) {
@@ -3480,7 +3519,7 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
       <View style={s.reportCard}>
         {/* 1. Visual Evidence (Photos and Videos) */}
         <Text style={s.inputLabel}>{t.videoEvidenceTitle || "1. Visual Evidence (Photo or Video)"}</Text>
-        
+
         {/* Photo Options */}
         <View style={{ flexDirection: "row", gap: 8, marginBottom: 8 }}>
           <TouchableOpacity style={[s.photoBoxSmall, photoPreview && { borderColor: GREEN, backgroundColor: "#F0FDF4" }]} onPress={takePhoto}>

@@ -5,12 +5,12 @@ const PAGERDUTY_API_KEY = process.env.PAGERDUTY_API_KEY || "";
 const PAGERDUTY_ROUTING_KEY = process.env.PAGERDUTY_ROUTING_KEY || "";
 const PAGERDUTY_SERVICE_ID = process.env.PAGERDUTY_SERVICE_ID || "P9JO4HS";
 const PAGERDUTY_ESCALATION_POLICY = process.env.PAGERDUTY_ESCALATION_POLICY || "PK0K5RX";
-const NGO_EMERGENCY_NUMBER = process.env.NGO_EMERGENCY_NUMBER || "7977661625";
+const NGO_EMERGENCY_NUMBER = process.env.NGO_EMERGENCY_NUMBER || "9869001892";
 const PAGERDUTY_FROM_EMAIL = process.env.PAGERDUTY_FROM_EMAIL || "authority@varsharaksha.org";
 
 /**
  * Trigger PagerDuty Emergency Incident & Call Notification
- * Dispatches high-urgency rescue escalation to NGO Coordinator (7977661625) & Police Dispatch
+ * Dispatches high-urgency rescue escalation to NGO Coordinator (9869001892) & Police Dispatch
  */
 export async function triggerPagerDutySos(sosData) {
   const dedupKey = `SOS-${sosData.id || Date.now()}`;
@@ -73,7 +73,7 @@ export async function triggerPagerDutySos(sosData) {
     console.warn(`[PagerDuty] Events API error: ${err.message}`);
   }
 
-  // 2. Trigger PagerDuty REST API Incident with Immediate Escalation Policy (Calls 7977661625)
+  // 2. Trigger PagerDuty REST API Incident with Immediate Escalation Policy (Calls 9869001892)
   try {
     const incidentPayload = {
       incident: {

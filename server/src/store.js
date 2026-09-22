@@ -481,7 +481,6 @@ class Store {
             (r) => r.id !== "REP-1585" && r.id !== "REP-2062" && r.note !== "heheheh"
           );
           inc1002.mergedCount = inc1002.mergedReports.length + 1;
-          this.save();
         }
 
         const inc1008 = this.incidents.find((i) => i.id === "INC-1008");
@@ -624,7 +623,7 @@ class Store {
     // Calculate trust score (1.0 maximum, drops with false alarms)
     const total = rep.verifiedCount + rep.falseAlarmCount;
     rep.trustScore = total > 0 ? Math.min(1.0, Number(((rep.verifiedCount + 1) / (total + 1)).toFixed(2))) : 1.0;
-    
+
     if (rep.falseAlarmCount < 3) {
       rep.isQuarantined = false;
       rep.status = rep.verifiedCount >= 3 ? "TRUSTED" : "NORMAL";
@@ -641,7 +640,7 @@ class Store {
     rep.falseAlarmCount = (rep.falseAlarmCount || 0) + 1;
     const total = rep.verifiedCount + rep.falseAlarmCount * 2;
     rep.trustScore = Math.max(0.0, Number(((rep.verifiedCount + 1) / (total + 1)).toFixed(2)));
-    
+
     // Quarantine threshold: 3 or more false alarms
     if (rep.falseAlarmCount >= 3) {
       rep.isQuarantined = true;
@@ -650,7 +649,7 @@ class Store {
     } else if (rep.falseAlarmCount >= 1) {
       rep.status = "WARNING";
     }
-    
+
     rep.updatedAt = new Date().toISOString();
     rep.history.unshift({ action: "FALSE_ALARM_STRIKE", incidentId, reason, timestamp: new Date().toISOString() });
     this.save();
@@ -901,14 +900,36 @@ class Store {
   }
 
   /**
+   * Clear all active SOS alerts and emergency dispatch orders
+   */
+  clearAllSosAlerts() {
+    this.sosAlerts = [];
+    this.alerts = (this.alerts || []).filter((a) => !a.isSos && a.type !== "SOS");
+    this.incidents = (this.incidents || []).filter((i) => !i.isSos && i.type !== "SOS");
+    this.dispatches = [];
+    if (this.resources) {
+      for (const r of this.resources) {
+        r.status = "Available";
+        r.currentIncidentId = null;
+        r.activeDispatchId = null;
+        r.eta = null;
+      }
+    }
+    this.save();
+    this.emit("sos:cleared", { success: true });
+    this.emit("incidents:updated", this.incidents);
+    return { success: true, count: this.incidents.length };
+  }
+
+  /**
    * Trigger SOS Emergency Rescue Request
    */
   triggerSos(sosData) {
     const id = `SOS-${2000 + this.sosAlerts.length + 1}`;
     const rescueTeam = this.resources.find((t) => t.id === "TEAM-05" || t.id === "TEAM-03") || this.resources[0];
 
-    const userPhone = sosData.userPhone || sosData.phone || "+917738122051";
-    const emergencyNumber = sosData.emergencyNumber || sosData.emergencyPhone || "7977661625";
+    const userPhone = sosData.userPhone || sosData.phone || "+919869001892";
+    const emergencyNumber = sosData.emergencyNumber || sosData.emergencyPhone || "9869001892";
 
     // Track user submission and check false-alarm quarantine status
     const userKey = userPhone || sosData.userName || "ANONYMOUS";
@@ -1051,16 +1072,16 @@ class Store {
 
     // Only dispatch Twilio SMS and PagerDuty if the user is NOT quarantined
     if (!isUserQuarantined) {
-      // Asynchronously dispatch Twilio SMS alert from +1 765 563 5185 to verified test number +917738122051
+      // Asynchronously dispatch Twilio SMS alert from +1 765 563 5185 to verified test number +919869001892
       sendSosSms(sos).then((twResult) => {
         console.log(`[SOS Twilio] SMS alert dispatched for ${id}:`, twResult);
       }).catch((err) => {
         console.warn(`[SOS Twilio] SMS notice:`, err.message);
       });
 
-      // Asynchronously dispatch PagerDuty alert & phone call escalation to NGO Coordinator (7977661625)
+      // Asynchronously dispatch PagerDuty alert & phone call escalation to NGO Coordinator (9869001892)
       triggerPagerDutySos(sos).then((pdResult) => {
-        console.log(`[SOS Dispatch] PagerDuty escalation triggered for ${id} (Call: 7977661625)`, pdResult);
+        console.log(`[SOS Dispatch] PagerDuty escalation triggered for ${id} (Call: 9869001892)`, pdResult);
       }).catch((err) => {
         console.warn(`[SOS Dispatch] PagerDuty notice:`, err.message);
       });
@@ -1077,13 +1098,13 @@ class Store {
       teamPhone: rescueTeam.phone,
       targetEmergencyPhone: emergencyNumber,
       twilioSender: "+17655635185",
-      twilioTestRecipient: "+917738122051",
+      twilioTestRecipient: "+919869001892",
       twilioStatus: isUserQuarantined ? "SUPPRESSED_DUE_TO_QUARANTINE" : "DISPATCHED",
       pagerdutyStatus: isUserQuarantined ? "HELD_PENDING_CONFIRMATION" : "DISPATCHED_CALL_ACTIVE",
       eta: isUserQuarantined ? "Pending Call" : "4–6 min",
       message: isUserQuarantined
         ? `SOS recorded. Note: User has ${reputation.falseAlarmCount} prior false alarms. Automated SMS alert suppressed to protect emergency channels. Control room will verify via voice call.`
-        : `Emergency SOS broadcasted. ${rescueTeam.name} deployed. Twilio emergency SMS dispatched to ${emergencyNumber} (testing verified: +917738122051).`
+        : `Emergency SOS broadcasted. ${rescueTeam.name} deployed. Twilio emergency SMS dispatched to ${emergencyNumber} (testing verified: +919869001892).`
     };
   }
 
@@ -1209,6 +1230,7 @@ class Store {
   }
 
   recomputeAlerts() {
+    const existingSosAlerts = (this.alerts || []).filter((a) => a.type === "SOS" || a.isSos);
     const newAlerts = [];
     for (const zone of this.zones) {
       if (zone.risk >= 45) {
@@ -1228,7 +1250,7 @@ class Store {
         });
       }
     }
-    this.alerts = newAlerts;
+    this.alerts = [...existingSosAlerts, ...newAlerts];
   }
 
   /**
@@ -1269,8 +1291,8 @@ class Store {
     const zoneRainfall = zone ? zone.rainfall : 0;
 
     const isDrainObserved = reportData.drainObservation === "Clearly blocked / overflowing" ||
-                            reportData.drainObservation === "blocked" ||
-                            Boolean(reportData.blockedDrainSignal);
+      reportData.drainObservation === "blocked" ||
+      Boolean(reportData.blockedDrainSignal);
 
     const divergence = classifyCause({
       rainfall: zoneRainfall,

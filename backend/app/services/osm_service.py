@@ -52,7 +52,7 @@ def classify_facility_type(name: str, tags: Dict[str, Any] = {}) -> str:
     return "relief center"
 
 def lookup_facility_phone(name: str, facility_type: str = "", existing_phone: Optional[str] = None) -> str:
-    if existing_phone and len(existing_phone.strip()) >= 4 and "7977661625" not in existing_phone:
+    if existing_phone and len(existing_phone.strip()) >= 4 and "9869001892" not in existing_phone:
         return existing_phone.strip()
     
     n = (name or "").lower()

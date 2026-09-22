@@ -20,9 +20,9 @@ function calcHaversineKm(lat1, lon1, lat2, lon2) {
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return Number((R * c).toFixed(2));
 }
@@ -77,7 +77,7 @@ export const EMERGENCY_CATEGORIES = {
     icon: "🤝",
     placeType: "",
     keywords: ["community center", "relief", "shelter", "red cross", "trust", "society", "temple", "school"],
-    defaultPhone: "1800-11-2334 / 7977661625",
+    defaultPhone: "1800-11-2334 / 9869001892",
     capacityHint: "Disaster Relief & Emergency Supplies"
   }
 };
@@ -348,7 +348,7 @@ function getFallbackEmergencyServices(lat, lng, radiusKm = 10) {
       icon: "⛺",
       station: "Community Civic Ground Camp",
       address: "Bhavans Campus Ground, Munshi Nagar, Andheri West",
-      phone: "1800-11-2334 / 7977661625",
+      phone: "1800-11-2334 / 9869001892",
       lat: Number((uLat - 0.0015).toFixed(4)),
       lng: Number((uLng + 0.0042).toFixed(4)),
       capacity: "120 Waterproof Weather Tents · 1,500 Ration Packs",

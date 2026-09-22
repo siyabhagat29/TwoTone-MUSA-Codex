@@ -365,6 +365,14 @@ app.post("/api/sos", (req, res) => {
   }
 });
 app.get("/api/sos", (_, res) => res.json(store.getSosAlerts()));
+app.delete("/api/sos", (_, res) => {
+  try {
+    const result = store.clearAllSosAlerts();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Alert Feedback for model calibration ("Resolved" / "False Alarm")
 app.post("/api/alerts/:id/feedback", (req, res) => {

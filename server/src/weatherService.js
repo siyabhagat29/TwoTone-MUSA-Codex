@@ -82,14 +82,25 @@ export async function fetchFloodMetrics(lat, lng) {
 
 const GOOGLE_MAPS_KEY = process.env.GOOGLE_MAPS_API_KEY || process.env.GCP_API_KEY;
 
+// In-Memory Geocoding Cache for Sub-Millisecond Repeat Lookups
+const reverseGeocodeCache = new Map();
+
 /**
- * Real Reverse Geocoding using Google Maps Geocoding API (with OpenStreetMap Nominatim Fallback)
+ * Real Reverse Geocoding using Google Maps Geocoding API (with OpenStreetMap Nominatim Fallback & In-Memory Cache)
  */
 export async function reverseGeocode(lat, lng) {
+  if (lat == null || lng == null) {
+    return { success: false, road: "Mumbai Central", ward: "Ward Area", displayName: "Mumbai, Maharashtra" };
+  }
+  const cacheKey = `${Number(lat).toFixed(3)}_${Number(lng).toFixed(3)}`;
+  if (reverseGeocodeCache.has(cacheKey)) {
+    return reverseGeocodeCache.get(cacheKey);
+  }
+
   if (GOOGLE_MAPS_KEY) {
     try {
       const gUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_MAPS_KEY}`;
-      const gRes = await fetch(gUrl, { signal: AbortSignal.timeout(5000) });
+      const gRes = await fetch(gUrl, { signal: AbortSignal.timeout(2500) });
       if (gRes.ok) {
         const gData = await gRes.json();
         if (gData.status === "OK" && gData.results?.length) {
@@ -104,7 +115,7 @@ export async function reverseGeocode(lat, lng) {
             if (c.types.includes("locality")) city = c.long_name;
             if (c.types.includes("administrative_area_level_2")) suburb = c.long_name;
           }
-          return {
+          const result = {
             success: true,
             displayName: top.formatted_address,
             road,
@@ -113,6 +124,8 @@ export async function reverseGeocode(lat, lng) {
             city,
             source: "Google Maps"
           };
+          reverseGeocodeCache.set(cacheKey, result);
+          return result;
         }
       }
     } catch (err) {
@@ -124,14 +137,14 @@ export async function reverseGeocode(lat, lng) {
     const url = `${NOMINATIM_BASE}/reverse?lat=${lat}&lon=${lng}&format=json`;
     const res = await fetch(url, {
       headers: { "User-Agent": "VarshaRaksha-FloodSystem/1.0 (contact@varsharaksha.org)" },
-      signal: AbortSignal.timeout(6000)
+      signal: AbortSignal.timeout(2500)
     });
     if (!res.ok) throw new Error(`Nominatim HTTP ${res.status}`);
     const data = await res.json();
     const addr = data.address || {};
     const road = addr.road || addr.street || addr.neighbourhood || addr.suburb || "Local Road";
     const ward = addr.city_district || addr.suburb || addr.city || "Ward Area";
-    return {
+    const result = {
       success: true,
       displayName: data.display_name,
       road,
@@ -140,13 +153,17 @@ export async function reverseGeocode(lat, lng) {
       city: addr.city || addr.town || addr.state_district || "Mumbai",
       source: "OpenStreetMap"
     };
+    reverseGeocodeCache.set(cacheKey, result);
+    return result;
   } catch (err) {
-    return {
+    const fallback = {
       success: false,
       road: `Lat ${Number(lat).toFixed(3)}, Lng ${Number(lng).toFixed(3)}`,
       ward: "Area Location",
       displayName: `Coordinates: ${lat}, ${lng}`
     };
+    reverseGeocodeCache.set(cacheKey, fallback);
+    return fallback;
   }
 }
 
@@ -439,7 +456,7 @@ export function calcHaversineKm(lat1, lon1, lat2, lon2) {
  */
 export async function lookupLiveFacilityPhone(name = "", type = "", address = "", lat = null, lng = null, existingPhone = null) {
   // If a valid live POI phone is already present and not a placeholder, use it
-  if (existingPhone && typeof existingPhone === "string" && existingPhone.trim().length >= 4 && !existingPhone.includes("7977661625")) {
+  if (existingPhone && typeof existingPhone === "string" && existingPhone.trim().length >= 4 && !existingPhone.includes("9869001892")) {
     return existingPhone.trim();
   }
 

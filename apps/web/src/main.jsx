@@ -197,12 +197,19 @@ function LeafletMap({
     return () => observer.disconnect();
   }, []);
 
-  // Animate pan/zoom whenever center coordinates change dynamically (if no active route)
+  const prevCenterRef = useRef(null);
+  const prevRouteRef = useRef(null);
+
+  // Animate pan/zoom ONLY when the target center coordinates actually change (prevents auto zoom-out resets on background data/SSE polling)
   useEffect(() => {
-    if (mapInstance.current && center && center.length === 2 && center[0] && center[1] && !activeRoute) {
-      mapInstance.current.setView(center, zoom, { animate: true });
+    if (!mapInstance.current || !center || center.length !== 2 || center[0] == null || center[1] == null || activeRoute) return;
+    const prev = prevCenterRef.current;
+    if (!prev || Math.abs(prev[0] - center[0]) > 0.0001 || Math.abs(prev[1] - center[1]) > 0.0001) {
+      prevCenterRef.current = [center[0], center[1]];
+      const currentZoom = mapInstance.current.getZoom();
+      mapInstance.current.setView(center, currentZoom || zoom, { animate: true });
     }
-  }, [center, zoom, activeRoute]);
+  }, [center?.[0], center?.[1], activeRoute, zoom]);
 
   // Update Map Layers
   useEffect(() => {
@@ -499,15 +506,20 @@ function LeafletMap({
       coreLine.bindTooltip(`🛣️ <b>Safest Evacuation Route</b><br/>Distance: <b>${activeRoute.distanceKm} km</b> · Safe ETA: <b>~${activeRoute.durationMin} min</b>`, { sticky: true });
       coreLine.addTo(routeLayer);
 
-      // Fit bounds to show entire route with comfortable padding
-      try {
-        const bounds = coreLine.getBounds();
-        if (bounds.isValid()) {
-          mapInstance.current.fitBounds(bounds, { padding: [50, 50], animate: true });
+      // Fit bounds only once when a new route is activated
+      if (prevRouteRef.current !== activeRoute) {
+        prevRouteRef.current = activeRoute;
+        try {
+          const bounds = coreLine.getBounds();
+          if (bounds.isValid()) {
+            mapInstance.current.fitBounds(bounds, { padding: [50, 50], animate: true });
+          }
+        } catch {
+          // bounds fit notice
         }
-      } catch {
-        // bounds fit notice
       }
+    } else {
+      prevRouteRef.current = null;
     }
   }, [zones, incidents, resources, shelters, selectedShelter, activeRoute, showRainfall, showDrainage, showTeams, showShelters]);
 
@@ -3354,14 +3366,161 @@ function SettingsPage({ notify }) {
 
 
 const DAG_STAGES = [
-  { id: "observation-agent", name: "Observation", phase: "Perception", icon: Eye },
-  { id: "evidence-agent", name: "Evidence Check", phase: "Verification", icon: CheckCircle2 },
-  { id: "risk-agent", name: "Risk Scoring", phase: "Assessment", icon: AlertTriangle },
-  { id: "cause-agent", name: "Cause Diagnosis", phase: "Reasoning", icon: BrainCircuit },
-  { id: "resource-agent", name: "Resource Match", phase: "Dispatch", icon: Truck },
-  { id: "route-agent", name: "Safety Routing", phase: "Evacuation", icon: RouteIcon },
-  { id: "notification-agent", name: "Notifications", phase: "Broadcast", icon: Bell },
-  { id: "audit-agent", name: "Audit Guardrail", phase: "Governance", icon: ShieldCheck }
+  {
+    id: "observation-agent",
+    name: "Observation",
+    phase: "Perception",
+    icon: Eye,
+    role: "Multisource Hydrological Perception",
+    description: "Ingests raw IoT rain gauges, municipal ultrasonic flood depth sensors, telemetry streams, and natural language field logs.",
+    inputs: ["IoT Rain Gauges (mm/hr)", "Ultrasonic Depth Sensors (cm)", "Field Telemetry Notes"],
+    outputs: ["Standardized Observation Matrix", "Confidence Score", "Sensor Cross-Validation"]
+  },
+  {
+    id: "evidence-agent",
+    name: "Evidence Check",
+    phase: "Verification",
+    icon: CheckCircle2,
+    role: "Multi-Modal Evidence Synthesis",
+    description: "Correlates citizen crowd reports, geofenced photo hashes, historical zone baseline thresholds, and sensor telemetry to calculate tamper-proof confidence.",
+    inputs: ["Citizen Crowd Reports", "Zone Threshold Matrix", "Sensor Consistency Vector"],
+    outputs: ["Confidence Rating (0-100%)", "Verification Classification", "Discrepancy Flags"]
+  },
+  {
+    id: "risk-agent",
+    name: "Risk Scoring",
+    phase: "Assessment",
+    icon: AlertTriangle,
+    role: "Hyperlocal Hydrological Risk Scoring",
+    description: "Computes base flood severity, incorporates exposure boost (vulnerability density, onset rate, critical infrastructure), and yields RED/ORANGE/YELLOW tiering.",
+    inputs: ["Water Depth (cm)", "Rainfall Rate (mm)", "Citizen Vulnerability Density", "Onset Rate Vector"],
+    outputs: ["Composite Risk Score (0-100)", "Risk Classification (RED/ORANGE/YELLOW)", "Exposure Boost Delta"]
+  },
+  {
+    id: "cause-agent",
+    name: "Cause Diagnosis",
+    phase: "Reasoning",
+    icon: BrainCircuit,
+    role: "Causal Failure Inference",
+    description: "Employs rule-based heuristics and topological terrain logic to determine primary cause (drainage blockage, high-tide backflow, flash storm runoff).",
+    inputs: ["Drainage Obstruction Signal", "Rainfall Intensity", "Topological Basin Model"],
+    outputs: ["Root Cause Classification Code", "Human Descriptive Name", "Confidence Metric"]
+  },
+  {
+    id: "resource-agent",
+    name: "Resource Match",
+    phase: "Dispatch",
+    icon: Truck,
+    role: "Spatial Dispatch & Fleet Optimization",
+    description: "Ranks municipal emergency teams and high-capacity dewatering pumps based on geodesic Haversine distance, equipment compatibility, and readiness.",
+    inputs: ["Available Response Units", "Equipment Profiles", "Root Cause & Incident Location"],
+    outputs: ["Ranked Response Fleet", "Top Recommended Unit", "Estimated Transit Time"]
+  },
+  {
+    id: "route-agent",
+    name: "Safety Routing",
+    phase: "Evacuation",
+    icon: RouteIcon,
+    role: "Corridor Safety & Evacuation Policy",
+    description: "Evaluates inundation severity to trigger safe evacuation corridors or advisory shelter-in-place instructions, avoiding submerged arterial roads.",
+    inputs: ["Calculated Flood Risk Tier", "Road Inundation Depths", "Surrounding Shelter Coordinates"],
+    outputs: ["Evacuation Requirement Boolean", "Actionable Travel Advisory", "Routing Policy Mode"]
+  },
+  {
+    id: "notification-agent",
+    name: "Notifications",
+    phase: "Broadcast",
+    icon: Bell,
+    role: "Multi-Channel Broadcast Synthesis",
+    description: "Synthesizes concise citizen warnings and multi-channel dispatch payloads across WhatsApp, SMS, Push, and Authority operations feeds.",
+    inputs: ["Risk Tier", "Root Cause", "Safe Corridors", "Audience Geofence"],
+    outputs: ["Broadcast Warning Message", "Escalation Tier", "Target Distribution Channels"]
+  },
+  {
+    id: "audit-agent",
+    name: "Audit Guardrail",
+    phase: "Governance",
+    icon: ShieldCheck,
+    role: "Cryptographic Provenance & Guardrails",
+    description: "Computes SHA-256 evidence digests, registers geohash cells, generates cryptographic execution traces, and enforces human-in-the-loop sign-off for critical risks.",
+    inputs: ["Full Pipeline State Vector", "Decision Matrices", "Supervisor Rules"],
+    outputs: ["Cryptographic Trace Hash", "Human Approval Requirement", "Immutable Audit Record"]
+  }
+];
+
+const MAC_PRESETS = [
+  {
+    id: "preset-monsoon-flash",
+    name: "Monsoon Flash Surge",
+    tag: "CRITICAL RED",
+    color: "#ef4444",
+    scenario: {
+      rainfall: 98,
+      waterLevel: 58,
+      reports: 24,
+      note: "Extreme monsoon downpour. Inflow overflowing arterial roads, multiple vehicles stalled near underpass.",
+      blockedDrainSignal: true,
+      lat: 19.1197,
+      lng: 72.8468,
+      vulnerablePeople: 12,
+      onsetSpeed: "0–10 min",
+      drainPenalty: 18
+    }
+  },
+  {
+    id: "preset-drain-clog",
+    name: "Chronic Silt & Trash Clog",
+    tag: "ORANGE WARNING",
+    color: "#f59e0b",
+    scenario: {
+      rainfall: 48,
+      waterLevel: 42,
+      reports: 9,
+      note: "Storm drain choked with plastic debris and construction silt. Inundation rising despite moderate rainfall.",
+      blockedDrainSignal: true,
+      lat: 19.1155,
+      lng: 72.8432,
+      vulnerablePeople: 4,
+      onsetSpeed: "10–30 min",
+      drainPenalty: 22
+    }
+  },
+  {
+    id: "preset-powai-corridor",
+    name: "Powai Commercial Corridor",
+    tag: "URBAN ELEVATED",
+    color: "#3b82f6",
+    scenario: {
+      rainfall: 72,
+      waterLevel: 36,
+      reports: 11,
+      note: "Water accumulation outside Nahar Amrit Shakti and Vinca commercial junction. Pedestrian movement restricted.",
+      blockedDrainSignal: false,
+      lat: 19.1172,
+      lng: 72.8988,
+      vulnerablePeople: 7,
+      onsetSpeed: "10–30 min",
+      drainPenalty: 8
+    }
+  },
+  {
+    id: "preset-monitored-flow",
+    name: "Monitored Stable Flow",
+    tag: "LOW RISK",
+    color: "#10b981",
+    scenario: {
+      rainfall: 18,
+      waterLevel: 10,
+      reports: 1,
+      note: "Routine monsoon drizzle. Clear culverts with adequate gravity discharge into local storm outfall.",
+      blockedDrainSignal: false,
+      lat: 19.1250,
+      lng: 72.8550,
+      vulnerablePeople: 0,
+      onsetSpeed: "Gradual",
+      drainPenalty: 0
+    }
+  }
 ];
 
 const AGENT_ICONS = {
@@ -3389,7 +3548,8 @@ function MultiAgentOps({ incidents: propIncidents = [], resources: propResources
   const [activeTab, setActiveTab] = useState("decision"); // decision | trace | candidates | audit
   const [copied, setCopied] = useState(false);
   const [historyFilter, setHistoryFilter] = useState("all"); // all | red | pending
-  const [overrideTeamId, setOverrideTeamId] = useState("");
+  const [selectedAgentNode, setSelectedAgentNode] = useState(null);
+  const [activePresetId, setActivePresetId] = useState("");
 
   const [scenario, setScenario] = useState({
     rainfall: 82,
@@ -3437,10 +3597,18 @@ function MultiAgentOps({ incidents: propIncidents = [], resources: propResources
     load();
   }, [load]);
 
+  // Handle Preset Scenario Selection
+  const handleApplyPreset = (preset) => {
+    setActivePresetId(preset.id);
+    setSelectedIncident("");
+    setScenario({ ...preset.scenario });
+    if (notify) notify(`Loaded scenario preset: ${preset.name}`);
+  };
 
   // Handle Incident Selection with Auto-Fill
   const handleSelectIncident = (incId) => {
     setSelectedIncident(incId);
+    setActivePresetId("");
     if (!incId) return;
     const inc = incidents.find((i) => i.id === incId);
     if (inc) {
@@ -3616,20 +3784,87 @@ function MultiAgentOps({ incidents: propIncidents = [], resources: propResources
         </div>
       </div>
 
+      {/* Cyber-HUD Telemetry Ribbon */}
+      <div className="mac-telemetry-ribbon">
+        <div className="mac-telemetry-item">
+          <div className="mac-telemetry-icon">
+            <Zap size={18} />
+          </div>
+          <div className="mac-telemetry-content">
+            <span className="mac-telemetry-label">Supervisor Engine</span>
+            <span className="mac-telemetry-value">
+              Online · Fast-DAG
+            </span>
+          </div>
+        </div>
+
+        <div className="mac-telemetry-item">
+          <div className="mac-telemetry-icon" style={{ color: "#10b981", background: "rgba(16, 185, 129, 0.12)", borderColor: "rgba(16, 185, 129, 0.3)" }}>
+            <BrainCircuit size={18} />
+          </div>
+          <div className="mac-telemetry-content">
+            <span className="mac-telemetry-label">Active Micro-Agents</span>
+            <span className="mac-telemetry-value">8 Verifiable Agents</span>
+          </div>
+        </div>
+
+        <div className="mac-telemetry-item">
+          <div className="mac-telemetry-icon" style={{ color: "#a855f7", background: "rgba(168, 85, 247, 0.12)", borderColor: "rgba(168, 85, 247, 0.3)" }}>
+            <ShieldCheck size={18} />
+          </div>
+          <div className="mac-telemetry-content">
+            <span className="mac-telemetry-label">Audit Provenance</span>
+            <span className="mac-telemetry-value">SHA-256 State Ledger</span>
+          </div>
+        </div>
+
+        <div className="mac-telemetry-item">
+          <div className="mac-telemetry-icon" style={{ color: "#f59e0b", background: "rgba(245, 158, 11, 0.12)", borderColor: "rgba(245, 158, 11, 0.3)" }}>
+            <AlertTriangle size={18} />
+          </div>
+          <div className="mac-telemetry-content">
+            <span className="mac-telemetry-label">Guardrail Protocol</span>
+            <span className="mac-telemetry-value">Human Sign-off on RED</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Scenario Presets */}
+      <div className="mac-presets-bar">
+        <span className="mac-presets-label">
+          <Sparkles size={14} color="#3b82f6" /> Scenario Presets:
+        </span>
+        {MAC_PRESETS.map((preset) => {
+          const isActive = activePresetId === preset.id;
+          return (
+            <button
+              key={preset.id}
+              className={`mac-preset-btn ${isActive ? "active" : ""}`}
+              onClick={() => handleApplyPreset(preset)}
+            >
+              <span>{preset.name}</span>
+              <span className="mac-preset-tag" style={{ color: isActive ? "#ffffff" : preset.color }}>
+                {preset.tag}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Visual Workflow: Multi-Agent DAG Pipeline */}
       <section className="mac-dag-panel">
         <div className="mac-dag-header">
           <div className="mac-dag-title">
-            <BrainCircuit size={22} color="#2563eb" />
+            <BrainCircuit size={22} color="#38bdf8" />
             <div>
               <h3 style={{ margin: 0, fontSize: 16 }}>Multi-Agent Execution Pipeline</h3>
-              <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>
+              <p style={{ margin: 0, fontSize: 12, color: "#94a3b8" }}>
                 Click any agent node to inspect its bounded role, inputs, and real-time execution outputs.
               </p>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#475569", display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#cbd5e1", display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
               <input
                 type="checkbox"
                 checked={stepperMode}
@@ -3672,9 +3907,8 @@ function MultiAgentOps({ incidents: propIncidents = [], resources: propResources
               <div
                 key={stage.id}
                 className={`mac-dag-node ${isStepActive ? "active-step" : ""} ${isCompleted ? "completed" : ""}`}
-                onClick={() => {
-                  setActiveTab("trace");
-                }}
+                onClick={() => setSelectedAgentNode(stage)}
+                title={`Click to inspect ${stage.name}`}
               >
                 <div className="mac-dag-node-top">
                   <span className="mac-dag-node-step">0{idx + 1}</span>
@@ -4412,6 +4646,99 @@ function MultiAgentOps({ incidents: propIncidents = [], resources: propResources
           </div>
         )}
       </section>
+
+      {/* Agent Node Deep Inspector Dialog Modal */}
+      {selectedAgentNode && (
+        <div className="mac-modal-backdrop" onClick={() => setSelectedAgentNode(null)}>
+          <div className="mac-modal-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="mac-modal-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: "#eff6ff", color: "#2563eb", display: "grid", placeItems: "center" }}>
+                  {React.createElement(selectedAgentNode.icon || BrainCircuit, { size: 22 })}
+                </div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <h3 style={{ margin: 0, fontSize: 18 }}>{selectedAgentNode.name}</h3>
+                    <span className="status-pill" style={{ background: "#e0f2fe", color: "#0369a1", fontSize: 11 }}>
+                      {selectedAgentNode.phase} Phase
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 12, color: "#64748b" }}>
+                    ID: <code>{selectedAgentNode.id}</code>
+                  </span>
+                </div>
+              </div>
+              <button
+                className="btn secondary"
+                style={{ padding: "6px 10px", borderRadius: "50%", minWidth: "unset" }}
+                onClick={() => setSelectedAgentNode(null)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <b style={{ fontSize: 13, color: "#1e293b", display: "block", marginBottom: 4 }}>
+                  Bounded Role & Objective
+                </b>
+                <p style={{ margin: 0, fontSize: 13, color: "#475569", lineHeight: 1.5 }}>
+                  {selectedAgentNode.description}
+                </p>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div style={{ background: "#f8fafc", padding: 12, borderRadius: 10, border: "1px solid #e2e8f0" }}>
+                  <b style={{ fontSize: 12, color: "#475569", display: "block", marginBottom: 6 }}>
+                    📥 Ingested Inputs
+                  </b>
+                  <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#334155" }}>
+                    {selectedAgentNode.inputs?.map((inp, idx) => (
+                      <li key={idx} style={{ marginBottom: 3 }}>{inp}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div style={{ background: "#f8fafc", padding: 12, borderRadius: 10, border: "1px solid #e2e8f0" }}>
+                  <b style={{ fontSize: 12, color: "#475569", display: "block", marginBottom: 6 }}>
+                    📤 Output Artifacts
+                  </b>
+                  <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#334155" }}>
+                    {selectedAgentNode.outputs?.map((out, idx) => (
+                      <li key={idx} style={{ marginBottom: 3 }}>{out}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              <div>
+                <b style={{ fontSize: 13, color: "#1e293b", display: "block", marginBottom: 6 }}>
+                  Live Execution Telemetry & Decision Payload
+                </b>
+                {analysis?.agents?.find((a) => a.id === selectedAgentNode.id) ? (
+                  <pre className="mac-code-block">
+                    {JSON.stringify(
+                      analysis.agents.find((a) => a.id === selectedAgentNode.id).output,
+                      null,
+                      2
+                    )}
+                  </pre>
+                ) : (
+                  <div style={{ background: "#f8fafc", border: "1px dashed #cbd5e1", borderRadius: 10, padding: 16, textAlign: "center", color: "#64748b", fontSize: 12 }}>
+                    No run executed yet for this agent node. Click "Run Multi-Agent Analysis" on the studio to generate live output.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ padding: "14px 24px", borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "flex-end" }}>
+              <button className="btn primary" onClick={() => setSelectedAgentNode(null)}>
+                Close Inspector
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
