@@ -2,11 +2,11 @@ import React, { useEffect, useState, useRef, useMemo, useCallback } from "react"
 import {
   SafeAreaView,
   View,
-  Text,
+  Text as RNText,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  TextInput,
+  TextInput as RNTextInput,
   Modal,
   Alert,
   ActivityIndicator,
@@ -22,6 +22,39 @@ import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-ico
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import Constants from "expo-constants";
+
+// Global +15% Font Scaling for all Text & TextInput components
+const FONT_SCALE = 1.15;
+const scaledStyleCache = new WeakMap();
+
+function scaleStyle(style) {
+  if (!style) return style;
+  if (Array.isArray(style)) return style.map(scaleStyle);
+  if (typeof style === "object") {
+    if (scaledStyleCache.has(style)) return scaledStyleCache.get(style);
+    const hasFont = typeof style.fontSize === "number";
+    const hasLineHeight = typeof style.lineHeight === "number";
+    if (!hasFont && !hasLineHeight) return style;
+    const scaled = { ...style };
+    if (hasFont) scaled.fontSize = Math.round(style.fontSize * FONT_SCALE * 10) / 10;
+    if (hasLineHeight) scaled.lineHeight = Math.round(style.lineHeight * FONT_SCALE * 10) / 10;
+    scaledStyleCache.set(style, scaled);
+    return scaled;
+  }
+  return style;
+}
+
+const Text = React.forwardRef((props, ref) => {
+  const scaledStyle = scaleStyle(props.style);
+  return <RNText {...props} ref={ref} style={scaledStyle} />;
+});
+Text.displayName = "ScaledText";
+
+const TextInput = React.forwardRef((props, ref) => {
+  const scaledStyle = scaleStyle(props.style);
+  return <RNTextInput {...props} ref={ref} style={scaledStyle} />;
+});
+TextInput.displayName = "ScaledTextInput";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 

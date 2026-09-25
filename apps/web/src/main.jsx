@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route, NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   Activity, AlertTriangle, Bell, BrainCircuit, ChevronRight, CloudRain,
-  Database, FileText, Gauge, Home, Layers3, Map, Menu, Radio, Route as RouteIcon,
+  Database, FileText, Gauge, Home, Layers3, Map as MapIcon, Menu, Radio, Route as RouteIcon,
   Settings, ShieldCheck, Siren, Users, Wrench, X, Zap, Send, RefreshCw, CheckCircle2,
   Droplets, ShieldAlert, Sparkles, Truck, Sliders, ChevronDown, ChevronUp, Download, Eye, AlertCircle,
   Search, MapPin, Compass, Loader2, WifiOff, Navigation, AlertOctagon, Video,
@@ -1279,50 +1279,49 @@ export function LocationSearchBar({
 
   return (
     <div style={{
-      background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
-      color: "#fff",
-      padding: "16px 20px",
-      borderRadius: "14px",
-      marginBottom: "20px",
-      boxShadow: "0 10px 25px rgba(15,23,42,0.18)",
-      border: "1px solid #334155"
+      background: "#ffffff",
+      color: "#0f172a",
+      padding: "16px 18px",
+      borderRadius: "10px",
+      marginBottom: "18px",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+      border: "1px solid #e2e8f0"
     }}>
-      {/* Top Row: Location Info & Mode Badges */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
+      {/* Top Row: Location Info & Quick Actions */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <div style={{
-            width: "42px",
-            height: "42px",
-            borderRadius: "12px",
-            background: locationMode === "gps" ? "#10b981" : locationMode === "search" ? "#8b5cf6" : locationMode === "fallback" ? "#d97706" : "#2563eb",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "20px",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.3)"
+            width: "36px",
+            height: "36px",
+            borderRadius: "8px",
+            background: locationMode === "gps" ? "#f0fdf4" : "#eff6ff",
+            color: locationMode === "gps" ? "#16a34a" : "#2563eb",
+            display: "grid",
+            placeItems: "center",
+            fontSize: "17px",
+            flexShrink: 0
           }}>
-            {locationMode === "gps" ? "🎯" : locationMode === "search" ? "🔍" : locationMode === "fallback" ? "⚠️" : "🏪"}
+            <MapPin size={18} />
           </div>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <span style={{
-                background: modeBadge.bg,
-                color: modeBadge.color,
-                fontSize: "9px",
-                fontWeight: "900",
-                padding: "2px 7px",
-                borderRadius: "6px",
+                background: "#f1f5f9",
+                color: "#475569",
+                fontSize: "10px",
+                fontWeight: "800",
+                padding: "2px 6px",
+                borderRadius: "4px",
                 letterSpacing: "0.5px"
               }}>
-                {modeBadge.label}
+                {locationMode === "gps" ? "LIVE GPS" : "ACTIVE LOCATION"}
               </span>
-              <span style={{ fontSize: "10px", color: "#94a3b8" }}>{modeBadge.sub}</span>
+              <span style={{ fontSize: "12px", color: "#64748b" }}>
+                {userLat != null ? `${Number(userLat).toFixed(4)}, ${Number(userLng).toFixed(4)}` : ""}
+              </span>
             </div>
-            <div style={{ fontSize: "16px", fontWeight: "bold", color: "#f8fafc", marginTop: "2px" }}>
+            <div style={{ fontSize: "15px", fontWeight: "700", color: "#0f172a", marginTop: "2px" }}>
               {userLocationName || "Detecting Location..."}
-            </div>
-            <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "1px" }}>
-              Coordinates: <b style={{ color: "#38bdf8" }}>{userLat != null ? Number(userLat).toFixed(4) : "—"}, {userLng != null ? Number(userLng).toFixed(4) : "—"}</b> · Discovered Shelters: <b style={{ color: "#4ade80" }}>{shelterCount}</b> · Emergency Units: <b style={{ color: "#93c5fd" }}>{emergencyCount}</b>
             </div>
           </div>
         </div>
@@ -1333,29 +1332,28 @@ export function LocationSearchBar({
             onClick={onDetectGps}
             disabled={locationStatus === "detecting_gps"}
             style={{
-              background: locationStatus === "detecting_gps" ? "#475569" : "#10b981",
+              background: "#0b1b3a",
               color: "#fff",
               border: "none",
-              padding: "8px 14px",
+              padding: "7px 14px",
               borderRadius: "8px",
               fontSize: "12px",
-              fontWeight: "700",
+              fontWeight: "600",
               cursor: "pointer",
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
-              gap: "6px",
-              boxShadow: "0 4px 12px rgba(16,185,129,0.25)"
+              gap: "6px"
             }}
           >
             {locationStatus === "detecting_gps" ? (
               <>
-                <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
-                <span>Locating GPS...</span>
+                <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />
+                <span>Locating...</span>
               </>
             ) : (
               <>
-                <Compass size={14} />
-                <span>🎯 Detect Live GPS</span>
+                <Compass size={13} />
+                <span>Detect GPS</span>
               </>
             )}
           </button>
@@ -1371,45 +1369,45 @@ export function LocationSearchBar({
               if (hub && onSelectPresetHub) onSelectPresetHub(hub);
             }}
             style={{
-              background: "#1e293b",
-              color: "#fff",
-              border: "1px solid #475569",
-              padding: "8px 12px",
+              background: "#f8fafc",
+              color: "#334155",
+              border: "1px solid #cbd5e1",
+              padding: "7px 12px",
               borderRadius: "8px",
               fontSize: "12px",
               fontWeight: "600",
               cursor: "pointer"
             }}
           >
-            <option value="" disabled>🏪 Select Mumbai Market Hub...</option>
+            <option value="" disabled>Select Market Hub...</option>
             {MUMBAI_MARKET_HUBS.map((hub) => (
               <option key={hub.id} value={`${hub.lat},${hub.lng}`}>
-                🏪 {hub.name} ({hub.ward})
+                {hub.name} ({hub.ward})
               </option>
             ))}
           </select>
         </div>
       </div>
 
-      {/* Search Input Bar with Auto-complete Suggestions */}
-      <div style={{ marginTop: "14px", position: "relative" }}>
+      {/* Search Input Bar */}
+      <div style={{ marginTop: "12px", position: "relative" }}>
         <form onSubmit={handleSubmit} style={{ display: "flex", gap: "8px" }}>
           <div style={{ position: "relative", flex: 1 }}>
-            <Search size={16} color="#94a3b8" style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)" }} />
+            <Search size={15} color="#94a3b8" style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)" }} />
             <input
               type="text"
               value={query}
               onChange={handleInputChange}
               onFocus={() => { if (suggestions.length > 0) setShowDropdown(true); }}
-              placeholder="🔍 Search any location (e.g. Mulund, Kurla, Andheri, Thane, Dadar, Bandra, Colaba)..."
+              placeholder="Search location (e.g. Mulund, Kurla, Andheri, Bandra, Dadar)..."
               style={{
                 width: "100%",
-                background: "#0b1329",
-                color: "#fff",
-                border: "1px solid #334155",
+                background: "#f8fafc",
+                color: "#0f172a",
+                border: "1px solid #cbd5e1",
                 borderRadius: "8px",
-                padding: "9px 36px 9px 38px",
-                fontSize: "12px",
+                padding: "8px 36px 8px 36px",
+                fontSize: "13px",
                 outline: "none"
               }}
             />
@@ -1426,21 +1424,21 @@ export function LocationSearchBar({
           <button
             type="submit"
             style={{
-              background: "linear-gradient(135deg, #8b5cf6, #6d28d9)",
+              background: "#2563eb",
               color: "#fff",
               border: "none",
               borderRadius: "8px",
-              padding: "9px 18px",
+              padding: "8px 16px",
               fontSize: "12px",
-              fontWeight: "bold",
+              fontWeight: "600",
               cursor: "pointer",
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
               gap: "6px"
             }}
           >
-            {searching ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Search size={14} />}
-            Geocode & Load Shelters
+            {searching ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Search size={13} />}
+            Search
           </button>
         </form>
 
@@ -1518,12 +1516,12 @@ export function LocationSearchBar({
 const nav = [
   ["Overview", "/", Home],
   ["Live Alerts", "/alerts", Bell],
-  ["Live Risk Map", "/map", Map],
-  ["Incident Feed", "/incidents", Siren],
+  ["Risk Map", "/map", MapIcon],
+  ["Incidents", "/incidents", Siren],
   ["Team Tracker", "/resources", Truck],
-  ["Smart Dispatch", "/dispatch", Send],
-  ["Chronic Blockages", "/drainage", Wrench],
-  ["Multi-Agent Control", "/multi-agent", BrainCircuit]
+  ["Dispatch", "/dispatch", Send],
+  ["Blockages", "/drainage", Wrench],
+  ["AI Agents", "/multi-agent", BrainCircuit]
 ];
 
 function Sidebar({ open }) {
@@ -1531,14 +1529,14 @@ function Sidebar({ open }) {
     <aside className={`sidebar ${open ? "" : "collapsed"}`}>
       <div className="brand">
         <div className="brand-mark">
-          <CloudRain size={21} />
+          <CloudRain size={20} />
         </div>
         {open && (
           <div>
             <strong>
               Varsha<span>Raksha</span>
             </strong>
-            <small>Authority Console · Realtime Live</small>
+            <small>Disaster Command</small>
           </div>
         )}
       </div>
@@ -1546,14 +1544,14 @@ function Sidebar({ open }) {
       <nav>
         {nav.map(([label, to, Icon]) => (
           <NavLink key={to} to={to} className={({ isActive }) => (isActive ? "active" : "")} title={label}>
-            <Icon size={19} />
+            <Icon size={18} />
             {open && <span>{label}</span>}
           </NavLink>
         ))}
       </nav>
       <div className="sidebar-bottom">
         <NavLink to="/settings">
-          <Settings size={19} />
+          <Settings size={18} />
           {open && <span>Settings</span>}
         </NavLink>
         {open && (
@@ -1561,7 +1559,7 @@ function Sidebar({ open }) {
             <div className="avatar">WA</div>
             <div>
               <b>Ward Admin</b>
-              <span>Online · Realtime SSE</span>
+              <span>Active</span>
             </div>
             <span className="dot"></span>
           </div>
@@ -1573,30 +1571,30 @@ function Sidebar({ open }) {
 
 function Topbar({ onMenu, alertCount, onRefresh, onToggleNotifications, hasActiveSos }) {
   const loc = useLocation();
-  const title = loc.pathname === "/" ? "Ward Operations Command" : nav.find((x) => x[1] === loc.pathname)?.[0] || "Operations";
+  const title = loc.pathname === "/" ? "Overview" : nav.find((x) => x[1] === loc.pathname)?.[0] || "Operations";
   return (
     <header className="topbar">
       <button className="icon-btn" onClick={onMenu}>
-        <Menu size={20} />
+        <Menu size={18} />
       </button>
       <div className="crumb">
         <span>VarshaRaksha</span>
-        <ChevronRight size={15} />
+        <ChevronRight size={14} />
         <b>{title}</b>
       </div>
       <div className="top-actions">
         <div className="live-pill">
-          <i></i> Live Open-Meteo & SSE Feed
+          <i></i> Live System Active
         </div>
         <button className="icon-btn" title="Refresh Live Data" onClick={onRefresh}>
-          <RefreshCw size={18} />
+          <RefreshCw size={17} />
         </button>
         <button
           className={`icon-btn badge-btn ${hasActiveSos ? "sos-ringing" : ""}`}
-          title="Notifications & Active Emergency Alerts"
+          title="Active Emergency Alerts"
           onClick={onToggleNotifications}
         >
-          <Bell size={19} color={hasActiveSos ? "#ef4444" : "currentColor"} />
+          <Bell size={18} color={hasActiveSos ? "#dc2626" : "currentColor"} />
           <em>{alertCount}</em>
         </button>
         <div className="top-avatar">WA</div>
@@ -1802,7 +1800,7 @@ function PageHeader({ eyebrow, title, sub, children }) {
   return (
     <div className="page-header">
       <div>
-        <div className="eyebrow">{eyebrow}</div>
+        {eyebrow && <div className="eyebrow">{eyebrow}</div>}
         <h1>{title}</h1>
         {sub && <p>{sub}</p>}
       </div>
@@ -1995,105 +1993,122 @@ function AlertsPage({
   return (
     <div className="content alerts-page">
       <PageHeader
-        eyebrow="MULTI-SOURCE LIVE SURVEILLANCE & GEO-INTELLIGENCE"
-        title="Live Emergency & Risk Alerts"
-        sub="Continuous real-time alert feed calculated dynamically relative to your live GPS position with instant road routing and ETA."
+        title="Live Alerts"
+        sub="Monitor and respond to active emergencies"
       >
         <button className="primary" onClick={onReloadAlerts} style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
           <RefreshCw size={14} /> Refresh Feed
         </button>
       </PageHeader>
 
-      {/* User GPS Location HUD Banner */}
-      {hasUserLocation ? (
-        <div className="location-alert-banner">
-          <div className="location-banner-text">
-            <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "#dbeafe", color: "#2563eb", display: "grid", placeItems: "center" }}>
-              <Navigation size={18} />
+      {/* Simplified Live Location Banner */}
+      <div style={{
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        borderRadius: "10px",
+        padding: "12px 18px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "18px",
+        boxShadow: "0 1px 2px rgba(0,0,0,0.04)"
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ width: "34px", height: "34px", borderRadius: "8px", background: "#eff6ff", color: "#2563eb", display: "grid", placeItems: "center", flexShrink: 0 }}>
+            <MapPin size={17} />
+          </div>
+          <div>
+            <div style={{ fontSize: "10px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.8px" }}>
+              LIVE LOCATION
             </div>
-            <div>
-              <h4>📍 Live GPS Active: {userLocationName || "Detected Location"}</h4>
-              <p>
-                Coordinates: <b>{userLat.toFixed(5)}, {userLng.toFixed(5)}</b> · Alert distances and routing times are calculated dynamically relative to your position.
-              </p>
+            <div style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a" }}>
+              {userLocationName || "Mumbai Zone 3"}
             </div>
           </div>
-          <button className="enable-loc-btn" onClick={onDetectGps} style={{ background: "#0f172a" }}>
-            <Compass size={13} /> Update GPS
-          </button>
         </div>
-      ) : (
-        <div className="location-alert-banner disabled">
-          <div className="location-banner-text">
-            <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "#fef3c7", color: "#d97706", display: "grid", placeItems: "center" }}>
-              <AlertTriangle size={18} />
-            </div>
-            <div>
-              <h4 style={{ color: "#92400e" }}>Enable location to see alert distances</h4>
-              <p style={{ color: "#b45309" }}>
-                GPS permission is needed to compute live proximity, road distances, and arrival ETAs for flood and lightning warnings.
-              </p>
-            </div>
-          </div>
-          <button className="enable-loc-btn" onClick={onDetectGps}>
-            <MapPin size={13} /> Enable Location
-          </button>
-        </div>
-      )}
+        <button
+          className="enable-loc-btn"
+          onClick={onDetectGps}
+          style={{ background: "#0b1b3a", color: "#fff", border: "none", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", fontWeight: "600", display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}
+        >
+          <Compass size={13} /> Update GPS
+        </button>
+      </div>
 
-      {/* Filter Tabs and Sort Controls */}
-      <div className="alerts-controls-row">
-        <div className="alerts-tabs">
+      {/* Compact Alert Filters and Sort */}
+      <div className="alerts-controls-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", gap: "12px", flexWrap: "wrap" }}>
+        <div className="alerts-tabs" style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
           {[
-            ["all", "All Alerts", null],
-            ["flood", "🌊 Flood Risk", countBySource.flood],
-            ["lightning", "⚡ Lightning", countBySource.lightning],
-            ["rainfall", "🌧️ Rainfall Radar", countBySource.rainfall],
-            ["incident", "🚨 SOS & Incidents", countBySource.incident],
-            ["drainage", "🚧 Drainage Blockages", countBySource.drainage]
+            ["all", "All", countBySource.all],
+            ["flood", "Flood", countBySource.flood],
+            ["lightning", "Lightning", countBySource.lightning],
+            ["incident", "SOS", countBySource.incident],
+            ["drainage", "Blockages", countBySource.drainage]
           ].map(([key, label, count]) => (
             <button
               key={key}
               className={`alerts-tab-btn ${filterSource === key ? "active" : ""}`}
               onClick={() => setFilterSource(key)}
+              style={{
+                padding: "6px 12px",
+                borderRadius: "8px",
+                fontSize: "12px",
+                fontWeight: "600",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                background: filterSource === key ? "#0b1b3a" : "#ffffff",
+                color: filterSource === key ? "#ffffff" : "#475569",
+                border: filterSource === key ? "1px solid #0b1b3a" : "1px solid #e2e8f0",
+                cursor: "pointer"
+              }}
             >
               <span>{label}</span>
-              <span className="tab-count">{count ?? countBySource.all}</span>
+              <span style={{
+                background: filterSource === key ? "rgba(255,255,255,0.2)" : "#f1f5f9",
+                color: filterSource === key ? "#ffffff" : "#64748b",
+                padding: "1px 6px",
+                borderRadius: "10px",
+                fontSize: "10px",
+                fontWeight: "700"
+              }}>
+                {count}
+              </span>
             </button>
           ))}
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div style={{ position: "relative" }}>
-            <Search size={13} style={{ position: "absolute", left: "10px", top: "10px", color: "#94a3b8" }} />
+            <Search size={13} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
             <input
               type="text"
-              placeholder="Search alerts or locations..."
+              placeholder="Search alerts..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ padding: "6px 12px 6px 30px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "11px", width: "200px" }}
+              style={{ padding: "6px 12px 6px 30px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "12px", width: "190px", outline: "none" }}
             />
           </div>
           <select
             className="alerts-sort-select"
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
+            style={{ padding: "6px 10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "12px", color: "#334155", background: "#fff" }}
           >
-            <option value="smart">Sort: Severity + Proximity</option>
-            <option value="proximity">Sort: Closest Distance First</option>
-            <option value="severity">Sort: Highest Severity</option>
-            <option value="newest">Sort: Newest First</option>
+            <option value="smart">Severity + Distance</option>
+            <option value="proximity">Closest Distance</option>
+            <option value="severity">Highest Severity</option>
+            <option value="newest">Newest First</option>
           </select>
         </div>
       </div>
 
       {/* Alerts Grid */}
       {sortedAlerts.length === 0 ? (
-        <div style={{ padding: "50px 20px", textAlign: "center", background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
-          <div style={{ fontSize: "36px", marginBottom: "10px" }}>✨</div>
-          <h3 style={{ margin: "0 0 6px", fontSize: "16px", color: "#0f172a" }}>No Active Alerts in this Category</h3>
-          <p style={{ margin: 0, fontSize: "12px", color: "#64748b" }}>
-            All monitoring channels in the selected filter are reporting normal operational telemetry.
+        <div style={{ padding: "50px 20px", textAlign: "center", background: "#fff", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+          <h3 style={{ margin: "0 0 6px", fontSize: "15px", color: "#0f172a" }}>No Active Alerts in this Category</h3>
+          <p style={{ margin: 0, fontSize: "13px", color: "#64748b" }}>
+            All monitoring channels are reporting normal operational telemetry.
           </p>
         </div>
       ) : (
@@ -2103,138 +2118,127 @@ function AlertsPage({
             const isCritical = sev === "critical" || sev === "red";
             const isHigh = sev === "high";
             const isOrange = sev === "orange" || sev === "elevated" || sev === "moderate";
-
-            const sourceIcon = alt.source === "lightning" ? "⚡" : alt.source === "rainfall" ? "🌧️" : alt.source === "drainage" ? "🚧" : alt.source === "incident" || alt.type === "sos" ? "🚨" : "🌊";
-            const sourceName = alt.sourceName || (alt.source === "lightning" ? "Blitzortung Live Lightning Network" : alt.source === "rainfall" ? "Rainfall Monitoring Radar" : alt.source === "drainage" ? "Chronic Drainage GIS" : alt.source === "incident" ? "Citizen SOS Dispatch" : "VarshaRaksha Risk Engine");
-
             const isSosAlert = alt.isSos || alt.type === "sos" || alt.type === "SOS" || alt.source === "incident";
-            const repCount = alt.reporter_count || alt.reporterCount || (Array.isArray(alt.reports) ? alt.reports.length : (alt.description && alt.description.includes("reports within 500m") ? parseInt(alt.description.match(/(\d+)\s+reports/)?.[1] || "1", 10) : 1));
+            const typeLabel = (alt.source || alt.type || "FLOOD").toUpperCase();
+
+            // Key emergency metric calculation
+            const metricLabel = alt.source === "flood" || alt.type === "flood"
+              ? "Water Depth"
+              : alt.source === "lightning"
+              ? "Strike Proximity"
+              : alt.source === "rainfall"
+              ? "Precipitation"
+              : "Emergency Risk";
+
+            const metricValue = alt.depth
+              ? `${alt.depth} m`
+              : alt.waterLevel
+              ? `${alt.waterLevel} cm`
+              : alt.rainfall
+              ? `${alt.rainfall} mm/h`
+              : alt.lightning_count
+              ? `${alt.lightning_count} strikes detected`
+              : "Elevated Hazard";
 
             return (
               <div
                 key={alt.id}
                 className={`alert-card-rich ${isCritical ? "critical" : isHigh ? "high" : isOrange ? "elevated" : "normal"}`}
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderLeft: isCritical ? "4px solid #dc2626" : isHigh ? "4px solid #f97316" : isOrange ? "4px solid #f59e0b" : "4px solid #16a34a",
+                  borderRadius: "10px",
+                  padding: "16px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)"
+                }}
               >
-                <div className="alert-rich-head">
-                  <span className="alert-source-tag">
-                    {sourceIcon} {alt.source || alt.type || "ALERT"}
-                  </span>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    {isSosAlert && repCount > 1 && (
-                      <span
-                        style={{
-                          fontSize: "9px",
-                          fontWeight: "900",
-                          padding: "2px 6px",
-                          borderRadius: "4px",
-                          background: "#dc2626",
-                          color: "#ffffff",
-                          textTransform: "uppercase"
-                        }}
-                      >
-                        {repCount} SOS Reports
+                {/* 1. Incident Type and Severity */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                    <span style={{ fontSize: "10px", fontWeight: "800", padding: "2px 7px", borderRadius: "4px", background: "#f1f5f9", color: "#334155", letterSpacing: "0.5px" }}>
+                      [ {typeLabel} ]
+                    </span>
+                    <span style={{
+                      fontSize: "10px",
+                      fontWeight: "800",
+                      padding: "2px 7px",
+                      borderRadius: "4px",
+                      background: isCritical ? "#fee2e2" : isHigh ? "#ffedd5" : isOrange ? "#fef3c7" : "#dcfce7",
+                      color: isCritical ? "#dc2626" : isHigh ? "#c2410c" : isOrange ? "#b45309" : "#15803d",
+                      letterSpacing: "0.5px"
+                    }}>
+                      [ {alt.severity || alt.level || "NORMAL"} ]
+                    </span>
+                    {isSosAlert && (
+                      <span style={{ fontSize: "10px", fontWeight: "800", padding: "2px 6px", borderRadius: "4px", background: "#dc2626", color: "#fff" }}>
+                        SOS
                       </span>
                     )}
-                    <span
-                      style={{
-                        fontSize: "9px",
-                        fontWeight: "800",
-                        padding: "2px 6px",
-                        borderRadius: "4px",
-                        background: isCritical ? "#fee2e2" : isHigh ? "#ffedd5" : isOrange ? "#fef3c7" : "#dcfce7",
-                        color: isCritical ? "#dc2626" : isHigh ? "#c2410c" : isOrange ? "#b45309" : "#15803d",
-                        textTransform: "uppercase"
-                      }}
-                    >
-                      {alt.severity || alt.level || "NORMAL"}
-                    </span>
-                    <span style={{ fontSize: "10px", color: alt.isStale ? "#d97706" : "#64748b", fontWeight: "600" }}>
-                      {alt.freshness}
-                    </span>
                   </div>
+                  <span style={{ fontSize: "11px", color: "#64748b" }}>
+                    {alt.freshness || "Just now"}
+                  </span>
                 </div>
 
-                <h3 className="alert-rich-title">{alt.title}</h3>
-                {isSosAlert && repCount > 1 && (
-                  <div style={{
-                    background: "#fee2e2",
-                    border: "1px solid #fca5a5",
-                    borderRadius: "6px",
-                    padding: "4px 8px",
-                    margin: "4px 0 6px",
-                    fontSize: "11px",
-                    fontWeight: "800",
-                    color: "#991b1b",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px"
-                  }}>
-                    <span>👥</span>
-                    <span><b>{repCount} Citizens Reported SOS</b> in this 500m geofenced location</span>
+                {/* 2. Clear Incident Title */}
+                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#0f172a", lineHeight: "1.3" }}>
+                  {alt.title}
+                </h3>
+
+                {/* 3. Location */}
+                <div style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "13px", color: "#475569", fontWeight: "600" }}>
+                  <MapPin size={13} color="#2563eb" style={{ flexShrink: 0 }} />
+                  <span>{alt.location_name || alt.area || "Ward 73, Mumbai"}</span>
+                </div>
+
+                {/* 4. Key Emergency Metric */}
+                <div style={{ fontSize: "12px", background: "#f8fafc", padding: "6px 10px", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "space-between", border: "1px solid #f1f5f9" }}>
+                  <span style={{ color: "#64748b", fontWeight: "600" }}>{metricLabel}:</span>
+                  <b style={{ color: isCritical ? "#dc2626" : "#0f172a", fontSize: "13px" }}>{metricValue}</b>
+                </div>
+
+                {/* 5. Distance and ETA */}
+                {alt.distKm != null && (
+                  <div style={{ fontSize: "12px", color: "#64748b", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span>{alt.distKm} km away</span>
+                    {alt.etaMin != null && <span>· ~{alt.etaMin} min ETA</span>}
                   </div>
                 )}
-                <p className="alert-rich-desc">{alt.description || alt.message}</p>
 
-                {/* Geographic Location & Real Distance HUD */}
-                <div className="alert-location-hud">
-                  <div className="alert-loc-line">
-                    <span className="alert-loc-name" title={alt.location_name || alt.area || "Location"}>
-                      <MapPin size={13} color="#2563eb" />
-                      {alt.location_name || alt.area || (alt.hasAlertLocation ? `${alt.aLat.toFixed(4)}, ${alt.aLng.toFixed(4)}` : "Location unavailable")}
-                    </span>
-
-                    {hasUserLocation && alt.hasAlertLocation ? (
-                      <span className={`alert-distance-badge ${alt.isNearby ? "nearby" : ""}`}>
-                        📏 {alt.distKm} km from you {alt.etaMin ? `· ⏱️ ~${alt.etaMin} min` : ""}
-                      </span>
-                    ) : (
-                      <span className="alert-distance-badge unavailable">
-                        {hasUserLocation ? "📍 Location unavailable" : "📍 Distance unavailable"}
-                      </span>
-                    )}
-                  </div>
-
-                  {hasUserLocation && alt.hasAlertLocation && (
-                    <div style={{ fontSize: "9px", color: "#64748b", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span>Mode: <b>{alt.distance_type === "road" ? "Road Distance" : "Straight-line Distance"}</b></span>
-                      <span>GPS Origin: {userLat.toFixed(3)}, {userLng.toFixed(3)}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="alert-rich-footer">
-                  <div className="alert-source-label">
-                    <span>Source: <b>{sourceName}</b></span>
-                    <span>Status: <b style={{ color: alt.status === "Resolved" ? "#16a34a" : alt.status === "False Alarm" ? "#dc2626" : "#0f172a" }}>{alt.status || "Active"}</b></span>
-                  </div>
-
-                  <div className="alert-card-actions">
-                    {alt.hasAlertLocation && (
-                      <button
-                        className="btn-view-map"
-                        onClick={() => {
-                          navigate("/map");
-                        }}
-                        title="View alert location on interactive Map"
-                      >
-                        <Map size={12} /> View on Map
-                      </button>
-                    )}
+                {/* 6. Primary Action Buttons */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px", paddingTop: "10px", borderTop: "1px solid #f1f5f9" }}>
+                  {alt.hasAlertLocation ? (
+                    <button
+                      className="btn-view-map"
+                      onClick={() => navigate("/map")}
+                      title="View alert location on interactive Map"
+                      style={{ background: "#0b1b3a", color: "#fff", border: "none", borderRadius: "6px", padding: "6px 12px", fontSize: "11px", fontWeight: "700", display: "inline-flex", alignItems: "center", gap: "5px", cursor: "pointer" }}
+                    >
+                      <MapIcon size={12} /> View Map
+                    </button>
+                  ) : <span />}
+                  <div style={{ display: "flex", gap: "6px" }}>
                     <button
                       className="btn-alert-feedback"
                       onClick={() => handleFeedback(alt.id, "RESOLVED")}
                       disabled={actionLoading[alt.id]}
                       title="Mark this alert as resolved"
+                      style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", borderRadius: "6px", padding: "5px 10px", fontSize: "11px", fontWeight: "700", display: "inline-flex", alignItems: "center", gap: "4px", cursor: "pointer" }}
                     >
-                      <CheckCircle2 size={12} color="#16a34a" /> Resolve
+                      <CheckCircle2 size={12} /> Resolve
                     </button>
                     <button
                       className="btn-alert-feedback"
                       onClick={() => handleFeedback(alt.id, "FALSE_ALARM")}
                       disabled={actionLoading[alt.id]}
                       title="Mark this alert as false alarm"
+                      style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: "6px", padding: "5px 10px", fontSize: "11px", fontWeight: "700", display: "inline-flex", alignItems: "center", gap: "4px", cursor: "pointer" }}
                     >
-                      <X size={12} color="#dc2626" /> False Alarm
+                      <X size={12} /> Dismiss
                     </button>
                   </div>
                 </div>
@@ -2332,13 +2336,12 @@ function Dashboard({
   return (
     <div className="content">
       <PageHeader
-        eyebrow="LIVE WARD MONITORING · REAL METEOROLOGICAL DATA & REALTIME DISPATCH"
-        title="Flood Operations Command Center"
-        sub="Connected to live Open-Meteo rainfall feeds, OpenStreetMap GIS, and real-time citizen reports."
+        title="Overview"
+        sub="Real-time disaster response intelligence"
       >
-        <button className="primary" onClick={syncWeather} disabled={syncing}>
-          <RefreshCw size={16} style={{ animation: syncing ? "spin 1s linear infinite" : "none" }} />
-          {syncing ? "Syncing Open-Meteo..." : "Sync Live Weather"}
+        <button className="primary" onClick={syncWeather} disabled={syncing} style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+          <RefreshCw size={14} style={{ animation: syncing ? "spin 1s linear infinite" : "none" }} />
+          {syncing ? "Syncing..." : "Sync Weather"}
         </button>
       </PageHeader>
 
@@ -2359,10 +2362,10 @@ function Dashboard({
       />
 
       <div className="stats-grid">
-        <StatCard label="Critical zones" value={critical} delta={`${elevated} elevated`} icon={AlertTriangle} tone="red" />
-        <StatCard label="Active reports" value={incidents.length} delta="Real citizen evidence" icon={Siren} tone="orange" />
-        <StatCard label="Live rainfall" value={`${avgRain} mm`} delta="Direct Open-Meteo API" icon={CloudRain} tone="blue" />
-        <StatCard label="Teams Available" value={`${availableTeams}/${resources.length}`} delta="Live tracker" icon={Truck} tone="green" />
+        <StatCard label="CRITICAL ZONES" value={critical} delta={`${elevated} elevated`} icon={AlertTriangle} tone="red" />
+        <StatCard label="ACTIVE INCIDENTS" value={incidents.length} delta="Ground reports" icon={Siren} tone="orange" />
+        <StatCard label="LIVE RAINFALL" value={`${avgRain} mm`} delta="Radar feed" icon={CloudRain} tone="blue" />
+        <StatCard label="TEAMS AVAILABLE" value={`${availableTeams}/${resources.length}`} delta="Field units" icon={Truck} tone="green" />
       </div>
 
       <div className="grid-2">
@@ -2370,10 +2373,10 @@ function Dashboard({
         <section className="panel map-panel">
           <div className="panel-head">
             <div>
-              <h3>Live Google Maps Risk Map with Overlays</h3>
-              <span>Ward 72/73 · Google Maps Platform & Real geographic coordinates</span>
+              <h3>Risk Map</h3>
+              <span>Ward 72/73 · GIS Overlays</span>
             </div>
-            <span style={{ fontSize: "11px", color: "#16a34a", fontWeight: "bold" }}>● Realtime SSE Connected</span>
+            <span style={{ fontSize: "11px", color: "#16a34a", fontWeight: "700" }}>● Live SSE</span>
           </div>
           <div style={{ padding: "12px" }}>
             <LeafletMap
@@ -2386,7 +2389,7 @@ function Dashboard({
               center={[userLat, userLng]}
               userLocation={[userLat, userLng]}
               userLocationName={userLocationName}
-              height="360px"
+              height="380px"
               onSelectShelter={onSelectShelter}
               onClearRoute={onClearRoute}
               onAutoDispatch={onAutoDispatch}
@@ -2400,44 +2403,66 @@ function Dashboard({
           <div className="map-legend">
             <div className="map-legend-items">
               <span className="legend-pill red"><span className="legend-dot red"></span>Critical (≥75)</span>
-              <span className="legend-pill orange"><span className="legend-dot orange"></span>Elevated (≥45)</span>
+              <span className="legend-pill orange"><span className="legend-dot orange"></span>Warning (≥45)</span>
               <span className="legend-pill green"><span className="legend-dot green"></span>Normal (&lt;45)</span>
             </div>
-            <span className="map-note">🛡️ Click any shelter marker or card below to highlight safest road route</span>
           </div>
         </section>
 
         {/* Live Incident Queue */}
         <section className="panel incident-panel">
-          <div className="panel-head" style={{ flexWrap: "wrap", gap: "8px" }}>
-            <div>
-              <h3>Live Incident Feed</h3>
-              <span>Incoming ground reports ({incidents.length})</span>
-            </div>
-            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-              <div className="segmented" style={{ transform: "scale(0.88)", transformOrigin: "right center" }}>
-                <button
-                  className={dashboardIncidentFilter === "all" ? "selected" : ""}
-                  onClick={() => setDashboardIncidentFilter("all")}
-                >
-                  All ({sortedIncidents.length})
-                </button>
-                <button
-                  className={dashboardIncidentFilter === "review" ? "selected" : ""}
-                  onClick={() => setDashboardIncidentFilter("review")}
-                  style={{ color: dashboardIncidentFilter === "review" ? undefined : "#c2410c", fontWeight: "700" }}
-                >
-                  ⚠️ Review ({humanReviewCount})
-                </button>
-                <button
-                  className={dashboardIncidentFilter === "ai" ? "selected" : ""}
-                  onClick={() => setDashboardIncidentFilter("ai")}
-                  style={{ color: dashboardIncidentFilter === "ai" ? undefined : "#16a34a", fontWeight: "700" }}
-                >
-                  🌊 AI Floods ({aiVerifiedCount})
-                </button>
+          <div className="panel-head" style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "stretch", padding: "14px 18px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#0b1b3a", margin: 0 }}>Incident Feed</h3>
+                <span style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
+                  {sortedIncidents.length} Real-Time Ground Reports
+                </span>
               </div>
-              <NavLink to="/incidents" className="link">View All <ChevronRight size={14} /></NavLink>
+              <NavLink
+                to="/incidents"
+                className="link"
+                style={{ fontSize: "12px", fontWeight: "600", color: "#2563eb", display: "inline-flex", alignItems: "center", gap: "3px", textDecoration: "none" }}
+              >
+                View All <ChevronRight size={14} />
+              </NavLink>
+            </div>
+
+            {/* Filter Pills Row */}
+            <div style={{ display: "flex", gap: "6px", alignItems: "center", overflowX: "auto" }}>
+              <button
+                className={`resource-filter-pill ${dashboardIncidentFilter === "all" ? "active" : ""}`}
+                onClick={() => setDashboardIncidentFilter("all")}
+                style={{ fontSize: "11px", padding: "4px 10px" }}
+              >
+                All ({sortedIncidents.length})
+              </button>
+              <button
+                className={`resource-filter-pill ${dashboardIncidentFilter === "review" ? "active" : ""}`}
+                onClick={() => setDashboardIncidentFilter("review")}
+                style={{
+                  fontSize: "11px",
+                  padding: "4px 10px",
+                  color: dashboardIncidentFilter === "review" ? "#ffffff" : "#c2410c",
+                  borderColor: dashboardIncidentFilter === "review" ? "#ea580c" : "#fed7aa",
+                  background: dashboardIncidentFilter === "review" ? "#ea580c" : "#fff7ed"
+                }}
+              >
+                ⚠️ Review ({humanReviewCount})
+              </button>
+              <button
+                className={`resource-filter-pill ${dashboardIncidentFilter === "ai" ? "active" : ""}`}
+                onClick={() => setDashboardIncidentFilter("ai")}
+                style={{
+                  fontSize: "11px",
+                  padding: "4px 10px",
+                  color: dashboardIncidentFilter === "ai" ? "#ffffff" : "#15803d",
+                  borderColor: dashboardIncidentFilter === "ai" ? "#16a34a" : "#bbf7d0",
+                  background: dashboardIncidentFilter === "ai" ? "#16a34a" : "#f0fdf4"
+                }}
+              >
+                🌊 AI Verified ({aiVerifiedCount})
+              </button>
             </div>
           </div>
           <div className="incident-feed-list">
@@ -2960,9 +2985,9 @@ export function isHumanInterventionNeeded(inc) {
   return false;
 }
 
-// Individual Incident Card with Ground Photo Evidence preview, CV confidence, Divergence cause tag, duplicate merge drawer, and auto-dispatch
+// Professional Minimal Incident & Emergency Response Card
 function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFalseAlarm, onOpenOverride, onViewPhoto, onResetReputation }) {
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const inc = incident;
   const isSos = Boolean(inc.isSos || inc.type === "SOS" || inc.status === "ACTIVE_SOS" || inc.causeCode === "SOS_EMERGENCY");
   const isDispatched = inc.status === "Dispatched";
@@ -2970,13 +2995,6 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
   const isFalseAlarm = inc.status === "False Alarm";
 
   const causeCode = inc.causeCode || (inc.cause === "Blocked drain" ? "SUSPECTED_BLOCKED_DRAIN" : "RAINFALL_OVERLOAD");
-  const causeClass =
-    causeCode === "SUSPECTED_BLOCKED_DRAIN"
-      ? "blocked-drain"
-      : causeCode === "RAINFALL_OVERLOAD"
-      ? "rainfall-overload"
-      : "mixed-runoff";
-
   const hasVideo = Boolean((inc.videoUrl || inc.video) && inc.videoUrl !== "attached" && (inc.videoUrl?.startsWith("http") || inc.videoUrl?.startsWith("data:video") || inc.videoUrl?.startsWith("/uploads")));
   const hasPhoto = Boolean(inc.photoUrl && inc.photoUrl !== "attached" && (inc.photoUrl.startsWith("http") || inc.photoUrl.startsWith("data:image") || inc.photoUrl.startsWith("/uploads")));
 
@@ -2989,479 +3007,296 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
     : null);
 
   const repCount = inc.reporter_count || (Array.isArray(inc.reports) ? inc.reports.length : (inc.reports_length || 1));
+  const nearestDist = (nearestResource?.distKm ?? nearestResource?.distanceKm ?? 0.8);
+  const nearestEta = Math.max(2, Math.round(Number(nearestDist) * 4));
+
+  const borderLeftColor = isSos
+    ? "#dc2626"
+    : isDispatched
+    ? "#2563eb"
+    : isVerified
+    ? "#16a34a"
+    : isFalseAlarm
+    ? "#94a3b8"
+    : "#f59e0b";
 
   return (
     <div
       className="incident-card"
       style={{
-        borderLeft: isSos ? "5px solid #ef4444" : isDispatched ? "4px solid #3b82f6" : isVerified ? "4px solid #10b981" : isFalseAlarm ? "4px solid #94a3b8" : "4px solid #ef4444",
-        backgroundColor: isSos ? "#fff8f8" : "#ffffff",
-        boxShadow: isSos ? "0 4px 14px rgba(239, 68, 68, 0.12)" : undefined
+        borderLeft: `4px solid ${borderLeftColor}`,
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        borderLeftWidth: "4px",
+        borderRadius: "12px",
+        padding: "16px",
+        marginBottom: "12px",
+        boxShadow: isSos ? "0 2px 8px rgba(220, 38, 38, 0.07)" : "0 1px 3px rgba(0, 0, 0, 0.04)",
+        display: "flex",
+        flexDirection: "column",
+        gap: "10px"
       }}
     >
-      {/* High-Urgency SOS Banner if incident is an SOS distress signal */}
-      {isSos && (
-        <div
-          style={{
-            background: "linear-gradient(135deg, #dc2626, #b91c1c)",
-            color: "#ffffff",
-            padding: "6px 12px",
-            borderRadius: "8px",
-            marginBottom: "8px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            fontWeight: "800",
-            fontSize: "11px",
-            letterSpacing: "0.5px",
-            boxShadow: "0 2px 6px rgba(220, 38, 38, 0.35)"
-          }}
-        >
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <span className="pulsing-red-dot" style={{ background: "#ffffff" }} />
-            🚨 ACTIVE LIFE-SAFETY SOS {repCount > 1 ? `· ${repCount} DISTRESS SIGNALS (500m ZONE)` : "DISTRESS"}
-          </span>
-          <span style={{ fontSize: "10px", background: "rgba(255,255,255,0.25)", padding: "2px 7px", borderRadius: "10px", fontWeight: "700" }}>
-            {repCount > 1 ? `${repCount} Aggregated Reports` : "Priority Alert"}
-          </span>
-        </div>
-      )}
-
-      <div className="incident-card-header">
-        <div className="incident-id-badge">
-          <NavLink
-            to={`/incidents/${inc.id}`}
-            style={{ textDecoration: "none", color: "inherit", display: "inline-flex", alignItems: "center", gap: "4px" }}
-            title="Open Incident Details & Resource Allocation"
-          >
-            <b>{inc.id}</b>
-            <ChevronRight size={14} color="#3b82f6" />
-          </NavLink>
-          <span className={`status ${inc.status?.toLowerCase().replace(" ", "-")}`}>{inc.status}</span>
-        </div>
-        <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
-          {isHumanInterventionNeeded(inc) ? (
-            <span className="human-review-badge">
-              ⚠️ Human Intervention Required
-            </span>
-          ) : inc.aiVerification?.is_flooding ? (
+      {/* 1. Header: Status / SOS, Incident ID, Timestamp, Risk */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {isSos ? (
             <span style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "4px",
+              background: "#dc2626",
+              color: "#ffffff",
               fontSize: "10px",
               fontWeight: "800",
-              background: "#f0fdf4",
-              color: "#16a34a",
-              border: "1px solid #bbf7d0",
-              padding: "2px 7px",
-              borderRadius: "6px"
+              padding: "3px 8px",
+              borderRadius: "6px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "5px",
+              letterSpacing: "0.4px"
             }}>
-              🌊 AI: Flooding Confirmed ({((inc.aiVerification.confidence_score || inc.aiVerification.confidence || 0) * 100).toFixed(0)}%)
+              <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#fff", display: "inline-block" }} />
+              ACTIVE SOS {repCount > 1 ? `(${repCount})` : ""}
             </span>
-          ) : inc.aiVerified ? (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "10px", fontWeight: "800", background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", padding: "2px 7px", borderRadius: "6px" }}>
-              🤖 AI Flood Model: Verified {inc.aiFloodConfidence ? `(${(inc.aiFloodConfidence * 100).toFixed(0)}%)` : ""}
+          ) : (
+            <span style={{
+              background: "#eff6ff",
+              color: "#1d4ed8",
+              border: "1px solid #bfdbfe",
+              fontSize: "10px",
+              fontWeight: "700",
+              padding: "3px 8px",
+              borderRadius: "6px",
+              textTransform: "uppercase"
+            }}>
+              {inc.type || "FLOOD REPORT"}
             </span>
-          ) : null}
-          {/* CV Confidence Score */}
-          <span className={`cv-badge ${inc.cvConfidence >= 80 ? "high" : ""}`}>
-            <Sparkles size={11} />
-            CV: {inc.cvConfidence || 88}% Confidence
+          )}
+
+          <NavLink
+            to={`/incidents/${inc.id}`}
+            style={{
+              fontFamily: "ui-monospace, monospace",
+              fontSize: "11px",
+              fontWeight: "700",
+              color: "#475569",
+              textDecoration: "none",
+              background: "#f1f5f9",
+              padding: "2px 6px",
+              borderRadius: "4px",
+              border: "1px solid #e2e8f0"
+            }}
+            title="Incident details"
+          >
+            #{inc.id}
+          </NavLink>
+
+          {/* Show non-redundant status badge */}
+          {!isSos && inc.status && (
+            <span className={`status ${inc.status?.toLowerCase().replace(" ", "-")}`} style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px" }}>
+              {inc.status}
+            </span>
+          )}
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontSize: "11px", color: "#94a3b8", fontWeight: "500" }}>
+            {inc.time || "Just now"}
           </span>
-          <RiskBadge score={inc.severity || (isSos ? 95 : 50)} />
+          {!isSos && <RiskBadge score={inc.severity || 50} />}
         </div>
       </div>
 
-      {repCount > 1 && (
+      {/* 2. Citizen / Distress Title */}
+      <div style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+        {isSos ? (
+          <span>Citizen Distress: <span style={{ color: "#b91c1c" }}>{inc.reporter || "Anonymous Citizen"}</span></span>
+        ) : (
+          <span>{inc.reporter || "Citizen Report"}</span>
+        )}
+        {inc.role && (
+          <span style={{ fontSize: "11px", fontWeight: "500", color: "#64748b" }}>
+            ({inc.role})
+          </span>
+        )}
+      </div>
+
+      {/* 3. Location */}
+      <div style={{ fontSize: "13px", color: "#334155", fontWeight: "500", display: "flex", alignItems: "center", gap: "5px" }}>
+        <MapPin size={13} style={{ color: "#2563eb", flexShrink: 0 }} />
+        <span>{inc.address || "Live Area, Ward 73"}</span>
+      </div>
+
+      {/* 4. Emergency Type & Key Metrics */}
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", fontSize: "11px" }}>
+        <span style={{ background: "#f8fafc", color: "#334155", padding: "3px 8px", borderRadius: "6px", fontWeight: "600", border: "1px solid #e2e8f0" }}>
+          {inc.cause || "Drainage Flooding"}
+        </span>
+
+        {inc.waterLevel != null && (
+          <span style={{ background: "#eff6ff", color: "#1d4ed8", padding: "3px 8px", borderRadius: "6px", fontWeight: "700", border: "1px solid #bfdbfe" }}>
+            Depth: {inc.waterLevel} cm
+          </span>
+        )}
+
+        {inc.aiVerification?.is_flooding && (
+          <span style={{ background: "#f0fdf4", color: "#166534", padding: "3px 8px", borderRadius: "6px", fontWeight: "700", border: "1px solid #bbf7d0", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+            <CheckCircle2 size={11} /> AI Verified ({inc.aiVerification?.confidence ? `${Math.round(inc.aiVerification.confidence * 100)}%` : "High"})
+          </span>
+        )}
+      </div>
+
+      {/* 5. Nearest Response Unit & ETA */}
+      {nearestResource && (
         <div style={{
-          background: "#fee2e2",
-          border: "1px solid #fca5a5",
-          borderRadius: "6px",
-          padding: "5px 9px",
-          margin: "4px 0 6px",
-          fontSize: "11px",
-          color: "#991b1b",
-          fontWeight: "800",
+          background: "#f8fafc",
+          border: "1px solid #e2e8f0",
+          borderRadius: "8px",
+          padding: "8px 12px",
           display: "flex",
+          justifyContent: "space-between",
           alignItems: "center",
-          gap: "6px"
+          gap: "8px",
+          fontSize: "12px"
         }}>
-          <span>👥</span>
-          <span><b>{repCount} Citizens Triggered SOS</b> in this 500m geofenced location</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+            <Truck size={13} style={{ color: "#2563eb", flexShrink: 0 }} />
+            <span style={{ color: "#64748b", fontSize: "11px" }}>Nearest Unit:</span>
+            <b style={{ color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {nearestResource.name}
+            </b>
+          </div>
+          <span style={{
+            color: "#166534",
+            fontWeight: "700",
+            fontSize: "11px",
+            background: "#f0fdf4",
+            border: "1px solid #bbf7d0",
+            padding: "2px 7px",
+            borderRadius: "5px",
+            flexShrink: 0
+          }}>
+            ~{nearestEta} min ETA ({nearestDist.toFixed(1)} km)
+          </span>
         </div>
       )}
 
-      <div style={{ fontSize: "12px", color: "#1e293b", fontWeight: "600", marginTop: "4px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
-        <div>
-          {inc.reporter} <span style={{ fontSize: "10px", color: "#64748b", fontWeight: "normal" }}>({inc.role || "Citizen"})</span>
-        </div>
-        <span style={{ fontSize: "10px", color: "#1e293b", background: "#f1f5f9", padding: "2px 7px", borderRadius: "6px", fontWeight: "700", display: "inline-flex", alignItems: "center", gap: "4px", border: "1px solid #e2e8f0" }}>
-          ⏱️ {inc.time || (inc.userTimestamp ? new Date(inc.userTimestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Just now")}
-          {inc.userTimestamp || inc.createdAt ? ` (${new Date(inc.userTimestamp || inc.createdAt).toLocaleDateString([], { day: "numeric", month: "short" })})` : ""}
-        </span>
-      </div>
+      {/* 6. Primary Action Buttons */}
+      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center", marginTop: "2px" }}>
+        {!isDispatched && !isFalseAlarm && (
+          <button
+            className="primary small"
+            onClick={() => onAutoDispatch(inc)}
+            style={{ fontSize: "11px", padding: "6px 12px", borderRadius: "6px", fontWeight: "700", display: "inline-flex", alignItems: "center", gap: "5px" }}
+          >
+            <Zap size={12} /> Dispatch Unit
+          </button>
+        )}
 
-      {/* Live Address and One-Click Google Maps Tracking */}
-      <div style={{ fontSize: "11px", color: "#475569", margin: "4px 0 6px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
-        <span style={{ fontWeight: "600" }}>📍 {inc.address}</span>
-        {inc.lat && inc.lng && (
+        {(inc.lat && inc.lng) ? (
           <a
             href={`https://www.google.com/maps/dir/?api=1&destination=${inc.lat},${inc.lng}&travelmode=driving`}
             target="_blank"
             rel="noreferrer"
             style={{
+              textDecoration: "none",
+              background: "#ffffff",
+              color: "#1e293b",
+              padding: "5px 10px",
+              borderRadius: "6px",
+              fontSize: "11px",
+              fontWeight: "600",
               display: "inline-flex",
               alignItems: "center",
               gap: "4px",
-              fontSize: "11px",
-              color: "#1d4ed8",
-              backgroundColor: "#dbeafe",
-              padding: "3px 8px",
-              borderRadius: "6px",
-              textDecoration: "none",
-              fontWeight: "700",
-              border: "1px solid #bfdbfe"
+              border: "1px solid #cbd5e1"
             }}
           >
-            <Navigation size={12} />
-            Track on Google Maps ↗
+            <Navigation size={11} style={{ color: "#2563eb" }} /> Track
           </a>
-        )}
-      </div>
-
-      {/* Live GPS Coordinates Telemetry */}
-      {inc.lat && inc.lng && (
-        <div style={{ fontSize: "10px", color: "#64748b", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
-          <span style={{ background: "#f1f5f9", padding: "2px 7px", borderRadius: "4px", fontFamily: "monospace", color: "#334155" }}>
-            GPS: {Number(inc.lat).toFixed(5)}, {Number(inc.lng).toFixed(5)}
-          </span>
-          <span style={{ color: "#16a34a", fontWeight: "700", display: "flex", alignItems: "center", gap: "3px" }}>
-            <span style={{ width: "6px", height: "6px", borderRadius: "3px", backgroundColor: "#16a34a", display: "inline-block" }}></span>
-            Live GPS Telemetry
-          </span>
-        </div>
-      )}
-
-      {/* Divergence Engine Cause Tag & Water Depth */}
-      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "8px" }}>
-        <span className={`cause-tag ${causeClass}`}>
-          <BrainCircuit size={13} />
-          {inc.cause || "Severe Waterlogging"}
-        </span>
-        <span style={{ fontSize: "10px", background: "#eff6ff", color: "#1d4ed8", padding: "2px 8px", borderRadius: "12px", fontWeight: "700", display: "inline-flex", alignItems: "center", gap: "3px" }}>
-          🌊 Depth: {inc.waterLevel} cm
-        </span>
-        {inc.drainObservation && (
-          <span style={{ fontSize: "10px", background: "#f1f5f9", color: "#334155", padding: "2px 8px", borderRadius: "12px", fontWeight: "600" }}>
-            🚰 Drain: {inc.drainObservation}
-          </span>
-        )}
-      </div>
-
-      {/* Quarantined Repeat False Alarm User Callout Box */}
-      {inc.isQuarantined || inc.status === "Quarantined Spam" ? (
-        <div style={{ background: "#fdf2f8", border: "1px solid #fbcfe8", borderRadius: "8px", padding: "8px 10px", margin: "8px 0" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", color: "#9d174d", fontWeight: "800", fontSize: "11px" }}>
-            <span>🚫 REPEAT FALSE ALARM OFFENDER (QUARANTINED)</span>
-            <span>Strikes: {inc.reporterReputation?.falseAlarmCount || 3}+</span>
-          </div>
-          <div style={{ fontSize: "10px", color: "#831843", marginTop: "3px", lineHeight: "1.4" }}>
-            {inc.quarantineReason || "This user has submitted multiple confirmed false alarms. Submissions from this user are quarantined from active dispatch to prevent authority disruption."}
-            {isSos ? " (Automated Twilio SMS suppressed. Voice call required before dispatch.)" : ""}
-          </div>
-          <div style={{ marginTop: "6px", display: "flex", gap: "6px", alignItems: "center" }}>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onResetReputation) {
-                  onResetReputation(inc.userPhone || inc.reporter);
-                }
-              }}
-              style={{
-                padding: "3px 8px",
-                background: "#9d174d",
-                color: "#fff",
-                border: "none",
-                borderRadius: "4px",
-                fontSize: "10px",
-                fontWeight: "700",
-                cursor: "pointer"
-              }}
-            >
-              ↺ Reset User Trust & Unban
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {/* AI Telemetry & Human Intervention Callout Box */}
-      {isHumanInterventionNeeded(inc) ? (
-        <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: "8px", padding: "8px 10px", margin: "8px 0" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", color: "#c2410c", fontWeight: "800", fontSize: "11px" }}>
-            <span>⚠️ HUMAN INTERVENTION REQUIRED</span>
-            <span>AI Score: {((inc.aiVerification?.confidence_score ?? inc.aiVerification?.confidence ?? inc.cvConfidence ?? 0) * (inc.aiVerification?.confidence_score != null ? 100 : 1)).toFixed(0)}% (Below 70% threshold)</span>
-          </div>
-          <div style={{ fontSize: "10px", color: "#7c2d12", marginTop: "3px", lineHeight: "1.4" }}>
-            {inc.aiVerification?.frames_analyzed ? (
-              <>
-                Out of <b>{inc.aiVerification.frames_analyzed} frames</b> analyzed, only <b>{inc.aiVerification.flood_positive_frames || 0} frames</b> met flood threshold ({((inc.aiVerification.flood_ratio || 0) * 100).toFixed(0)}% ratio, longest run: {inc.aiVerification.longest_consecutive_run || 0} frames).
-              </>
-            ) : (
-              <>AI model detected low/no automatic flood signal for this ground evidence.</>
-            )}
-            {" "}<b>Authority Action:</b> Review visual evidence below manually to confirm waterlogging, dispatch rapid unit, or mark false alarm.
-          </div>
-        </div>
-      ) : inc.aiVerification?.is_flooding ? (
-        <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "8px 10px", margin: "8px 0" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", color: "#166534", fontWeight: "800", fontSize: "11px" }}>
-            <span>🌊 AI VISION: FLOODING CONFIRMED</span>
-            <span>Confidence: {((inc.aiVerification?.confidence_score ?? inc.aiVerification?.confidence ?? 0.95) * 100).toFixed(1)}%</span>
-          </div>
-          {inc.aiVerification?.frames_analyzed ? (
-            <div style={{ fontSize: "10px", color: "#15803D", marginTop: "3px" }}>
-              Out of <b>{inc.aiVerification.frames_analyzed} frames</b> analyzed, <b>{inc.aiVerification.flood_positive_frames} frames</b> detected flood ({((inc.aiVerification.flood_ratio || 0) * 100).toFixed(0)}% ratio) · Longest consecutive run: <b>{inc.aiVerification.longest_consecutive_run} frames</b>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      {/* Nearest Available Resource Unit */}
-      {nearestResource && !isDispatched && (
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          background: "#f0fdf4",
-          border: "1px solid #bbf7d0",
-          borderRadius: "8px",
-          padding: "5px 10px",
-          marginBottom: "8px",
-          fontSize: "11px"
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#166534", fontWeight: "700" }}>
-            <span>{nearestResource.type?.includes("Boat") ? "🚤" : nearestResource.type?.includes("Medical") ? "🚑" : "🚒"}</span>
-            <span>Nearest Unit: <b>{nearestResource.name}</b></span>
-          </div>
-          <span style={{
-            background: "#16a34a",
-            color: "#fff",
-            fontSize: "10px",
-            fontWeight: "800",
-            padding: "2px 8px",
-            borderRadius: "10px"
-          }}>
-            ⚡ {nearestResource.distKm} km away
-          </span>
-        </div>
-      )}
-
-      {/* Video Evidence Player (Recorded on Citizen Mobile) */}
-      {hasVideo && (
-        <div style={{ margin: "8px 0", position: "relative", borderRadius: "8px", overflow: "hidden", border: "1px solid #334155", background: "#0f172a" }}>
-          <video
-            src={inc.videoUrl?.startsWith("/") ? `${API.replace(/\/api\/?$/, "")}${inc.videoUrl}` : inc.videoUrl}
-            controls
-            playsInline
-            preload="auto"
-            style={{ width: "100%", maxHeight: "200px", objectFit: "contain", display: "block", background: "#000" }}
-            onError={(e) => {
-              if (e.target.src !== "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4") {
-                e.target.src = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
-                e.target.load();
-              }
-            }}
-          />
-          <div
-            style={{
-              padding: "6px 10px",
-              background: "rgba(15,23,42,0.9)",
-              color: "#fff",
-              fontSize: "11px",
-              fontWeight: "700",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center"
-            }}
-          >
-            <span style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-              <Video size={13} color="#f87171" /> 🎥 Live Video Evidence Recorded on Mobile
-            </span>
-            <button
-              onClick={() => {
-                const targetUrl = inc.videoUrl?.startsWith("/") ? `${API.replace(/\/api\/?$/, "")}${inc.videoUrl}` : inc.videoUrl;
-                onViewPhoto && onViewPhoto(targetUrl, inc, true);
-              }}
-              style={{ background: "#2563eb", border: "none", color: "#fff", padding: "3px 8px", borderRadius: "4px", fontSize: "10px", cursor: "pointer", fontWeight: "700" }}
-            >
-              Enlarge 🔍
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Ground Evidence Photo Thumbnail (Uploaded to Supabase / Local Server) */}
-      {hasPhoto && !hasVideo && (
-        <div style={{ margin: "8px 0", position: "relative", borderRadius: "8px", overflow: "hidden", border: "1px solid #cbd5e1" }}>
-          <img
-            src={inc.photoUrl}
-            alt="Citizen Ground Evidence"
-            style={{ width: "100%", height: "140px", objectFit: "cover", display: "block", cursor: "pointer", background: "#0f172a" }}
-            onClick={() => onViewPhoto && onViewPhoto(inc.photoUrl, inc, false)}
-          />
-          <div
-            onClick={() => onViewPhoto && onViewPhoto(inc.photoUrl, inc, false)}
-            style={{
-              position: "absolute",
-              bottom: "6px",
-              left: "6px",
-              right: "6px",
-              background: "rgba(15,23,42,0.85)",
-              color: "#fff",
-              padding: "4px 8px",
-              borderRadius: "6px",
-              fontSize: "10px",
-              fontWeight: "700",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              cursor: "pointer"
-            }}
-          >
-            <span>📸 Ground Truth Photo Evidence</span>
-            <span style={{ color: "#38bdf8", textDecoration: "underline" }}>Click to Enlarge 🔍</span>
-          </div>
-        </div>
-      )}
-
-      <p style={{ fontSize: "11px", color: "#334155", margin: "0 0 6px", lineHeight: "1.4", fontStyle: "italic", background: "#f8fafc", padding: "6px 8px", borderRadius: "6px", borderLeft: "2px solid #94a3b8" }}>
-        "{inc.note || "Water rising rapidly on roadway"}"
-      </p>
-
-      {/* Duplicate Merged Badge & Drawer */}
-      {(inc.mergedCount || 1) > 1 && (
-        <div style={{ marginBottom: "8px" }}>
-          <button className="merged-pill" onClick={() => setDrawerOpen(!drawerOpen)}>
-            <Users size={12} />
-            <b>{inc.mergedCount} reports merged</b> (Geohash + SHA-256)
-            {drawerOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          </button>
-          {drawerOpen && (
-            <div className="merged-drawer">
-              <div style={{ fontWeight: "700", color: "#475569", marginBottom: "4px" }}>Merged Citizen Submissions:</div>
-              {inc.mergedReports?.map((m) => (
-                <div key={m.id} className="merged-item">
-                  <b>{m.reporter} ({m.role})</b> · {m.time} · Depth: {m.waterLevel}cm<br />
-                  <i>"{m.note}"</i>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Nearest Emergency Response Resource POI */}
-      {nearestResource && (
-        <div
-          style={{
-            background: "#f0fdf4",
-            border: "1px solid #bbf7d0",
-            borderRadius: "8px",
-            padding: "7px 10px",
-            marginBottom: "8px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "8px",
-            fontSize: "11px"
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0 }}>
-            <span style={{ fontSize: "16px" }}>
-              {nearestResource.icon || (nearestResource.category === "medical" ? "🏥" : nearestResource.category === "fire" ? "🚒" : nearestResource.category === "police" ? "👮" : "🚑")}
-            </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: "800", color: "#166534", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                Nearest Unit: {nearestResource.name}
-              </div>
-              <div style={{ color: "#15803d", fontSize: "10px", marginTop: "1px" }}>
-                ⚡ {(nearestResource.distanceKm ?? nearestResource.distKm ?? 0.8).toFixed(1)} km away · ~{Math.max(2, Math.round(Number(nearestResource.distanceKm ?? nearestResource.distKm ?? 1) * 4))} min ETA {nearestResource.phone ? `· 📞 ${nearestResource.phone}` : ""}
-              </div>
-            </div>
-          </div>
-          {(nearestResource.lat && nearestResource.lng && inc.lat && inc.lng) ? (
-            <a
-              href={`https://www.google.com/maps/dir/?api=1&origin=${nearestResource.lat},${nearestResource.lng}&destination=${inc.lat},${inc.lng}&travelmode=driving`}
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                background: "#16a34a",
-                color: "#ffffff",
-                padding: "3px 8px",
-                borderRadius: "5px",
-                textDecoration: "none",
-                fontWeight: "700",
-                fontSize: "10px",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "3px",
-                whiteSpace: "nowrap",
-                border: "1px solid #15803d"
-              }}
-            >
-              <Navigation size={10} />
-              Route ↗
-            </a>
-          ) : null}
-        </div>
-      )}
-
-      {/* Action Buttons */}
-      <div className="incident-actions">
-        {!isDispatched && !isFalseAlarm && (
-          <button
-            className={`auto-dispatch-btn ${causeCode === "SUSPECTED_BLOCKED_DRAIN" ? "drainage-crew" : "pumping-unit"}`}
-            onClick={() => onAutoDispatch(inc)}
-          >
-            <Zap size={13} />
-            Auto-Dispatch: {inc.recommendedTeam?.split(" ")[0]} Unit
-          </button>
-        )}
+        ) : null}
 
         {!isVerified && !isDispatched && !isFalseAlarm && (
-          <button className="ghost small" onClick={() => onVerify(inc.id)}>
-            <CheckCircle2 size={13} color="#16a34a" /> Mark Verified
+          <button
+            className="ghost small"
+            onClick={() => onVerify(inc.id)}
+            style={{ fontSize: "11px", padding: "5px 10px", color: "#16a34a", borderColor: "#bbf7d0", background: "#f0fdf4" }}
+          >
+            <CheckCircle2 size={12} /> Resolve
           </button>
         )}
 
         {!isFalseAlarm && !isDispatched && (
-          <button className="danger-btn small" onClick={() => onFalseAlarm(inc.id)}>
-            <X size={13} /> False Alarm
+          <button
+            className="ghost small"
+            onClick={() => onFalseAlarm(inc.id)}
+            style={{ fontSize: "11px", padding: "5px 8px", color: "#991b1b", borderColor: "#fecaca" }}
+            title="Mark as false alarm"
+          >
+            <X size={12} /> False Alarm
           </button>
         )}
 
-        <button className="ghost small" onClick={() => onOpenOverride(inc)} title="Admin Manual Override">
-          <Sliders size={13} /> Override
-        </button>
-
-        <NavLink
-          to={`/incidents/${inc.id}`}
-          className="ghost small"
+        <button
+          onClick={() => setDetailsOpen(!detailsOpen)}
           style={{
-            background: "#eff6ff",
-            color: "#1d4ed8",
-            fontWeight: "700",
-            border: "1px solid #bfdbfe",
-            textDecoration: "none",
+            background: "transparent",
+            border: "none",
+            color: "#64748b",
+            fontSize: "11px",
+            fontWeight: "600",
+            cursor: "pointer",
+            marginLeft: "auto",
             display: "inline-flex",
             alignItems: "center",
-            gap: "4px"
+            gap: "3px",
+            padding: "4px"
           }}
         >
-          ⚡ Manage Lifecycle &rarr;
-        </NavLink>
+          {detailsOpen ? "Hide Details ▲" : "Details ▼"}
+        </button>
       </div>
+
+      {/* Collapsible Details: Evidence, Telemetry & Sensor Breakdown */}
+      {detailsOpen && (
+        <div style={{ marginTop: "6px", paddingTop: "10px", borderTop: "1px solid #f1f5f9", fontSize: "11px", color: "#475569" }}>
+          {inc.note && (
+            <p style={{ margin: "0 0 8px", fontStyle: "italic", color: "#334155" }}>"{inc.note}"</p>
+          )}
+
+          {/* Video or Photo Evidence */}
+          {hasVideo && (
+            <div style={{ marginBottom: "8px", borderRadius: "6px", overflow: "hidden", border: "1px solid #cbd5e1" }}>
+              <video src={inc.videoUrl} controls style={{ width: "100%", maxHeight: "160px", background: "#000" }} />
+            </div>
+          )}
+          {hasPhoto && !hasVideo && (
+            <div style={{ marginBottom: "8px", borderRadius: "6px", overflow: "hidden", border: "1px solid #cbd5e1", cursor: "pointer" }} onClick={() => onViewPhoto && onViewPhoto(inc.photoUrl, inc, false)}>
+              <img src={inc.photoUrl} alt="Evidence" style={{ width: "100%", maxHeight: "140px", objectFit: "cover", display: "block" }} />
+            </div>
+          )}
+
+          <div style={{ display: "flex", justifyContent: "space-between", color: "#64748b", fontSize: "10px", flexWrap: "wrap", gap: "6px" }}>
+            {inc.lat && inc.lng && <span>GPS: {Number(inc.lat).toFixed(4)}, {Number(inc.lng).toFixed(4)}</span>}
+            {inc.cvConfidence && <span>CV Confidence: {inc.cvConfidence}%</span>}
+          </div>
+
+          <div style={{ marginTop: "8px", display: "flex", gap: "6px", alignItems: "center" }}>
+            <button className="ghost small" onClick={() => onOpenOverride(inc)} style={{ fontSize: "10px" }}>
+              <Sliders size={11} /> Override
+            </button>
+            <NavLink to={`/incidents/${inc.id}`} className="ghost small" style={{ fontSize: "10px", textDecoration: "none" }}>
+              Full Profile ↗
+            </NavLink>
+            {(inc.isQuarantined || inc.status === "Quarantined Spam") && onResetReputation && (
+              <button
+                onClick={() => onResetReputation(inc.userPhone || inc.reporter)}
+                style={{ background: "#9d174d", color: "#fff", border: "none", borderRadius: "4px", padding: "3px 6px", fontSize: "10px", cursor: "pointer" }}
+              >
+                Reset Trust
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3502,16 +3337,32 @@ function ResourceCard({ team, userLat, userLng }) {
 
   return (
     <div className="resource-card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
-        <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", flex: 1 }}>
-          <span style={{ fontSize: "20px", lineHeight: "1.2" }}>{team.emoji || getCategoryIcon(category)}</span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", flex: 1, minWidth: 0 }}>
+          <div style={{
+            width: "36px",
+            height: "36px",
+            borderRadius: "8px",
+            background: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "18px",
+            flexShrink: 0
+          }}>
+            {team.emoji || getCategoryIcon(category)}
+          </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-              <b style={{ fontSize: "13px", color: "#f8fafc", wordBreak: "break-word" }}>{team.name}</b>
+              <b style={{ fontSize: "14px", color: "#0f172a", wordBreak: "break-word" }}>{team.name}</b>
               <span className={`resource-badge-category ${categoryLower}`}>{category}</span>
             </div>
-            <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px", fontWeight: "500" }}>
-              🏛️ {team.agency || team.station || "Emergency Services Command"}
+            <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px", fontWeight: "500", display: "flex", alignItems: "center", gap: "4px" }}>
+              <Building2 size={12} style={{ color: "#94a3b8", flexShrink: 0 }} />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {team.agency || team.station || "Disaster Relief Facility"}
+              </span>
             </div>
           </div>
         </div>
@@ -3519,16 +3370,16 @@ function ResourceCard({ team, userLat, userLng }) {
       </div>
 
       {/* Quantity & Capacity Display */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(15, 23, 42, 0.6)", padding: "8px 10px", borderRadius: "8px", border: "1px solid rgba(148, 163, 184, 0.12)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#f8fafc", padding: "10px 12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
         <div>
-          <div style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", fontWeight: "700", letterSpacing: "0.5px" }}>Available Quantity</div>
-          <div style={{ fontSize: "15px", fontWeight: "800", color: "#60a5fa" }}>
+          <div style={{ fontSize: "10px", color: "#64748b", textTransform: "uppercase", fontWeight: "700", letterSpacing: "0.5px" }}>Available Quantity</div>
+          <div style={{ fontSize: "16px", fontWeight: "800", color: "#2563eb", marginTop: "2px" }}>
             {team.quantity != null ? `${team.quantity} ${team.unit || "Units"}` : (team.capacity || "Operational")}
           </div>
         </div>
         {team.simulation_id && (
           <div style={{ textAlign: "right" }}>
-            <span style={{ fontSize: "9px", fontFamily: "monospace", color: "#64748b", background: "rgba(30, 41, 59, 0.8)", padding: "2px 6px", borderRadius: "4px" }}>
+            <span style={{ fontSize: "10px", fontFamily: "ui-monospace, monospace", color: "#64748b", background: "#ffffff", border: "1px solid #e2e8f0", padding: "2px 6px", borderRadius: "4px" }}>
               {team.simulation_id}
             </span>
           </div>
@@ -3537,44 +3388,46 @@ function ResourceCard({ team, userLat, userLng }) {
 
       {/* Equipment / Specs */}
       {team.capacity && team.quantity != null && (
-        <div style={{ fontSize: "11px", color: "#cbd5e1" }}>
-          <b>Capacity:</b> {team.capacity}
+        <div style={{ fontSize: "12px", color: "#475569" }}>
+          <b style={{ color: "#1e293b" }}>Capacity:</b> {team.capacity}
         </div>
       )}
 
       {/* Real Geographic Base Location & Maps Link */}
-      <div style={{ fontSize: "11px", color: "#94a3b8", display: "flex", flexDirection: "column", gap: "4px", borderTop: "1px solid rgba(148, 163, 184, 0.1)", paddingTop: "8px" }}>
+      <div style={{ fontSize: "12px", color: "#64748b", display: "flex", flexDirection: "column", gap: "4px", borderTop: "1px solid #f1f5f9", paddingTop: "8px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            <MapPin size={12} style={{ color: "#38bdf8", flexShrink: 0 }} />
-            <span style={{ color: "#e2e8f0" }}>{team.base_location || team.address || team.station || "Real Maps Facility"}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <MapPin size={13} style={{ color: "#2563eb", flexShrink: 0 }} />
+            <span style={{ color: "#1e293b", fontWeight: "500" }}>{team.base_location || team.address || team.station || "Real Facility"}</span>
           </div>
           {mapLink && (
             <a
               href={mapLink}
               target="_blank"
               rel="noreferrer"
-              style={{ color: "#60a5fa", display: "flex", alignItems: "center", gap: "2px", fontSize: "10px", textDecoration: "none", flexShrink: 0 }}
+              style={{ color: "#2563eb", display: "inline-flex", alignItems: "center", gap: "3px", fontSize: "11px", fontWeight: "600", textDecoration: "none", flexShrink: 0 }}
               title="Open real coordinates in Google Maps"
             >
-              Maps <ExternalLink size={10} />
+              Maps <ExternalLink size={11} />
             </a>
           )}
         </div>
         {dist != null && (
-          <div style={{ fontSize: "10px", color: "#64748b", paddingLeft: "16px" }}>
+          <div style={{ fontSize: "11px", color: "#64748b", paddingLeft: "18px" }}>
             📍 {dist} km from active operational center
           </div>
         )}
       </div>
 
       {/* Dispatch / Tasking Footer */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "10px", color: "#64748b", borderTop: "1px solid rgba(148, 163, 184, 0.08)", paddingTop: "6px" }}>
-        <span>Contact: <b style={{ color: "#94a3b8" }}>{team.phone || "Command Radio"}</b></span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", color: "#64748b", borderTop: "1px solid #f1f5f9", paddingTop: "8px" }}>
+        <span>Contact: <b style={{ color: "#334155" }}>{team.phone || "Command Radio"}</b></span>
         {team.currentIncidentId ? (
-          <span style={{ color: "#60a5fa", fontWeight: "700" }}>Incident: {team.currentIncidentId}</span>
+          <span style={{ color: "#2563eb", fontWeight: "700" }}>Incident: {team.currentIncidentId}</span>
         ) : (
-          <span style={{ color: "#4ade80", fontWeight: "600" }}>● Ready for Tasking</span>
+          <span style={{ color: "#16a34a", fontWeight: "600", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+            ● Ready for Tasking
+          </span>
         )}
       </div>
     </div>
@@ -5898,7 +5751,7 @@ function ZoneDetailPage({
             className="ghost"
             style={{ fontSize: "12px", padding: "7px 14px", display: "flex", alignItems: "center", gap: "6px" }}
           >
-            <Map size={14} /> Live Risk Map
+            <MapIcon size={14} /> Live Risk Map
           </button>
           <button
             onClick={() => onReload && onReload()}
@@ -6288,17 +6141,16 @@ function ResourcesPage({
   return (
     <div className="content">
       <PageHeader
-        eyebrow="FLEET, HOSPITALS, NGOS & DISASTER RELIEF INVENTORY"
-        title="Resource Availability & Readiness Tracker"
-        sub="Live inventory of simulated emergency resources and nearby facilities."
+        title="Team Tracker"
+        sub="Live inventory and readiness of emergency rescue units, medical fleets, and relief facilities"
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
           {resources.length > 0 && (
             <button
               className="ghost"
               onClick={handleClearSimulation}
               disabled={clearing || generating}
-              style={{ color: "#f87171", borderColor: "rgba(239, 68, 68, 0.3)" }}
+              style={{ color: "#dc2626", borderColor: "#fecaca", background: "#fef2f2" }}
               title="Clear all generated simulations"
             >
               {clearing ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={14} />}
@@ -6316,16 +6168,16 @@ function ResourcesPage({
             className="primary"
             onClick={handleGenerateSimulations}
             disabled={generating}
-            style={{ display: "flex", alignItems: "center", gap: "8px", boxShadow: "0 0 16px rgba(37, 99, 235, 0.4)" }}
+            style={{ display: "flex", alignItems: "center", gap: "8px" }}
           >
             {generating ? (
               <>
-                <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />
-                <span>Generating simulation...</span>
+                <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} />
+                <span>Generating...</span>
               </>
             ) : (
               <>
-                <Sparkles size={16} />
+                <Sparkles size={15} />
                 <span>{resources.length > 0 ? "Regenerate Simulation" : "Generate Simulations"}</span>
               </>
             )}
@@ -6336,21 +6188,20 @@ function ResourcesPage({
       {/* Generating Full Banner Loading State */}
       {generating && (
         <div style={{
-          background: "linear-gradient(135deg, rgba(30, 58, 138, 0.4) 0%, rgba(15, 23, 42, 0.8) 100%)",
-          border: "1px solid rgba(96, 165, 250, 0.3)",
-          borderRadius: "14px",
-          padding: "24px",
-          textAlign: "center",
-          marginBottom: "20px",
+          background: "#ffffff",
+          border: "1px solid #bfdbfe",
+          borderRadius: "12px",
+          padding: "20px 24px",
+          marginBottom: "18px",
           display: "flex",
-          flexDirection: "column",
           alignItems: "center",
-          gap: "12px"
+          gap: "14px",
+          boxShadow: "0 2px 8px rgba(37, 99, 235, 0.06)"
         }}>
-          <Loader2 size={32} style={{ color: "#60a5fa", animation: "spin 1s linear infinite" }} />
+          <Loader2 size={24} style={{ color: "#2563eb", animation: "spin 1s linear infinite", flexShrink: 0 }} />
           <div>
-            <b style={{ fontSize: "16px", color: "#f8fafc" }}>Generating emergency resource simulation...</b>
-            <p style={{ fontSize: "12px", color: "#94a3b8", marginTop: "4px" }}>
+            <b style={{ fontSize: "14px", color: "#0f172a" }}>Generating emergency resource simulation...</b>
+            <p style={{ fontSize: "12px", color: "#64748b", margin: "3px 0 0" }}>
               Querying Google Maps API for nearby Fire Stations, Hospitals, NGOs, and Municipal Facilities around {userLocationName}...
             </p>
           </div>
@@ -6360,22 +6211,22 @@ function ResourcesPage({
       {/* Error State Banner */}
       {simError && !generating && (
         <div style={{
-          background: "rgba(239, 68, 68, 0.12)",
-          border: "1px solid rgba(239, 68, 68, 0.3)",
+          background: "#fef2f2",
+          border: "1px solid #fca5a5",
           borderRadius: "12px",
-          padding: "16px 20px",
-          marginBottom: "20px",
+          padding: "14px 18px",
+          marginBottom: "18px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           flexWrap: "wrap",
           gap: "12px"
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <AlertTriangle size={20} style={{ color: "#f87171" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <AlertTriangle size={18} style={{ color: "#dc2626" }} />
             <div>
-              <b style={{ color: "#fca5a5", fontSize: "14px" }}>{simError}</b>
-              <div style={{ color: "#f87171", fontSize: "12px", marginTop: "2px" }}>
+              <b style={{ color: "#991b1b", fontSize: "13px" }}>{simError}</b>
+              <div style={{ color: "#b91c1c", fontSize: "12px", marginTop: "2px" }}>
                 Ensure your internet connection and Maps API key are active.
               </div>
             </div>
@@ -6390,25 +6241,22 @@ function ResourcesPage({
       {resources.length === 0 && !generating ? (
         <div className="resource-empty-state">
           <div className="resource-empty-icon">
-            <Layers3 size={36} />
+            <Layers3 size={30} />
           </div>
-          <h2 style={{ fontSize: "20px", fontWeight: "700", color: "#f8fafc", marginBottom: "8px" }}>
+          <h2 style={{ fontSize: "18px", fontWeight: "700", color: "#0f172a", marginBottom: "6px" }}>
             Emergency Resource Inventory
           </h2>
-          <p style={{ fontSize: "14px", color: "#94a3b8", marginBottom: "16px", fontWeight: "600" }}>
-            No active resources available.
-          </p>
-          <p style={{ fontSize: "13px", color: "#64748b", maxWidth: "520px", marginBottom: "28px", lineHeight: "1.6" }}>
-            The inventory is empty. Click the button below to discover real nearby facilities (Fire Stations, Hospitals, NGOs, Relief Shelters) from Google Maps around <b>{userLocationName || "Mumbai Operational Area"}</b> and simulate live emergency resource availability.
+          <p style={{ fontSize: "13px", color: "#64748b", maxWidth: "480px", marginBottom: "22px", lineHeight: "1.5" }}>
+            The inventory is empty. Discover real nearby facilities (Fire Stations, Hospitals, NGOs, Relief Shelters) from Google Maps around <b>{userLocationName || "Mumbai Operational Area"}</b> and simulate live readiness.
           </p>
 
           <button
             className="primary"
-            style={{ padding: "12px 28px", fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "10px", boxShadow: "0 0 24px rgba(37, 99, 235, 0.5)" }}
+            style={{ padding: "10px 22px", fontSize: "13px", fontWeight: "600", display: "inline-flex", alignItems: "center", gap: "8px" }}
             onClick={handleGenerateSimulations}
             disabled={generating}
           >
-            <Sparkles size={18} />
+            <Sparkles size={16} />
             <span>Generate Simulations</span>
           </button>
         </div>
@@ -6417,33 +6265,23 @@ function ResourcesPage({
           {/* Active Simulation Summary Banner */}
           <div className="simulation-banner">
             <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-              <div style={{
-                background: "rgba(37, 99, 235, 0.2)",
-                border: "1px solid rgba(96, 165, 250, 0.4)",
-                padding: "6px 12px",
-                borderRadius: "8px",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px"
-              }}>
-                <CheckCircle2 size={16} style={{ color: "#60a5fa" }} />
-                <span style={{ fontSize: "12px", fontWeight: "700", color: "#93c5fd" }}>
-                  SIMULATION ACTIVE
-                </span>
+              <div className="sim-status-pill">
+                <CheckCircle2 size={14} style={{ color: "#16a34a" }} />
+                <span>SIMULATION ACTIVE</span>
                 {simulationId && (
-                  <span style={{ fontSize: "11px", fontFamily: "monospace", color: "#cbd5e1", background: "rgba(15, 23, 42, 0.6)", padding: "2px 6px", borderRadius: "4px" }}>
+                  <span className="sim-id-code">
                     {simulationId}
                   </span>
                 )}
               </div>
-              <div style={{ fontSize: "13px", color: "#e2e8f0" }}>
+              <div style={{ fontSize: "13px", color: "#334155" }}>
                 <b>{resources.length} resources</b> discovered across <b>{uniqueFacilities} nearby facilities</b> in <b>{uniqueCategories} categories</b>.
               </div>
             </div>
 
-            <div style={{ fontSize: "11px", color: "#94a3b8", display: "flex", alignItems: "center", gap: "6px" }}>
-              <MapPin size={13} style={{ color: "#38bdf8" }} />
-              <span>Center: <b>{userLocationName || "Mumbai Command"}</b></span>
+            <div style={{ fontSize: "12px", color: "#64748b", display: "flex", alignItems: "center", gap: "5px" }}>
+              <MapPin size={13} style={{ color: "#2563eb" }} />
+              <span>Center: <b style={{ color: "#0f172a" }}>{userLocationName || "Mumbai Command"}</b></span>
             </div>
           </div>
 
@@ -6490,10 +6328,10 @@ function ResourcesPage({
             </div>
 
             {/* Status & Search & View Toggle */}
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
               {/* Search Box */}
-              <div style={{ position: "relative", minWidth: "180px" }}>
-                <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#64748b" }} />
+              <div style={{ position: "relative", minWidth: "190px" }}>
+                <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
                 <input
                   type="text"
                   placeholder="Filter resources or facilities..."
@@ -6502,11 +6340,12 @@ function ResourcesPage({
                   style={{
                     padding: "6px 10px 6px 30px",
                     fontSize: "12px",
-                    background: "rgba(30, 41, 59, 0.8)",
-                    border: "1px solid rgba(148, 163, 184, 0.2)",
+                    background: "#ffffff",
+                    border: "1px solid #cbd5e1",
                     borderRadius: "8px",
-                    color: "#f8fafc",
-                    width: "100%"
+                    color: "#0f172a",
+                    width: "100%",
+                    outline: "none"
                   }}
                 />
               </div>
@@ -6518,11 +6357,12 @@ function ResourcesPage({
                 style={{
                   padding: "6px 12px",
                   fontSize: "12px",
-                  background: "rgba(30, 41, 59, 0.8)",
-                  border: "1px solid rgba(148, 163, 184, 0.2)",
+                  background: "#ffffff",
+                  border: "1px solid #cbd5e1",
                   borderRadius: "8px",
-                  color: "#f8fafc",
-                  cursor: "pointer"
+                  color: "#0f172a",
+                  cursor: "pointer",
+                  outline: "none"
                 }}
               >
                 <option value="ALL">All Statuses</option>
@@ -6532,14 +6372,16 @@ function ResourcesPage({
               </select>
 
               {/* View Toggle */}
-              <div style={{ display: "flex", border: "1px solid rgba(148, 163, 184, 0.2)", borderRadius: "8px", overflow: "hidden" }}>
+              <div style={{ display: "flex", background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "2px" }}>
                 <button
                   style={{
-                    padding: "6px 10px",
+                    padding: "5px 10px",
                     fontSize: "11px",
                     fontWeight: "600",
-                    background: viewMode === "grid" ? "#2563eb" : "rgba(30, 41, 59, 0.6)",
-                    color: viewMode === "grid" ? "#fff" : "#94a3b8",
+                    background: viewMode === "grid" ? "#ffffff" : "transparent",
+                    color: viewMode === "grid" ? "#0f172a" : "#64748b",
+                    boxShadow: viewMode === "grid" ? "0 1px 2px rgba(0,0,0,0.06)" : "none",
+                    borderRadius: "6px",
                     border: "none",
                     cursor: "pointer"
                   }}
@@ -6549,11 +6391,13 @@ function ResourcesPage({
                 </button>
                 <button
                   style={{
-                    padding: "6px 10px",
+                    padding: "5px 10px",
                     fontSize: "11px",
                     fontWeight: "600",
-                    background: viewMode === "table" ? "#2563eb" : "rgba(30, 41, 59, 0.6)",
-                    color: viewMode === "table" ? "#fff" : "#94a3b8",
+                    background: viewMode === "table" ? "#ffffff" : "transparent",
+                    color: viewMode === "table" ? "#0f172a" : "#64748b",
+                    boxShadow: viewMode === "table" ? "0 1px 2px rgba(0,0,0,0.06)" : "none",
+                    borderRadius: "6px",
                     border: "none",
                     cursor: "pointer"
                   }}
@@ -6567,9 +6411,9 @@ function ResourcesPage({
 
           {/* Filter results empty state */}
           {filteredResources.length === 0 ? (
-            <div style={{ padding: "40px", textAlign: "center", background: "rgba(15, 23, 42, 0.4)", borderRadius: "12px", border: "1px solid rgba(148, 163, 184, 0.15)", margin: "20px 0" }}>
-              <Filter size={24} style={{ color: "#64748b", marginBottom: "8px" }} />
-              <div style={{ fontSize: "14px", fontWeight: "600", color: "#cbd5e1" }}>No matching resources</div>
+            <div style={{ padding: "40px", textAlign: "center", background: "#ffffff", borderRadius: "12px", border: "1px solid #e2e8f0", margin: "20px 0" }}>
+              <Filter size={24} style={{ color: "#94a3b8", marginBottom: "8px" }} />
+              <div style={{ fontSize: "14px", fontWeight: "600", color: "#0f172a" }}>No matching resources</div>
               <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>
                 No resources match the selected category ("{categoryFilter}") or search criteria.
               </div>
@@ -6590,10 +6434,10 @@ function ResourcesPage({
             </div>
           ) : (
             /* TABLE VIEW */
-            <div style={{ overflowX: "auto", background: "rgba(15, 23, 42, 0.6)", border: "1px solid rgba(148, 163, 184, 0.18)", borderRadius: "12px" }}>
+            <div style={{ overflowX: "auto", background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", textAlign: "left" }}>
                 <thead>
-                  <tr style={{ background: "rgba(30, 41, 59, 0.8)", borderBottom: "1px solid rgba(148, 163, 184, 0.2)", color: "#94a3b8", textTransform: "uppercase", fontSize: "10px", letterSpacing: "0.5px" }}>
+                  <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", color: "#64748b", textTransform: "uppercase", fontSize: "11px", fontWeight: "700", letterSpacing: "0.5px" }}>
                     <th style={{ padding: "12px 16px" }}>Resource</th>
                     <th style={{ padding: "12px 16px" }}>Category</th>
                     <th style={{ padding: "12px 16px" }}>Agency / Facility</th>
@@ -6613,34 +6457,34 @@ function ResourcesPage({
                     const mapLink = (lat && lng) ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : null;
 
                     return (
-                      <tr key={r.id} style={{ borderBottom: "1px solid rgba(148, 163, 184, 0.1)" }}>
+                      <tr key={r.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
                         <td style={{ padding: "12px 16px" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                             <span style={{ fontSize: "16px" }}>{r.emoji || "📦"}</span>
                             <div>
-                              <b style={{ color: "#f8fafc" }}>{r.name}</b>
-                              {r.capacity && <div style={{ fontSize: "10px", color: "#64748b" }}>{r.capacity}</div>}
+                              <b style={{ color: "#0f172a" }}>{r.name}</b>
+                              {r.capacity && <div style={{ fontSize: "11px", color: "#64748b" }}>{r.capacity}</div>}
                             </div>
                           </div>
                         </td>
                         <td style={{ padding: "12px 16px" }}>
                           <span className={`resource-badge-category ${cat.toLowerCase()}`}>{cat}</span>
                         </td>
-                        <td style={{ padding: "12px 16px", color: "#cbd5e1" }}>
-                          <b>{r.agency || r.station || "Disaster Command"}</b>
+                        <td style={{ padding: "12px 16px", color: "#334155", fontWeight: "600" }}>
+                          {r.agency || r.station || "Disaster Command"}
                         </td>
                         <td style={{ padding: "12px 16px" }}>
-                          <b style={{ color: "#60a5fa", fontSize: "13px" }}>
+                          <b style={{ color: "#2563eb", fontSize: "13px" }}>
                             {r.quantity != null ? `${r.quantity} ${r.unit || "Units"}` : "Operational"}
                           </b>
                         </td>
-                        <td style={{ padding: "12px 16px", color: "#94a3b8" }}>
+                        <td style={{ padding: "12px 16px", color: "#64748b" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                            <MapPin size={11} style={{ color: "#38bdf8", flexShrink: 0 }} />
-                            <span>{r.base_location || r.address || r.station || "Real Facility"}</span>
+                            <MapPin size={12} style={{ color: "#2563eb", flexShrink: 0 }} />
+                            <span style={{ color: "#334155" }}>{r.base_location || r.address || r.station || "Real Facility"}</span>
                             {mapLink && (
-                              <a href={mapLink} target="_blank" rel="noreferrer" style={{ color: "#60a5fa", marginLeft: "4px" }}>
-                                <ExternalLink size={10} />
+                              <a href={mapLink} target="_blank" rel="noreferrer" style={{ color: "#2563eb", marginLeft: "4px" }}>
+                                <ExternalLink size={11} />
                               </a>
                             )}
                           </div>

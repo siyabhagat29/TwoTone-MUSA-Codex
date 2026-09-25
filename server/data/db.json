@@ -14,12 +14,12 @@
       "reports": 0,
       "trend": "stable",
       "totalTodayRain": 2.3,
-      "tempC": 27.5,
-      "humidity": 82,
+      "tempC": 27.4,
+      "humidity": 84,
       "riverDischarge": 3.63,
       "dischargeRatio": 1.02,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-25T15:24:19.669Z"
+      "lastUpdated": "2026-09-25T16:25:17.394Z"
     },
     {
       "id": "Z-02",
@@ -35,12 +35,12 @@
       "reports": 0,
       "trend": "stable",
       "totalTodayRain": 2.3,
-      "tempC": 27.5,
-      "humidity": 82,
+      "tempC": 27.4,
+      "humidity": 84,
       "riverDischarge": 1.69,
       "dischargeRatio": 1.02,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-25T15:24:19.813Z"
+      "lastUpdated": "2026-09-25T16:25:17.548Z"
     },
     {
       "id": "Z-03",
@@ -56,12 +56,12 @@
       "reports": 0,
       "trend": "stable",
       "totalTodayRain": 2.3,
-      "tempC": 27.5,
-      "humidity": 82,
+      "tempC": 27.4,
+      "humidity": 84,
       "riverDischarge": 3.63,
       "dischargeRatio": 1.02,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-25T15:24:19.957Z"
+      "lastUpdated": "2026-09-25T16:25:17.698Z"
     },
     {
       "id": "Z-04",
@@ -77,12 +77,12 @@
       "reports": 1,
       "trend": "stable",
       "totalTodayRain": 2.2,
-      "tempC": 27.7,
+      "tempC": 27.6,
       "humidity": 83,
       "riverDischarge": 1.69,
       "dischargeRatio": 1.02,
       "riskLevel": "RED",
-      "lastUpdated": "2026-09-25T15:24:20.102Z"
+      "lastUpdated": "2026-09-25T16:25:17.848Z"
     },
     {
       "id": "Z-05",
@@ -98,10 +98,10 @@
       "reports": 7,
       "trend": "stable",
       "totalTodayRain": 2.1,
-      "tempC": 27.3,
-      "humidity": 86,
+      "tempC": 27.1,
+      "humidity": 87,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-25T15:24:20.247Z",
+      "lastUpdated": "2026-09-25T16:25:17.997Z",
       "riverDischarge": 1.69,
       "dischargeRatio": 1.02
     }
@@ -6870,8 +6870,8 @@
       "timestamp": "2026-09-25T13:42:27.430Z",
       "first_reported_at": "2026-09-25T13:42:27.430Z",
       "last_reported_at": "2026-09-25T13:42:27.430Z",
-      "status": "ACTIVE_SOS",
-      "severity": 95,
+      "status": "Resolved",
+      "severity": 0,
       "isQuarantined": false,
       "quarantineReason": null,
       "reporterReputation": {
@@ -7004,7 +7004,10 @@
       "relatedIncidentId": null,
       "duplicateOf": null,
       "createdAt": "2026-09-25T13:42:27.430Z",
-      "updatedAt": "2026-09-25T13:42:27.430Z"
+      "updatedAt": "2026-09-25T13:42:27.430Z",
+      "dispatched": true,
+      "originalSeverity": 95,
+      "resolvedAt": "2026-09-25T16:03:02.387Z"
     },
     {
       "id": "INC-1026",
@@ -7280,7 +7283,7 @@
       "timestamp": "2026-09-25T13:42:27.290Z",
       "first_reported_at": "2026-09-25T13:42:27.290Z",
       "last_reported_at": "2026-09-25T13:42:27.290Z",
-      "status": "ACTIVE_SOS",
+      "status": "False Alarm",
       "severity": 95,
       "isQuarantined": false,
       "quarantineReason": null,
@@ -7414,7 +7417,9 @@
       "relatedIncidentId": null,
       "duplicateOf": null,
       "createdAt": "2026-09-25T13:42:27.290Z",
-      "updatedAt": "2026-09-25T13:42:27.290Z"
+      "updatedAt": "2026-09-25T13:42:27.290Z",
+      "falseAlarmReason": "Marked as false alarm via alert feedback",
+      "falseAlarmAt": "2026-09-25T16:08:38.444Z"
     },
     {
       "id": "INC-1024",
@@ -10602,26 +10607,6 @@
   ],
   "alerts": [
     {
-      "id": "ALT-1456",
-      "sosId": "SOS-2011",
-      "incidentId": "INC-1051",
-      "title": "🚨 CRITICAL SOS: New Citizen 4572",
-      "description": "Immediate distress signal triggered at Sector Road 4572. Contact: +9198000457299 (Emergency: 98000457299)",
-      "severity": "CRITICAL",
-      "zoneId": "ZONE-01",
-      "area": "Sector Road 4572",
-      "userPhone": "+9198000457299",
-      "emergencyNumber": "98000457299",
-      "userName": "New Citizen 4572",
-      "role": "Resident",
-      "reporterCount": 1,
-      "isQuarantined": false,
-      "timestamp": "2026-09-25T14:51:21.443Z",
-      "type": "SOS",
-      "isSos": true,
-      "unread": true
-    },
-    {
       "id": "ALT-FLD-04-100",
       "type": "flood",
       "source": "flood",
@@ -10639,7 +10624,7 @@
       "title": "Critical flood risk at Lake View Road",
       "description": "Lake View Road is showing risk score 100/100. Likely cause: Surface Runoff Accumulation. Live rain: 0 mm, water depth: 564 cm.",
       "message": "Lake View Road is showing risk score 100/100. Likely cause: Surface Runoff Accumulation. Live rain: 0 mm, water depth: 564 cm.",
-      "status": "Active Warning",
+      "status": "False Alarm",
       "eta": "10–12 min",
       "channels": [
         "App",
@@ -10647,8 +10632,9 @@
         "WhatsApp",
         "PagerDuty"
       ],
-      "createdAt": "2026-09-25T14:51:21.431Z",
-      "updatedAt": "2026-09-25T14:51:21.431Z"
+      "createdAt": "2026-09-25T16:08:38.456Z",
+      "updatedAt": "2026-09-25T16:08:38.456Z",
+      "resolvedAt": "2026-09-25T16:12:24.902Z"
     },
     {
       "id": "ALT-LTG-01",
@@ -10666,12 +10652,13 @@
       "title": "Lightning activity detected nearby",
       "description": "18 lightning discharges recorded within 2.8 km (North-West (Arabian Sea Approach)). Severe electrical thunderstorm active in coastal zone. Keep electronics unplugged.",
       "message": "18 lightning discharges recorded within 2.8 km (North-West (Arabian Sea Approach)). Severe electrical thunderstorm active in coastal zone. Keep electronics unplugged.",
-      "status": "Active Advisory",
+      "status": "False Alarm",
       "channels": [
         "App"
       ],
-      "createdAt": "2026-09-25T14:51:21.431Z",
-      "updatedAt": "2026-09-25T14:51:21.431Z"
+      "createdAt": "2026-09-25T16:08:38.456Z",
+      "updatedAt": "2026-09-25T16:08:38.456Z",
+      "resolvedAt": "2026-09-25T16:12:29.989Z"
     },
     {
       "id": "ALT-DRN-BLK-01",
@@ -10694,7 +10681,7 @@
         "App"
       ],
       "createdAt": "2026-09-22T06:48:38.625Z",
-      "updatedAt": "2026-09-25T14:51:21.431Z"
+      "updatedAt": "2026-09-25T16:08:38.456Z"
     },
     {
       "id": "ALT-DRN-BLK-02",
@@ -10717,7 +10704,7 @@
         "App"
       ],
       "createdAt": "2026-09-21T16:48:38.625Z",
-      "updatedAt": "2026-09-25T14:51:21.431Z"
+      "updatedAt": "2026-09-25T16:08:38.456Z"
     },
     {
       "id": "ALT-DRN-BLK-03",
@@ -10740,7 +10727,35 @@
         "App"
       ],
       "createdAt": "2026-09-22T12:03:52.558Z",
-      "updatedAt": "2026-09-25T14:51:21.431Z"
+      "updatedAt": "2026-09-25T16:08:38.456Z"
+    },
+    {
+      "id": "ALT-SOS-SOS-2011",
+      "type": "sos",
+      "source": "incident",
+      "sourceName": "Citizen SOS Dispatch",
+      "sosId": "SOS-2011",
+      "incidentId": "SOS-2011",
+      "location_name": "19.7572, 73.3072",
+      "area": "Citizen SOS Location",
+      "lat": 19.7572,
+      "lng": 73.3072,
+      "latitude": 19.7572,
+      "longitude": 73.3072,
+      "level": "RED",
+      "severity": "CRITICAL",
+      "title": "SOS: Citizen stranded in flood water (1 people)",
+      "description": "Immediate water rescue required. Contact: Emergency Call",
+      "message": "Immediate water rescue required. Contact: Emergency Call",
+      "status": "Active SOS",
+      "channels": [
+        "App",
+        "SMS",
+        "WhatsApp",
+        "PagerDuty"
+      ],
+      "createdAt": "2026-09-25T14:51:21.443Z",
+      "updatedAt": "2026-09-25T16:08:38.456Z"
     },
     {
       "id": "ALT-SOS-SOS-2012",
@@ -10768,35 +10783,7 @@
         "PagerDuty"
       ],
       "createdAt": "2026-09-25T14:51:21.350Z",
-      "updatedAt": "2026-09-25T14:51:21.431Z"
-    },
-    {
-      "id": "ALT-SOS-SOS-2011",
-      "type": "sos",
-      "source": "incident",
-      "sourceName": "Citizen SOS Dispatch",
-      "sosId": "SOS-2011",
-      "incidentId": "SOS-2011",
-      "location_name": "19.7622, 73.3122",
-      "area": "Citizen SOS Location",
-      "lat": 19.7622,
-      "lng": 73.31219999999999,
-      "latitude": 19.7622,
-      "longitude": 73.31219999999999,
-      "level": "RED",
-      "severity": "CRITICAL",
-      "title": "SOS: Citizen stranded in flood water (1 people)",
-      "description": "Immediate water rescue required. Contact: Emergency Call",
-      "message": "Immediate water rescue required. Contact: Emergency Call",
-      "status": "Active SOS",
-      "channels": [
-        "App",
-        "SMS",
-        "WhatsApp",
-        "PagerDuty"
-      ],
-      "createdAt": "2026-09-25T14:51:21.323Z",
-      "updatedAt": "2026-09-25T14:51:21.432Z"
+      "updatedAt": "2026-09-25T16:08:38.456Z"
     },
     {
       "id": "ALT-SOS-SOS-2009",
@@ -10824,7 +10811,7 @@
         "PagerDuty"
       ],
       "createdAt": "2026-09-25T14:43:44.823Z",
-      "updatedAt": "2026-09-25T14:51:21.432Z"
+      "updatedAt": "2026-09-25T16:08:38.456Z"
     },
     {
       "id": "ALT-SOS-SOS-2007",
@@ -10852,63 +10839,27 @@
         "PagerDuty"
       ],
       "createdAt": "2026-09-25T14:28:43.375Z",
-      "updatedAt": "2026-09-25T14:51:21.432Z"
+      "updatedAt": "2026-09-25T16:08:38.456Z"
     },
     {
-      "id": "ALT-SOS-SOS-2005",
-      "type": "sos",
-      "source": "incident",
-      "sourceName": "Citizen SOS Dispatch",
-      "sosId": "SOS-2005",
-      "incidentId": "SOS-2005",
-      "location_name": "19.5159, 73.0659",
-      "area": "Citizen SOS Location",
-      "lat": 19.515900000000002,
-      "lng": 73.0659,
-      "latitude": 19.515900000000002,
-      "longitude": 73.0659,
-      "level": "RED",
+      "id": "ALT-1456",
+      "sosId": "SOS-2011",
+      "incidentId": "INC-1051",
+      "title": "🚨 CRITICAL SOS: New Citizen 4572",
+      "description": "Immediate distress signal triggered at Sector Road 4572. Contact: +9198000457299 (Emergency: 98000457299)",
       "severity": "CRITICAL",
-      "title": "SOS: Citizen stranded in flood water (1 people)",
-      "description": "Immediate water rescue required. Contact: Emergency Call",
-      "message": "Immediate water rescue required. Contact: Emergency Call",
-      "status": "Active SOS",
-      "channels": [
-        "App",
-        "SMS",
-        "WhatsApp",
-        "PagerDuty"
-      ],
-      "createdAt": "2026-09-25T13:42:27.430Z",
-      "updatedAt": "2026-09-25T14:51:21.432Z"
-    },
-    {
-      "id": "ALT-SOS-SOS-2004",
-      "type": "sos",
-      "source": "incident",
-      "sourceName": "Citizen SOS Dispatch",
-      "sosId": "SOS-2004",
-      "incidentId": "SOS-2004",
-      "location_name": "19.5209, 73.0709",
-      "area": "Citizen SOS Location",
-      "lat": 19.5209,
-      "lng": 73.0709,
-      "latitude": 19.5209,
-      "longitude": 73.0709,
-      "level": "RED",
-      "severity": "CRITICAL",
-      "title": "SOS: Citizen stranded in flood water (1 people)",
-      "description": "Immediate water rescue required. Contact: Emergency Call",
-      "message": "Immediate water rescue required. Contact: Emergency Call",
-      "status": "Active SOS",
-      "channels": [
-        "App",
-        "SMS",
-        "WhatsApp",
-        "PagerDuty"
-      ],
-      "createdAt": "2026-09-25T13:42:27.290Z",
-      "updatedAt": "2026-09-25T14:51:21.432Z"
+      "zoneId": "ZONE-01",
+      "area": "Sector Road 4572",
+      "userPhone": "+9198000457299",
+      "emergencyNumber": "98000457299",
+      "userName": "New Citizen 4572",
+      "role": "Resident",
+      "reporterCount": 1,
+      "isQuarantined": false,
+      "timestamp": "2026-09-25T14:51:21.443Z",
+      "type": "SOS",
+      "isSos": true,
+      "unread": true
     },
     {
       "id": "ALT-1362",
@@ -11126,67 +11077,6 @@
       "isSos": true,
       "unread": true,
       "updatedAt": "2026-09-25T14:21:35.916Z"
-    },
-    {
-      "id": "ALT-7437",
-      "sosId": "SOS-2005",
-      "incidentId": "INC-1027",
-      "title": "🚨 CRITICAL SOS: New Citizen 2159",
-      "description": "Immediate distress signal triggered at Sector Road 2159. Contact: +9198000215999 (Emergency: 98000215999)",
-      "severity": "CRITICAL",
-      "zoneId": "ZONE-01",
-      "area": "Sector Road 2159",
-      "userPhone": "+9198000215999",
-      "emergencyNumber": "98000215999",
-      "userName": "New Citizen 2159",
-      "role": "Resident",
-      "reporterCount": 1,
-      "isQuarantined": false,
-      "timestamp": "2026-09-25T13:42:27.430Z",
-      "type": "SOS",
-      "isSos": true,
-      "unread": true
-    },
-    {
-      "id": "ALT-7357",
-      "sosId": "SOS-2005",
-      "incidentId": "INC-1026",
-      "title": "🚨 CRITICAL SOS: Sim User 1",
-      "description": "🚨 Clustered SOS (4 reports within 500m). Latest: Sim User 4 (+919700021594) at Circle 4",
-      "severity": "CRITICAL",
-      "zoneId": "ZONE-01",
-      "area": "Circle 1",
-      "userPhone": "+919700021591",
-      "emergencyNumber": "9800000000",
-      "userName": "Sim User 1",
-      "role": "Commuter",
-      "reporterCount": 4,
-      "isQuarantined": false,
-      "timestamp": "2026-09-25T13:42:27.341Z",
-      "type": "SOS",
-      "isSos": true,
-      "unread": true,
-      "updatedAt": "2026-09-25T13:42:27.343Z"
-    },
-    {
-      "id": "ALT-7312",
-      "sosId": "SOS-2004",
-      "incidentId": "INC-1025",
-      "title": "🚨 CRITICAL SOS: User D (2159)",
-      "description": "Immediate distress signal triggered at North Junction 2159. Contact: +9198000021594 (Emergency: 98000021594)",
-      "severity": "CRITICAL",
-      "zoneId": "ZONE-01",
-      "area": "North Junction 2159",
-      "userPhone": "+9198000021594",
-      "emergencyNumber": "98000021594",
-      "userName": "User D (2159)",
-      "role": "Resident",
-      "reporterCount": 1,
-      "isQuarantined": false,
-      "timestamp": "2026-09-25T13:42:27.290Z",
-      "type": "SOS",
-      "isSos": true,
-      "unread": true
     }
   ],
   "dispatches": [
@@ -11389,6 +11279,34 @@
   ],
   "resources": [],
   "users": [
+    {
+      "user_id": "USR-632055",
+      "display_name": "BB",
+      "role": "Shop Owner",
+      "phone": "+91 9820672217",
+      "latitude": 19.1305414,
+      "longitude": 72.8505037,
+      "last_location_update": "2026-09-25T15:56:18.733Z",
+      "location_sharing_enabled": true,
+      "is_online": true,
+      "push_token": null,
+      "createdAt": "2026-09-25T15:53:50.547Z",
+      "updatedAt": "2026-09-25T15:56:18.733Z"
+    },
+    {
+      "user_id": "USR-427777",
+      "display_name": "siya",
+      "role": "Shop Owner",
+      "phone": "+91 8206772217",
+      "latitude": 19.1305414,
+      "longitude": 72.8505037,
+      "last_location_update": "2026-09-25T15:50:26.311Z",
+      "location_sharing_enabled": true,
+      "is_online": true,
+      "push_token": null,
+      "createdAt": "2026-09-25T15:50:26.311Z",
+      "updatedAt": "2026-09-25T15:50:26.311Z"
+    },
     {
       "user_id": "TEST-USER-D",
       "display_name": "Private User",
@@ -11664,63 +11582,6 @@
       "isQuarantined": false,
       "quarantineReason": null,
       "smsSuppressed": false
-    },
-    {
-      "id": "SOS-2005",
-      "userId": "USR-NEW-2159",
-      "userName": "New Citizen 2159",
-      "userPhone": "+9198000215999",
-      "emergencyNumber": "98000215999",
-      "role": "Resident",
-      "lat": 19.515900000000002,
-      "lng": 73.0659,
-      "address": "Sector Road 2159",
-      "emergencyStatus": "ACTIVE_SOS",
-      "assignedTeam": "Disaster Management Command Cell",
-      "assignedTeamPhone": "1916 / 1077",
-      "eta": "3 mins",
-      "timestamp": "2026-09-25T13:42:27.430Z",
-      "isQuarantined": false,
-      "quarantineReason": null,
-      "smsSuppressed": false
-    },
-    {
-      "id": "SOS-2005",
-      "userId": "SIM-1-2159",
-      "userName": "Sim User 1",
-      "userPhone": "+919700021591",
-      "emergencyNumber": "9800000000",
-      "role": "Commuter",
-      "lat": 19.6159,
-      "lng": 73.0359,
-      "address": "Circle 1",
-      "emergencyStatus": "ACTIVE_SOS",
-      "assignedTeam": "Disaster Management Command Cell",
-      "assignedTeamPhone": "1916 / 1077",
-      "eta": "3 mins",
-      "timestamp": "2026-09-25T13:42:27.341Z",
-      "isQuarantined": false,
-      "quarantineReason": null,
-      "smsSuppressed": false
-    },
-    {
-      "id": "SOS-2004",
-      "userId": "USR-D-2159",
-      "userName": "User D (2159)",
-      "userPhone": "+9198000021594",
-      "emergencyNumber": "98000021594",
-      "role": "Resident",
-      "lat": 19.5209,
-      "lng": 73.0709,
-      "address": "North Junction 2159",
-      "emergencyStatus": "ACTIVE_SOS",
-      "assignedTeam": "Disaster Management Command Cell",
-      "assignedTeamPhone": "1916 / 1077",
-      "eta": "3 mins",
-      "timestamp": "2026-09-25T13:42:27.290Z",
-      "isQuarantined": false,
-      "quarantineReason": null,
-      "smsSuppressed": false
     }
   ],
   "alertFeedbacks": [
@@ -11773,6 +11634,55 @@
       "type": "RESOLVED",
       "role": "Ward Admin",
       "timestamp": "2026-09-25T14:28:39.999Z"
+    },
+    {
+      "id": "FB-1790352182386",
+      "alertId": "ALT-SOS-SOS-2005",
+      "type": "RESOLVED",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:03:02.386Z"
+    },
+    {
+      "id": "FB-1790352183680",
+      "alertId": "ALT-SOS-SOS-2005",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:03:03.680Z"
+    },
+    {
+      "id": "FB-1790352184621",
+      "alertId": "ALT-SOS-SOS-2005",
+      "type": "RESOLVED",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:03:04.621Z"
+    },
+    {
+      "id": "FB-1790352518443",
+      "alertId": "ALT-SOS-SOS-2004",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:08:38.443Z"
+    },
+    {
+      "id": "FB-1790352519107",
+      "alertId": "ALT-SOS-SOS-2004",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:08:39.107Z"
+    },
+    {
+      "id": "FB-1790352744902",
+      "alertId": "ALT-FLD-04-100",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:12:24.902Z"
+    },
+    {
+      "id": "FB-1790352749989",
+      "alertId": "ALT-LTG-01",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:12:29.989Z"
     }
   ],
   "chronicBlockages": [
@@ -12173,14 +12083,21 @@
       "userPhone": "+9198000021594",
       "totalSubmissions": 1,
       "verifiedCount": 0,
-      "falseAlarmCount": 0,
-      "trustScore": 1,
-      "status": "NORMAL",
+      "falseAlarmCount": 1,
+      "trustScore": 0.33,
+      "status": "WARNING",
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-25T13:42:27.303Z",
-      "updatedAt": "2026-09-25T13:42:27.303Z",
-      "history": []
+      "updatedAt": "2026-09-25T16:08:38.445Z",
+      "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1025",
+          "reason": "Marked as false alarm via alert feedback",
+          "timestamp": "2026-09-25T16:08:38.446Z"
+        }
+      ]
     },
     "+919700021591": {
       "identifier": "+919700021591",
@@ -12948,5 +12865,5 @@
       "history": []
     }
   },
-  "updatedAt": "2026-09-25T15:24:20.247Z"
+  "updatedAt": "2026-09-25T16:25:17.997Z"
 }

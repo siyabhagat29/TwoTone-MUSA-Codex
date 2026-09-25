@@ -10,6 +10,8 @@
     "server": "npm --workspace server run dev",
     "mobile": "npm --prefix apps/mobile start",
     "build:web": "npm --workspace apps/web run build",
-    "start:server": "npm --workspace server start"
+    "start:server": "npm --workspace server start",
+    "install:all": "npm install && npm --prefix apps/mobile install",
+    "postinstall": "npm --prefix apps/mobile install"
   }
 }
