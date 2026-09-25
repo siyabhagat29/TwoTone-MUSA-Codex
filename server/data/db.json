@@ -19,7 +19,7 @@
       "riverDischarge": 3.63,
       "dischargeRatio": 1.02,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-25T16:25:17.394Z"
+      "lastUpdated": "2026-09-25T17:42:39.350Z"
     },
     {
       "id": "Z-02",
@@ -40,7 +40,7 @@
       "riverDischarge": 1.69,
       "dischargeRatio": 1.02,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-25T16:25:17.548Z"
+      "lastUpdated": "2026-09-25T17:42:39.489Z"
     },
     {
       "id": "Z-03",
@@ -61,7 +61,7 @@
       "riverDischarge": 3.63,
       "dischargeRatio": 1.02,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-25T16:25:17.698Z"
+      "lastUpdated": "2026-09-25T17:42:39.640Z"
     },
     {
       "id": "Z-04",
@@ -69,20 +69,20 @@
       "ward": "Ward 73",
       "lat": 19.121,
       "lng": 72.855,
-      "risk": 100,
-      "cause": "Surface Runoff Accumulation",
-      "causeCode": "MIXED_RUNOFF",
-      "waterLevel": 564,
+      "risk": 0,
+      "cause": "Normal Drainage",
+      "causeCode": "NORMAL_DRAINAGE",
+      "waterLevel": 0,
       "rainfall": 0,
-      "reports": 1,
+      "reports": 0,
       "trend": "stable",
       "totalTodayRain": 2.2,
       "tempC": 27.6,
-      "humidity": 83,
+      "humidity": 82,
       "riverDischarge": 1.69,
       "dischargeRatio": 1.02,
-      "riskLevel": "RED",
-      "lastUpdated": "2026-09-25T16:25:17.848Z"
+      "riskLevel": "GREEN",
+      "lastUpdated": "2026-09-25T17:42:39.778Z"
     },
     {
       "id": "Z-05",
@@ -90,18 +90,18 @@
       "ward": "S Ward (Powai)",
       "lat": 19.104,
       "lng": 72.8975,
-      "risk": 40,
+      "risk": 32,
       "cause": "Surface Runoff Accumulation",
       "causeCode": "MIXED_RUNOFF",
       "waterLevel": 45,
       "rainfall": 0,
-      "reports": 7,
+      "reports": 2,
       "trend": "stable",
       "totalTodayRain": 2.1,
-      "tempC": 27.1,
-      "humidity": 87,
+      "tempC": 27,
+      "humidity": 86,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-25T16:25:17.997Z",
+      "lastUpdated": "2026-09-25T17:42:39.917Z",
       "riverDischarge": 1.69,
       "dischargeRatio": 1.02
     }
@@ -122,7 +122,7 @@
       "timestamp": "2026-09-25T14:51:21.443Z",
       "first_reported_at": "2026-09-25T14:51:21.443Z",
       "last_reported_at": "2026-09-25T14:51:21.443Z",
-      "status": "ACTIVE_SOS",
+      "status": "False Alarm",
       "severity": 95,
       "isQuarantined": false,
       "quarantineReason": null,
@@ -364,7 +364,9 @@
       "relatedIncidentId": null,
       "duplicateOf": null,
       "createdAt": "2026-09-25T14:51:21.443Z",
-      "updatedAt": "2026-09-25T14:51:21.443Z"
+      "updatedAt": "2026-09-25T14:51:21.443Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:27:48.525Z"
     },
     {
       "id": "INC-1050",
@@ -381,7 +383,7 @@
       "timestamp": "2026-09-25T14:51:21.350Z",
       "first_reported_at": "2026-09-25T14:51:21.350Z",
       "last_reported_at": "2026-09-25T14:51:21.352Z",
-      "status": "ACTIVE_SOS",
+      "status": "False Alarm",
       "severity": 95,
       "isQuarantined": false,
       "quarantineReason": null,
@@ -731,7 +733,9 @@
       "relatedIncidentId": null,
       "duplicateOf": null,
       "createdAt": "2026-09-25T14:51:21.350Z",
-      "updatedAt": "2026-09-25T14:51:21.352Z"
+      "updatedAt": "2026-09-25T14:51:21.352Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:27:51.559Z"
     },
     {
       "id": "INC-1049",
@@ -748,7 +752,7 @@
       "timestamp": "2026-09-25T14:51:21.323Z",
       "first_reported_at": "2026-09-25T14:51:21.323Z",
       "last_reported_at": "2026-09-25T14:51:21.323Z",
-      "status": "ACTIVE_SOS",
+      "status": "False Alarm",
       "severity": 95,
       "isQuarantined": false,
       "quarantineReason": null,
@@ -990,7 +994,9 @@
       "relatedIncidentId": null,
       "duplicateOf": null,
       "createdAt": "2026-09-25T14:51:21.323Z",
-      "updatedAt": "2026-09-25T14:51:21.323Z"
+      "updatedAt": "2026-09-25T14:51:21.323Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:28:57.531Z"
     },
     {
       "id": "INC-1048",
@@ -1007,7 +1013,7 @@
       "timestamp": "2026-09-25T14:51:21.183Z",
       "first_reported_at": "2026-09-25T14:51:21.183Z",
       "last_reported_at": "2026-09-25T14:51:21.301Z",
-      "status": "Resolved",
+      "status": "False Alarm",
       "severity": 0,
       "isQuarantined": false,
       "quarantineReason": null,
@@ -1324,7 +1330,9 @@
       "updatedAt": "2026-09-25T14:51:21.301Z",
       "dispatched": true,
       "originalSeverity": 95,
-      "resolvedAt": "2026-09-25T14:51:21.431Z"
+      "resolvedAt": "2026-09-25T14:51:21.431Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:30:34.796Z"
     },
     {
       "id": "INC-1047",
@@ -1341,7 +1349,7 @@
       "timestamp": "2026-09-25T14:43:44.823Z",
       "first_reported_at": "2026-09-25T14:43:44.823Z",
       "last_reported_at": "2026-09-25T14:43:44.823Z",
-      "status": "ACTIVE_SOS",
+      "status": "False Alarm",
       "severity": 95,
       "isQuarantined": false,
       "quarantineReason": null,
@@ -1583,7 +1591,9 @@
       "relatedIncidentId": null,
       "duplicateOf": null,
       "createdAt": "2026-09-25T14:43:44.823Z",
-      "updatedAt": "2026-09-25T14:43:44.823Z"
+      "updatedAt": "2026-09-25T14:43:44.823Z",
+      "falseAlarmReason": "Marked as false alarm via alert feedback",
+      "falseAlarmAt": "2026-09-25T16:29:47.998Z"
     },
     {
       "id": "INC-1046",
@@ -1600,7 +1610,7 @@
       "timestamp": "2026-09-25T14:43:44.696Z",
       "first_reported_at": "2026-09-25T14:43:44.696Z",
       "last_reported_at": "2026-09-25T14:43:44.698Z",
-      "status": "ACTIVE_SOS",
+      "status": "False Alarm",
       "severity": 95,
       "isQuarantined": false,
       "quarantineReason": null,
@@ -1950,7 +1960,9 @@
       "relatedIncidentId": null,
       "duplicateOf": null,
       "createdAt": "2026-09-25T14:43:44.696Z",
-      "updatedAt": "2026-09-25T14:43:44.698Z"
+      "updatedAt": "2026-09-25T14:43:44.698Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:33:53.880Z"
     },
     {
       "id": "INC-1045",
@@ -1967,7 +1979,7 @@
       "timestamp": "2026-09-25T14:43:44.674Z",
       "first_reported_at": "2026-09-25T14:43:44.674Z",
       "last_reported_at": "2026-09-25T14:43:44.674Z",
-      "status": "ACTIVE_SOS",
+      "status": "False Alarm",
       "severity": 95,
       "isQuarantined": false,
       "quarantineReason": null,
@@ -2209,7 +2221,9 @@
       "relatedIncidentId": null,
       "duplicateOf": null,
       "createdAt": "2026-09-25T14:43:44.674Z",
-      "updatedAt": "2026-09-25T14:43:44.674Z"
+      "updatedAt": "2026-09-25T14:43:44.674Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:34:05.112Z"
     },
     {
       "id": "INC-1044",
@@ -2226,7 +2240,7 @@
       "timestamp": "2026-09-25T14:43:44.544Z",
       "first_reported_at": "2026-09-25T14:43:44.544Z",
       "last_reported_at": "2026-09-25T14:43:44.658Z",
-      "status": "Resolved",
+      "status": "False Alarm",
       "severity": 0,
       "isQuarantined": false,
       "quarantineReason": null,
@@ -2543,7 +2557,9 @@
       "updatedAt": "2026-09-25T14:43:44.658Z",
       "dispatched": true,
       "originalSeverity": 95,
-      "resolvedAt": "2026-09-25T14:43:44.806Z"
+      "resolvedAt": "2026-09-25T14:43:44.806Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:34:00.863Z"
     },
     {
       "id": "INC-1043",
@@ -2560,7 +2576,7 @@
       "timestamp": "2026-09-25T14:28:43.375Z",
       "first_reported_at": "2026-09-25T14:28:43.375Z",
       "last_reported_at": "2026-09-25T14:28:43.375Z",
-      "status": "ACTIVE_SOS",
+      "status": "False Alarm",
       "severity": 95,
       "isQuarantined": false,
       "quarantineReason": null,
@@ -2802,7 +2818,9 @@
       "relatedIncidentId": null,
       "duplicateOf": null,
       "createdAt": "2026-09-25T14:28:43.375Z",
-      "updatedAt": "2026-09-25T14:28:43.375Z"
+      "updatedAt": "2026-09-25T14:28:43.375Z",
+      "falseAlarmReason": "Marked as false alarm via alert feedback",
+      "falseAlarmAt": "2026-09-25T16:30:40.748Z"
     },
     {
       "id": "INC-1042",
@@ -2819,7 +2837,7 @@
       "timestamp": "2026-09-25T14:28:43.294Z",
       "first_reported_at": "2026-09-25T14:28:43.294Z",
       "last_reported_at": "2026-09-25T14:28:43.295Z",
-      "status": "ACTIVE_SOS",
+      "status": "False Alarm",
       "severity": 95,
       "isQuarantined": false,
       "quarantineReason": null,
@@ -3169,7 +3187,9 @@
       "relatedIncidentId": null,
       "duplicateOf": null,
       "createdAt": "2026-09-25T14:28:43.294Z",
-      "updatedAt": "2026-09-25T14:28:43.295Z"
+      "updatedAt": "2026-09-25T14:28:43.295Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:34:02.846Z"
     },
     {
       "id": "INC-1041",
@@ -3186,7 +3206,7 @@
       "timestamp": "2026-09-25T14:28:43.278Z",
       "first_reported_at": "2026-09-25T14:28:43.278Z",
       "last_reported_at": "2026-09-25T14:28:43.278Z",
-      "status": "ACTIVE_SOS",
+      "status": "False Alarm",
       "severity": 95,
       "isQuarantined": false,
       "quarantineReason": null,
@@ -3428,7 +3448,9 @@
       "relatedIncidentId": null,
       "duplicateOf": null,
       "createdAt": "2026-09-25T14:28:43.278Z",
-      "updatedAt": "2026-09-25T14:28:43.278Z"
+      "updatedAt": "2026-09-25T14:28:43.278Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:35:27.845Z"
     },
     {
       "id": "INC-1040",
@@ -3445,7 +3467,7 @@
       "timestamp": "2026-09-25T14:28:43.181Z",
       "first_reported_at": "2026-09-25T14:28:43.181Z",
       "last_reported_at": "2026-09-25T14:28:43.265Z",
-      "status": "Resolved",
+      "status": "False Alarm",
       "severity": 0,
       "isQuarantined": false,
       "quarantineReason": null,
@@ -3762,7 +3784,9 @@
       "updatedAt": "2026-09-25T14:28:43.265Z",
       "dispatched": true,
       "originalSeverity": 95,
-      "resolvedAt": "2026-09-25T14:28:43.366Z"
+      "resolvedAt": "2026-09-25T14:28:43.366Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:35:30.713Z"
     },
     {
       "id": "INC-1039",
@@ -3779,7 +3803,7 @@
       "timestamp": "2026-09-25T14:21:36.088Z",
       "first_reported_at": "2026-09-25T14:21:36.088Z",
       "last_reported_at": "2026-09-25T14:21:36.088Z",
-      "status": "Resolved",
+      "status": "False Alarm",
       "severity": 0,
       "isQuarantined": false,
       "quarantineReason": null,
@@ -4024,7 +4048,9 @@
       "updatedAt": "2026-09-25T14:21:36.088Z",
       "dispatched": true,
       "originalSeverity": 95,
-      "resolvedAt": "2026-09-25T14:28:39.999Z"
+      "resolvedAt": "2026-09-25T14:28:39.999Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:35:28.912Z"
     },
     {
       "id": "INC-1038",
@@ -4041,7 +4067,7 @@
       "timestamp": "2026-09-25T14:21:35.915Z",
       "first_reported_at": "2026-09-25T14:21:35.915Z",
       "last_reported_at": "2026-09-25T14:21:35.916Z",
-      "status": "ACTIVE_SOS",
+      "status": "False Alarm",
       "severity": 95,
       "isQuarantined": false,
       "quarantineReason": null,
@@ -4391,7 +4417,9 @@
       "relatedIncidentId": null,
       "duplicateOf": null,
       "createdAt": "2026-09-25T14:21:35.915Z",
-      "updatedAt": "2026-09-25T14:21:35.916Z"
+      "updatedAt": "2026-09-25T14:21:35.916Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:35:31.828Z"
     },
     {
       "id": "INC-1037",
@@ -4408,7 +4436,7 @@
       "timestamp": "2026-09-25T14:21:35.865Z",
       "first_reported_at": "2026-09-25T14:21:35.865Z",
       "last_reported_at": "2026-09-25T14:51:15.991Z",
-      "status": "ACTIVE_SOS",
+      "status": "False Alarm",
       "severity": 95,
       "isQuarantined": false,
       "quarantineReason": null,
@@ -4686,7 +4714,10 @@
       "relatedIncidentId": null,
       "duplicateOf": null,
       "createdAt": "2026-09-25T14:21:35.865Z",
-      "updatedAt": "2026-09-25T14:51:15.991Z"
+      "updatedAt": "2026-09-25T14:51:15.991Z",
+      "isDismissed": true,
+      "falseAlarmReason": "Dismissed by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:41:24.857Z"
     },
     {
       "id": "INC-1036",
@@ -5672,7 +5703,7 @@
       "timestamp": "2026-09-25T13:50:03.352Z",
       "first_reported_at": "2026-09-25T13:50:03.352Z",
       "last_reported_at": "2026-09-25T13:50:03.352Z",
-      "status": "ACTIVE_SOS",
+      "status": "False Alarm",
       "severity": 95,
       "isQuarantined": false,
       "quarantineReason": null,
@@ -5914,7 +5945,10 @@
       "relatedIncidentId": null,
       "duplicateOf": null,
       "createdAt": "2026-09-25T13:50:03.352Z",
-      "updatedAt": "2026-09-25T13:50:03.352Z"
+      "updatedAt": "2026-09-25T13:50:03.352Z",
+      "isDismissed": true,
+      "falseAlarmReason": "Dismissed by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:41:27.085Z"
     },
     {
       "id": "INC-1032",
@@ -6265,7 +6299,7 @@
       "timestamp": "2026-09-25T13:46:11.129Z",
       "first_reported_at": "2026-09-25T13:46:11.129Z",
       "last_reported_at": "2026-09-25T13:47:28.996Z",
-      "status": "ACTIVE_SOS",
+      "status": "False Alarm",
       "severity": 95,
       "isQuarantined": false,
       "quarantineReason": null,
@@ -6452,7 +6486,10 @@
       "relatedIncidentId": null,
       "duplicateOf": null,
       "createdAt": "2026-09-25T13:46:11.129Z",
-      "updatedAt": "2026-09-25T13:47:28.996Z"
+      "updatedAt": "2026-09-25T13:47:28.996Z",
+      "isDismissed": true,
+      "falseAlarmReason": "Dismissed by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:41:28.746Z"
     },
     {
       "id": "INC-1030",
@@ -6741,7 +6778,7 @@
       "time": "07:13 pm",
       "userTimestamp": "2026-09-25T13:43:01.898Z",
       "timestamp": "2026-09-25T13:43:01.898Z",
-      "status": "Resolved",
+      "status": "False Alarm",
       "isQuarantined": false,
       "quarantineReason": null,
       "reporterReputation": {
@@ -6853,7 +6890,9 @@
       "dispatchedAt": "2026-09-25T13:43:02.545Z",
       "originalSeverity": 54,
       "dispatched": true,
-      "resolvedAt": "2026-09-25T13:43:02.561Z"
+      "resolvedAt": "2026-09-25T13:43:02.561Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:35:11.346Z"
     },
     {
       "id": "INC-1027",
@@ -8718,7 +8757,7 @@
       "time": "06:58 pm",
       "userTimestamp": "2026-09-25T13:28:40.494Z",
       "timestamp": "2026-09-25T13:28:40.494Z",
-      "status": "Resolved",
+      "status": "False Alarm",
       "isQuarantined": false,
       "quarantineReason": null,
       "reporterReputation": {
@@ -8825,7 +8864,9 @@
       "dispatchedAt": "2026-09-25T13:28:41.398Z",
       "originalSeverity": 54,
       "dispatched": true,
-      "resolvedAt": "2026-09-25T13:28:41.427Z"
+      "resolvedAt": "2026-09-25T13:28:41.427Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:35:12.463Z"
     },
     {
       "id": "INC-1016",
@@ -9777,7 +9818,7 @@
       "time": "5:39 pm",
       "userTimestamp": "2026-09-25T12:09:28.213Z",
       "timestamp": "2026-09-25T12:09:28.213Z",
-      "status": "Resolved",
+      "status": "False Alarm",
       "isQuarantined": false,
       "quarantineReason": null,
       "reporterReputation": {
@@ -9845,7 +9886,9 @@
       "updatedAt": "2026-09-25T12:09:28.213Z",
       "dispatched": true,
       "originalSeverity": 26,
-      "resolvedAt": "2026-09-25T13:33:43.432Z"
+      "resolvedAt": "2026-09-25T13:33:43.432Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:35:19.348Z"
     },
     {
       "id": "INC-1007",
@@ -9856,7 +9899,7 @@
       "time": "5:36 pm",
       "userTimestamp": "2026-09-25T12:06:32.655Z",
       "timestamp": "2026-09-25T12:06:32.655Z",
-      "status": "Resolved",
+      "status": "False Alarm",
       "isQuarantined": false,
       "quarantineReason": null,
       "reporterReputation": {
@@ -9954,7 +9997,9 @@
       "updatedAt": "2026-09-25T12:06:32.655Z",
       "dispatched": true,
       "originalSeverity": 26,
-      "resolvedAt": "2026-09-25T13:33:39.623Z"
+      "resolvedAt": "2026-09-25T13:33:39.623Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:35:15.263Z"
     },
     {
       "id": "INC-1006",
@@ -10200,7 +10245,7 @@
       "time": "5:55 pm",
       "userTimestamp": "2026-09-22T12:25:32.511Z",
       "timestamp": "2026-09-22T12:25:32.511Z",
-      "status": "Resolved",
+      "status": "False Alarm",
       "isQuarantined": false,
       "quarantineReason": null,
       "reporterReputation": {
@@ -10298,7 +10343,9 @@
       "updatedAt": "2026-09-22T12:25:32.511Z",
       "dispatched": true,
       "originalSeverity": 50,
-      "resolvedAt": "2026-09-25T13:33:45.319Z"
+      "resolvedAt": "2026-09-25T13:33:45.319Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:35:16.296Z"
     },
     {
       "id": "INC-1003",
@@ -10416,7 +10463,7 @@
       "time": "5:33 pm",
       "userTimestamp": "2026-09-22T12:03:51.082Z",
       "timestamp": "2026-09-22T12:03:51.082Z",
-      "status": "Resolved",
+      "status": "False Alarm",
       "isQuarantined": false,
       "quarantineReason": null,
       "reporterReputation": {
@@ -10497,7 +10544,9 @@
       "originalSeverity": 100,
       "mitigationStatus": "Resource Allocated",
       "dispatchedAt": "2026-09-22T12:04:25.461Z",
-      "resolvedAt": "2026-09-25T13:33:34.527Z"
+      "resolvedAt": "2026-09-25T13:33:34.527Z",
+      "falseAlarmReason": "Marked as False Alarm by Authority Admin",
+      "falseAlarmAt": "2026-09-25T16:35:17.919Z"
     },
     {
       "id": "INC-1001",
@@ -10607,36 +10656,6 @@
   ],
   "alerts": [
     {
-      "id": "ALT-FLD-04-100",
-      "type": "flood",
-      "source": "flood",
-      "sourceName": "VarshaRaksha Risk Engine",
-      "zoneId": "Z-04",
-      "zoneName": "Lake View Road",
-      "location_name": "Lake View Road, Ward 73",
-      "area": "Lake View Road",
-      "lat": 19.121,
-      "lng": 72.855,
-      "latitude": 19.121,
-      "longitude": 72.855,
-      "level": "RED",
-      "severity": "CRITICAL",
-      "title": "Critical flood risk at Lake View Road",
-      "description": "Lake View Road is showing risk score 100/100. Likely cause: Surface Runoff Accumulation. Live rain: 0 mm, water depth: 564 cm.",
-      "message": "Lake View Road is showing risk score 100/100. Likely cause: Surface Runoff Accumulation. Live rain: 0 mm, water depth: 564 cm.",
-      "status": "False Alarm",
-      "eta": "10–12 min",
-      "channels": [
-        "App",
-        "SMS",
-        "WhatsApp",
-        "PagerDuty"
-      ],
-      "createdAt": "2026-09-25T16:08:38.456Z",
-      "updatedAt": "2026-09-25T16:08:38.456Z",
-      "resolvedAt": "2026-09-25T16:12:24.902Z"
-    },
-    {
       "id": "ALT-LTG-01",
       "type": "lightning",
       "source": "lightning",
@@ -10652,13 +10671,12 @@
       "title": "Lightning activity detected nearby",
       "description": "18 lightning discharges recorded within 2.8 km (North-West (Arabian Sea Approach)). Severe electrical thunderstorm active in coastal zone. Keep electronics unplugged.",
       "message": "18 lightning discharges recorded within 2.8 km (North-West (Arabian Sea Approach)). Severe electrical thunderstorm active in coastal zone. Keep electronics unplugged.",
-      "status": "False Alarm",
+      "status": "Active Advisory",
       "channels": [
         "App"
       ],
-      "createdAt": "2026-09-25T16:08:38.456Z",
-      "updatedAt": "2026-09-25T16:08:38.456Z",
-      "resolvedAt": "2026-09-25T16:12:29.989Z"
+      "createdAt": "2026-09-25T16:41:28.761Z",
+      "updatedAt": "2026-09-25T16:41:28.761Z"
     },
     {
       "id": "ALT-DRN-BLK-01",
@@ -10681,7 +10699,7 @@
         "App"
       ],
       "createdAt": "2026-09-22T06:48:38.625Z",
-      "updatedAt": "2026-09-25T16:08:38.456Z"
+      "updatedAt": "2026-09-25T16:41:28.761Z"
     },
     {
       "id": "ALT-DRN-BLK-02",
@@ -10704,7 +10722,7 @@
         "App"
       ],
       "createdAt": "2026-09-21T16:48:38.625Z",
-      "updatedAt": "2026-09-25T16:08:38.456Z"
+      "updatedAt": "2026-09-25T16:41:28.761Z"
     },
     {
       "id": "ALT-DRN-BLK-03",
@@ -10727,356 +10745,7 @@
         "App"
       ],
       "createdAt": "2026-09-22T12:03:52.558Z",
-      "updatedAt": "2026-09-25T16:08:38.456Z"
-    },
-    {
-      "id": "ALT-SOS-SOS-2011",
-      "type": "sos",
-      "source": "incident",
-      "sourceName": "Citizen SOS Dispatch",
-      "sosId": "SOS-2011",
-      "incidentId": "SOS-2011",
-      "location_name": "19.7572, 73.3072",
-      "area": "Citizen SOS Location",
-      "lat": 19.7572,
-      "lng": 73.3072,
-      "latitude": 19.7572,
-      "longitude": 73.3072,
-      "level": "RED",
-      "severity": "CRITICAL",
-      "title": "SOS: Citizen stranded in flood water (1 people)",
-      "description": "Immediate water rescue required. Contact: Emergency Call",
-      "message": "Immediate water rescue required. Contact: Emergency Call",
-      "status": "Active SOS",
-      "channels": [
-        "App",
-        "SMS",
-        "WhatsApp",
-        "PagerDuty"
-      ],
-      "createdAt": "2026-09-25T14:51:21.443Z",
-      "updatedAt": "2026-09-25T16:08:38.456Z"
-    },
-    {
-      "id": "ALT-SOS-SOS-2012",
-      "type": "sos",
-      "source": "incident",
-      "sourceName": "Citizen SOS Dispatch",
-      "sosId": "SOS-2012",
-      "incidentId": "SOS-2012",
-      "location_name": "19.8572, 73.2772",
-      "area": "Citizen SOS Location",
-      "lat": 19.8572,
-      "lng": 73.2772,
-      "latitude": 19.8572,
-      "longitude": 73.2772,
-      "level": "RED",
-      "severity": "CRITICAL",
-      "title": "SOS: Citizen stranded in flood water (1 people)",
-      "description": "Immediate water rescue required. Contact: Emergency Call",
-      "message": "Immediate water rescue required. Contact: Emergency Call",
-      "status": "Active SOS",
-      "channels": [
-        "App",
-        "SMS",
-        "WhatsApp",
-        "PagerDuty"
-      ],
-      "createdAt": "2026-09-25T14:51:21.350Z",
-      "updatedAt": "2026-09-25T16:08:38.456Z"
-    },
-    {
-      "id": "ALT-SOS-SOS-2009",
-      "type": "sos",
-      "source": "incident",
-      "sourceName": "Citizen SOS Dispatch",
-      "sosId": "SOS-2009",
-      "incidentId": "SOS-2009",
-      "location_name": "19.7331, 73.2831",
-      "area": "Citizen SOS Location",
-      "lat": 19.7331,
-      "lng": 73.28309999999999,
-      "latitude": 19.7331,
-      "longitude": 73.28309999999999,
-      "level": "RED",
-      "severity": "CRITICAL",
-      "title": "SOS: Citizen stranded in flood water (1 people)",
-      "description": "Immediate water rescue required. Contact: Emergency Call",
-      "message": "Immediate water rescue required. Contact: Emergency Call",
-      "status": "Active SOS",
-      "channels": [
-        "App",
-        "SMS",
-        "WhatsApp",
-        "PagerDuty"
-      ],
-      "createdAt": "2026-09-25T14:43:44.823Z",
-      "updatedAt": "2026-09-25T16:08:38.456Z"
-    },
-    {
-      "id": "ALT-SOS-SOS-2007",
-      "type": "sos",
-      "source": "incident",
-      "sourceName": "Citizen SOS Dispatch",
-      "sosId": "SOS-2007",
-      "incidentId": "SOS-2007",
-      "location_name": "20.1269, 73.6769",
-      "area": "Citizen SOS Location",
-      "lat": 20.1269,
-      "lng": 73.67689999999999,
-      "latitude": 20.1269,
-      "longitude": 73.67689999999999,
-      "level": "RED",
-      "severity": "CRITICAL",
-      "title": "SOS: Citizen stranded in flood water (1 people)",
-      "description": "Immediate water rescue required. Contact: Emergency Call",
-      "message": "Immediate water rescue required. Contact: Emergency Call",
-      "status": "Active SOS",
-      "channels": [
-        "App",
-        "SMS",
-        "WhatsApp",
-        "PagerDuty"
-      ],
-      "createdAt": "2026-09-25T14:28:43.375Z",
-      "updatedAt": "2026-09-25T16:08:38.456Z"
-    },
-    {
-      "id": "ALT-1456",
-      "sosId": "SOS-2011",
-      "incidentId": "INC-1051",
-      "title": "🚨 CRITICAL SOS: New Citizen 4572",
-      "description": "Immediate distress signal triggered at Sector Road 4572. Contact: +9198000457299 (Emergency: 98000457299)",
-      "severity": "CRITICAL",
-      "zoneId": "ZONE-01",
-      "area": "Sector Road 4572",
-      "userPhone": "+9198000457299",
-      "emergencyNumber": "98000457299",
-      "userName": "New Citizen 4572",
-      "role": "Resident",
-      "reporterCount": 1,
-      "isQuarantined": false,
-      "timestamp": "2026-09-25T14:51:21.443Z",
-      "type": "SOS",
-      "isSos": true,
-      "unread": true
-    },
-    {
-      "id": "ALT-1362",
-      "sosId": "SOS-2012",
-      "incidentId": "INC-1050",
-      "title": "🚨 CRITICAL SOS: Sim User 1",
-      "description": "🚨 Clustered SOS (4 reports within 500m). Latest: Sim User 4 (+919700045724) at Circle 4",
-      "severity": "CRITICAL",
-      "zoneId": "ZONE-01",
-      "area": "Circle 1",
-      "userPhone": "+919700045721",
-      "emergencyNumber": "9800000000",
-      "userName": "Sim User 1",
-      "role": "Commuter",
-      "reporterCount": 4,
-      "isQuarantined": false,
-      "timestamp": "2026-09-25T14:51:21.350Z",
-      "type": "SOS",
-      "isSos": true,
-      "unread": true,
-      "reporter_count": 4,
-      "reports": [
-        {
-          "id": "RPT-881362-737",
-          "incident_id": "INC-1050",
-          "sos_id": "SOS-2012",
-          "user_id": "SIM-1-4572",
-          "user_name": "Sim User 1",
-          "user_phone": "+919700045721",
-          "emergency_number": "9800000000",
-          "role": "Commuter",
-          "latitude": 19.8572,
-          "longitude": 73.2772,
-          "lat": 19.8572,
-          "lng": 73.2772,
-          "address": "Circle 1",
-          "distance_meters": 0,
-          "timestamp": "2026-09-25T14:51:21.350Z",
-          "created_at": "2026-09-25T14:51:21.350Z"
-        },
-        {
-          "id": "RPT-881382-923",
-          "incident_id": "INC-1050",
-          "sos_id": "SOS-2012",
-          "user_id": "SIM-3-4572",
-          "user_name": "Sim User 3",
-          "user_phone": "+919700045723",
-          "emergency_number": "9800000000",
-          "role": "Commuter",
-          "latitude": 19.8569,
-          "longitude": 73.2769,
-          "lat": 19.8569,
-          "lng": 73.2769,
-          "address": "Circle 3",
-          "distance_meters": 46,
-          "timestamp": "2026-09-25T14:51:21.351Z",
-          "created_at": "2026-09-25T14:51:21.351Z"
-        },
-        {
-          "id": "RPT-881399-459",
-          "incident_id": "INC-1050",
-          "sos_id": "SOS-2012",
-          "user_id": "SIM-2-4572",
-          "user_name": "Sim User 2",
-          "user_phone": "+919700045722",
-          "emergency_number": "9800000000",
-          "role": "Commuter",
-          "latitude": 19.857499999999998,
-          "longitude": 73.27749999999999,
-          "lat": 19.857499999999998,
-          "lng": 73.27749999999999,
-          "address": "Circle 2",
-          "distance_meters": 46,
-          "timestamp": "2026-09-25T14:51:21.351Z",
-          "created_at": "2026-09-25T14:51:21.351Z"
-        },
-        {
-          "id": "RPT-881415-791",
-          "incident_id": "INC-1050",
-          "sos_id": "SOS-2012",
-          "user_id": "SIM-4-4572",
-          "user_name": "Sim User 4",
-          "user_phone": "+919700045724",
-          "emergency_number": "9800000000",
-          "role": "Commuter",
-          "latitude": 19.857699999999998,
-          "longitude": 73.27699999999999,
-          "lat": 19.857699999999998,
-          "lng": 73.27699999999999,
-          "address": "Circle 4",
-          "distance_meters": 59,
-          "timestamp": "2026-09-25T14:51:21.352Z",
-          "created_at": "2026-09-25T14:51:21.352Z"
-        }
-      ],
-      "updatedAt": "2026-09-25T14:51:21.352Z"
-    },
-    {
-      "id": "ALT-1335",
-      "sosId": "SOS-2011",
-      "incidentId": "INC-1049",
-      "title": "🚨 CRITICAL SOS: User D (4572)",
-      "description": "Immediate distress signal triggered at North Junction 4572. Contact: +9198000045724 (Emergency: 98000045724)",
-      "severity": "CRITICAL",
-      "zoneId": "ZONE-01",
-      "area": "North Junction 4572",
-      "userPhone": "+9198000045724",
-      "emergencyNumber": "98000045724",
-      "userName": "User D (4572)",
-      "role": "Resident",
-      "reporterCount": 1,
-      "isQuarantined": false,
-      "timestamp": "2026-09-25T14:51:21.323Z",
-      "type": "SOS",
-      "isSos": true,
-      "unread": true
-    },
-    {
-      "id": "ALT-4843",
-      "sosId": "SOS-2009",
-      "incidentId": "INC-1047",
-      "title": "🚨 CRITICAL SOS: New Citizen 4331",
-      "description": "Immediate distress signal triggered at Sector Road 4331. Contact: +9198000433199 (Emergency: 98000433199)",
-      "severity": "CRITICAL",
-      "zoneId": "ZONE-01",
-      "area": "Sector Road 4331",
-      "userPhone": "+9198000433199",
-      "emergencyNumber": "98000433199",
-      "userName": "New Citizen 4331",
-      "role": "Resident",
-      "reporterCount": 1,
-      "isQuarantined": false,
-      "timestamp": "2026-09-25T14:43:44.823Z",
-      "type": "SOS",
-      "isSos": true,
-      "unread": true
-    },
-    {
-      "id": "ALT-4681",
-      "sosId": "SOS-2009",
-      "incidentId": "INC-1045",
-      "title": "🚨 CRITICAL SOS: User D (4331)",
-      "description": "Immediate distress signal triggered at North Junction 4331. Contact: +9198000043314 (Emergency: 98000043314)",
-      "severity": "CRITICAL",
-      "zoneId": "ZONE-01",
-      "area": "North Junction 4331",
-      "userPhone": "+9198000043314",
-      "emergencyNumber": "98000043314",
-      "userName": "User D (4331)",
-      "role": "Resident",
-      "reporterCount": 1,
-      "isQuarantined": false,
-      "timestamp": "2026-09-25T14:43:44.674Z",
-      "type": "SOS",
-      "isSos": true,
-      "unread": true
-    },
-    {
-      "id": "ALT-3386",
-      "sosId": "SOS-2007",
-      "incidentId": "INC-1043",
-      "title": "🚨 CRITICAL SOS: New Citizen 8269",
-      "description": "Immediate distress signal triggered at Sector Road 8269. Contact: +9198000826999 (Emergency: 98000826999)",
-      "severity": "CRITICAL",
-      "zoneId": "ZONE-01",
-      "area": "Sector Road 8269",
-      "userPhone": "+9198000826999",
-      "emergencyNumber": "98000826999",
-      "userName": "New Citizen 8269",
-      "role": "Resident",
-      "reporterCount": 1,
-      "isQuarantined": false,
-      "timestamp": "2026-09-25T14:28:43.375Z",
-      "type": "SOS",
-      "isSos": true,
-      "unread": true
-    },
-    {
-      "id": "ALT-3284",
-      "sosId": "SOS-2007",
-      "incidentId": "INC-1041",
-      "title": "🚨 CRITICAL SOS: User D (8269)",
-      "description": "Immediate distress signal triggered at North Junction 8269. Contact: +9198000082694 (Emergency: 98000082694)",
-      "severity": "CRITICAL",
-      "zoneId": "ZONE-01",
-      "area": "North Junction 8269",
-      "userPhone": "+9198000082694",
-      "emergencyNumber": "98000082694",
-      "userName": "User D (8269)",
-      "role": "Resident",
-      "reporterCount": 1,
-      "isQuarantined": false,
-      "timestamp": "2026-09-25T14:28:43.278Z",
-      "type": "SOS",
-      "isSos": true,
-      "unread": true
-    },
-    {
-      "id": "ALT-5942",
-      "sosId": "SOS-2009",
-      "incidentId": "INC-1038",
-      "title": "🚨 CRITICAL SOS: Sim User 1",
-      "description": "🚨 Clustered SOS (4 reports within 500m). Latest: Sim User 4 (+919700062454) at Circle 4",
-      "severity": "CRITICAL",
-      "zoneId": "ZONE-01",
-      "area": "Circle 1",
-      "userPhone": "+919700062451",
-      "emergencyNumber": "9800000000",
-      "userName": "Sim User 1",
-      "role": "Commuter",
-      "reporterCount": 4,
-      "isQuarantined": false,
-      "timestamp": "2026-09-25T14:21:35.915Z",
-      "type": "SOS",
-      "isSos": true,
-      "unread": true,
-      "updatedAt": "2026-09-25T14:21:35.916Z"
+      "updatedAt": "2026-09-25T16:41:28.761Z"
     }
   ],
   "dispatches": [
@@ -11101,7 +10770,7 @@
       "lng": 72.90121,
       "reason": "Water accumulation in low-lying depression requiring active response.",
       "channel": "Live Operations Command",
-      "status": "Completed",
+      "status": "Cancelled",
       "eta": "4 min",
       "createdAt": "2026-09-25T13:43:02.537Z"
     },
@@ -11126,7 +10795,7 @@
       "lng": 72.90121,
       "reason": "Water accumulation in low-lying depression requiring active response.",
       "channel": "Live Operations Command",
-      "status": "Completed",
+      "status": "Cancelled",
       "eta": "4 min",
       "createdAt": "2026-09-25T13:28:41.394Z"
     },
@@ -11271,13 +10940,474 @@
       "teamId": "TEAM-03",
       "reason": "Surface Runoff Accumulation",
       "channel": "Twilio SMS + Operations Board Bus",
-      "status": "Completed",
+      "status": "Cancelled",
       "eta": "8–12 min",
       "isOverride": false,
       "createdAt": "2026-09-22T12:04:25.461Z"
     }
   ],
-  "resources": [],
+  "resources": [
+    {
+      "id": "RES-SIM-001",
+      "name": "Advanced Life Support (ALS) Ambulance",
+      "category": "MEDICAL",
+      "unit": "Ambulances",
+      "quantity": 6,
+      "availableQuantity": 6,
+      "capacity": "Mobile ICU, Ventilator & Oxygen Station",
+      "icon": "🚑",
+      "emoji": "🚑",
+      "description": "Emergency patient stabilization and high-speed transit with onboard paramedic team.",
+      "agency": "KJ CURE HOSPITAL",
+      "base_location": "Landmark CHS, Cluster_mumbai Suburban_602, 1, Swami Vivekanand Rd, Petrol pump, Kevni Pada, Jogeshwari West, Mumbai",
+      "address": "Landmark CHS, Cluster_mumbai Suburban_602, 1, Swami Vivekanand Rd, Petrol pump, Kevni Pada, Jogeshwari West, Mumbai",
+      "latitude": 19.13009,
+      "longitude": 72.84726,
+      "lat": 19.13009,
+      "lng": 72.84726,
+      "distanceKm": 0.4,
+      "distance_km": 0.4,
+      "status": "En route",
+      "phone": "108 / 102",
+      "simulation_id": "SIM-20260925-703",
+      "created_at": "2026-09-25T16:42:17.833Z",
+      "currentIncidentId": "INC-1015",
+      "eta": "8–12 min",
+      "activeDispatchId": "DSP-82"
+    },
+    {
+      "id": "RES-SIM-002",
+      "name": "Emergency Hospital Triage Beds",
+      "category": "MEDICAL",
+      "unit": "Beds",
+      "quantity": 62,
+      "availableQuantity": 62,
+      "capacity": "Monitored Trauma & Acute Recovery Beds",
+      "icon": "🛏️",
+      "emoji": "🛏️",
+      "description": "Designated clean emergency admission ward equipped with emergency generator backup.",
+      "agency": "KJ CURE HOSPITAL",
+      "base_location": "Landmark CHS, Cluster_mumbai Suburban_602, 1, Swami Vivekanand Rd, Petrol pump, Kevni Pada, Jogeshwari West, Mumbai",
+      "address": "Landmark CHS, Cluster_mumbai Suburban_602, 1, Swami Vivekanand Rd, Petrol pump, Kevni Pada, Jogeshwari West, Mumbai",
+      "latitude": 19.13009,
+      "longitude": 72.84726,
+      "lat": 19.13009,
+      "lng": 72.84726,
+      "distanceKm": 0.4,
+      "distance_km": 0.4,
+      "status": "AVAILABLE",
+      "phone": "108 / 102",
+      "simulation_id": "SIM-20260925-703",
+      "created_at": "2026-09-25T16:42:17.833Z",
+      "currentIncidentId": null,
+      "eta": "3 min"
+    },
+    {
+      "id": "RES-SIM-003",
+      "name": "Emergency Drinking Water Packs",
+      "category": "WATER",
+      "unit": "Packs",
+      "quantity": 144,
+      "availableQuantity": 144,
+      "capacity": "1L Purified Sealed Water Bottles (Pack of 12)",
+      "icon": "💧",
+      "emoji": "💧",
+      "description": "Certified potable drinking water safe from microbial stormwater contamination.",
+      "agency": "Ketto - Crowdfunding & Medical Fundraising in India",
+      "base_location": "Suvidha Square junction of SV road, and, Ceasar Rd, Andheri West, Mumbai",
+      "address": "Suvidha Square junction of SV road, and, Ceasar Rd, Andheri West, Mumbai",
+      "latitude": 19.12786,
+      "longitude": 72.84693,
+      "lat": 19.12786,
+      "lng": 72.84693,
+      "distanceKm": 0.5,
+      "distance_km": 0.5,
+      "status": "AVAILABLE",
+      "phone": "1800-11-2334 / 9869001892",
+      "simulation_id": "SIM-20260925-703",
+      "created_at": "2026-09-25T16:42:17.833Z",
+      "currentIncidentId": null,
+      "eta": "4 min"
+    },
+    {
+      "id": "RES-SIM-004",
+      "name": "High-Pressure Hydro-Jet Drain Cleanser",
+      "category": "RESCUE",
+      "unit": "Vehicles",
+      "quantity": 1,
+      "availableQuantity": 1,
+      "capacity": "Vacuum Suction & High-Pressure Jetting",
+      "icon": "🛠️",
+      "emoji": "🛠️",
+      "description": "High-velocity jetting rig to dislodge chronic plastic and silt bottlenecks from underground drains.",
+      "agency": "Hari Nagar Municipal Dispensary",
+      "base_location": "101, Rajmata Jijabai Marg, Saraswati Baug, Shivaji Nagar, Parsi Colony, Jogeshwari East, Mumbai",
+      "address": "101, Rajmata Jijabai Marg, Saraswati Baug, Shivaji Nagar, Parsi Colony, Jogeshwari East, Mumbai",
+      "latitude": 19.12617,
+      "longitude": 72.85752,
+      "lat": 19.12617,
+      "lng": 72.85752,
+      "distanceKm": 0.9,
+      "distance_km": 0.9,
+      "status": "AVAILABLE",
+      "phone": "108 / 102",
+      "simulation_id": "SIM-20260925-703",
+      "created_at": "2026-09-25T16:42:17.834Z",
+      "currentIncidentId": null,
+      "eta": "5 min"
+    },
+    {
+      "id": "RES-SIM-005",
+      "name": "Hydraulic Excavator / JCB Desilting Unit",
+      "category": "RESCUE",
+      "unit": "Units",
+      "quantity": 3,
+      "availableQuantity": 3,
+      "capacity": "0.8m³ Heavy Bucket Silt Excavator",
+      "icon": "🚜",
+      "emoji": "🚜",
+      "description": "Clears collapsed culverts, construction debris, and uprooted trees blocking stormwater outfalls.",
+      "agency": "Hari Nagar Municipal Dispensary",
+      "base_location": "101, Rajmata Jijabai Marg, Saraswati Baug, Shivaji Nagar, Parsi Colony, Jogeshwari East, Mumbai",
+      "address": "101, Rajmata Jijabai Marg, Saraswati Baug, Shivaji Nagar, Parsi Colony, Jogeshwari East, Mumbai",
+      "latitude": 19.12617,
+      "longitude": 72.85752,
+      "lat": 19.12617,
+      "lng": 72.85752,
+      "distanceKm": 0.9,
+      "distance_km": 0.9,
+      "status": "AVAILABLE",
+      "phone": "108 / 102",
+      "simulation_id": "SIM-20260925-703",
+      "created_at": "2026-09-25T16:42:17.834Z",
+      "currentIncidentId": null,
+      "eta": "5 min"
+    },
+    {
+      "id": "RES-SIM-006",
+      "name": "Rapid Public Safety & Traffic Patrol",
+      "category": "RESCUE",
+      "unit": "Units",
+      "quantity": 5,
+      "availableQuantity": 5,
+      "capacity": "4x4 High-Clearance Patrol Jeeps",
+      "icon": "👮",
+      "emoji": "👮",
+      "description": "Traffic diversion, flooded underpass barricading, and public evacuation order enforcement.",
+      "agency": "Police Station - Andheri",
+      "base_location": "Vertex Junction, Sahar Rd, Andheri Railway Station, Railway Colony, Andheri East, Mumbai",
+      "address": "Vertex Junction, Sahar Rd, Andheri Railway Station, Railway Colony, Andheri East, Mumbai",
+      "latitude": 19.12051,
+      "longitude": 72.84824,
+      "lat": 19.12051,
+      "lng": 72.84824,
+      "distanceKm": 1.1,
+      "distance_km": 1.1,
+      "status": "AVAILABLE",
+      "phone": "112 / 100",
+      "simulation_id": "SIM-20260925-703",
+      "created_at": "2026-09-25T16:42:17.834Z",
+      "currentIncidentId": null,
+      "eta": "6 min"
+    },
+    {
+      "id": "RES-SIM-007",
+      "name": "Rapid Public Safety & Traffic Patrol",
+      "category": "RESCUE",
+      "unit": "Units",
+      "quantity": 4,
+      "availableQuantity": 4,
+      "capacity": "4x4 High-Clearance Patrol Jeeps",
+      "icon": "👮",
+      "emoji": "👮",
+      "description": "Traffic diversion, flooded underpass barricading, and public evacuation order enforcement.",
+      "agency": "Mumbai Traffic Police",
+      "base_location": "4VR3+4W5, Gupha Tekdi, Jogeshwari East, Mumbai",
+      "address": "4VR3+4W5, Gupha Tekdi, Jogeshwari East, Mumbai",
+      "latitude": 19.14025,
+      "longitude": 72.85484,
+      "lat": 19.14025,
+      "lng": 72.85484,
+      "distanceKm": 1.2,
+      "distance_km": 1.2,
+      "status": "AVAILABLE",
+      "phone": "112 / 100",
+      "simulation_id": "SIM-20260925-703",
+      "created_at": "2026-09-25T16:42:17.834Z",
+      "currentIncidentId": null,
+      "eta": "6 min"
+    },
+    {
+      "id": "RES-SIM-008",
+      "name": "Rapid Public Safety & Traffic Patrol",
+      "category": "RESCUE",
+      "unit": "Units",
+      "quantity": 8,
+      "availableQuantity": 8,
+      "capacity": "4x4 High-Clearance Patrol Jeeps",
+      "icon": "👮",
+      "emoji": "👮",
+      "description": "Traffic diversion, flooded underpass barricading, and public evacuation order enforcement.",
+      "agency": "Jogeshwari Traffic Chowky",
+      "base_location": "1, Western Urban Rd, Bandrekar Wadi, Jogeshwari East, Mumbai",
+      "address": "1, Western Urban Rd, Bandrekar Wadi, Jogeshwari East, Mumbai",
+      "latitude": 19.14018,
+      "longitude": 72.85527,
+      "lat": 19.14018,
+      "lng": 72.85527,
+      "distanceKm": 1.2,
+      "distance_km": 1.2,
+      "status": "AVAILABLE",
+      "phone": "112 / 100",
+      "simulation_id": "SIM-20260925-703",
+      "created_at": "2026-09-25T16:42:17.834Z",
+      "currentIncidentId": null,
+      "eta": "6 min"
+    },
+    {
+      "id": "RES-SIM-009",
+      "name": "Advanced Life Support (ALS) Ambulance",
+      "category": "MEDICAL",
+      "unit": "Ambulances",
+      "quantity": 2,
+      "availableQuantity": 2,
+      "capacity": "Mobile ICU, Ventilator & Oxygen Station",
+      "icon": "🚑",
+      "emoji": "🚑",
+      "description": "Emergency patient stabilization and high-speed transit with onboard paramedic team.",
+      "agency": "HBT Trauma Care Centre Jogeshwari",
+      "base_location": "Geetanjali Railway Colony, Ram Nagar, Jogeshwari East, Mumbai",
+      "address": "Geetanjali Railway Colony, Ram Nagar, Jogeshwari East, Mumbai",
+      "latitude": 19.14108,
+      "longitude": 72.85424,
+      "lat": 19.14108,
+      "lng": 72.85424,
+      "distanceKm": 1.2,
+      "distance_km": 1.2,
+      "status": "AVAILABLE",
+      "phone": "108 / 102",
+      "simulation_id": "SIM-20260925-703",
+      "created_at": "2026-09-25T16:42:17.834Z",
+      "currentIncidentId": null,
+      "eta": "6 min"
+    },
+    {
+      "id": "RES-SIM-010",
+      "name": "Emergency Hospital Triage Beds",
+      "category": "MEDICAL",
+      "unit": "Beds",
+      "quantity": 44,
+      "availableQuantity": 44,
+      "capacity": "Monitored Trauma & Acute Recovery Beds",
+      "icon": "🛏️",
+      "emoji": "🛏️",
+      "description": "Designated clean emergency admission ward equipped with emergency generator backup.",
+      "agency": "HBT Trauma Care Centre Jogeshwari",
+      "base_location": "Geetanjali Railway Colony, Ram Nagar, Jogeshwari East, Mumbai",
+      "address": "Geetanjali Railway Colony, Ram Nagar, Jogeshwari East, Mumbai",
+      "latitude": 19.14108,
+      "longitude": 72.85424,
+      "lat": 19.14108,
+      "lng": 72.85424,
+      "distanceKm": 1.2,
+      "distance_km": 1.2,
+      "status": "AVAILABLE",
+      "phone": "108 / 102",
+      "simulation_id": "SIM-20260925-703",
+      "created_at": "2026-09-25T16:42:17.834Z",
+      "currentIncidentId": null,
+      "eta": "6 min"
+    },
+    {
+      "id": "RES-SIM-011",
+      "name": "Community Ready-to-Eat Meal Boxes",
+      "category": "FOOD",
+      "unit": "Meals",
+      "quantity": 213,
+      "availableQuantity": 213,
+      "capacity": "Warm Nutritious Meal Packs",
+      "icon": "🍲",
+      "emoji": "🍲",
+      "description": "Fresh community kitchen distribution boxes organized for stranded residents and shopkeepers.",
+      "agency": "Hidush Foundation",
+      "base_location": "509, Pearl Plaza, Andheri Railway Station East Middle Overpass, New McDonalds, Railway Colony, Andheri West, Mumbai",
+      "address": "509, Pearl Plaza, Andheri Railway Station East Middle Overpass, New McDonalds, Railway Colony, Andheri West, Mumbai",
+      "latitude": 19.12026,
+      "longitude": 72.84612,
+      "lat": 19.12026,
+      "lng": 72.84612,
+      "distanceKm": 1.2,
+      "distance_km": 1.2,
+      "status": "AVAILABLE",
+      "phone": "1800-11-2334 / 9869001892",
+      "simulation_id": "SIM-20260925-703",
+      "created_at": "2026-09-25T16:42:17.834Z",
+      "currentIncidentId": null,
+      "eta": "6 min"
+    },
+    {
+      "id": "RES-SIM-012",
+      "name": "Dry Relief Food Ration Packets",
+      "category": "FOOD",
+      "unit": "Packets",
+      "quantity": 53,
+      "availableQuantity": 15,
+      "capacity": "Nutrient-Dense Ready Meal Packs (72h Supply)",
+      "icon": "🍱",
+      "emoji": "🍱",
+      "description": "Sealed waterproof packets containing biscuits, dry roasted grains, ready meals, and glucose.",
+      "agency": "Hidush Foundation",
+      "base_location": "509, Pearl Plaza, Andheri Railway Station East Middle Overpass, New McDonalds, Railway Colony, Andheri West, Mumbai",
+      "address": "509, Pearl Plaza, Andheri Railway Station East Middle Overpass, New McDonalds, Railway Colony, Andheri West, Mumbai",
+      "latitude": 19.12026,
+      "longitude": 72.84612,
+      "lat": 19.12026,
+      "lng": 72.84612,
+      "distanceKm": 1.2,
+      "distance_km": 1.2,
+      "status": "LIMITED",
+      "phone": "1800-11-2334 / 9869001892",
+      "simulation_id": "SIM-20260925-703",
+      "created_at": "2026-09-25T16:42:17.834Z",
+      "currentIncidentId": null,
+      "eta": "6 min"
+    },
+    {
+      "id": "RES-SIM-013",
+      "name": "Rapid Public Safety & Traffic Patrol",
+      "category": "RESCUE",
+      "unit": "Units",
+      "quantity": 4,
+      "availableQuantity": 4,
+      "capacity": "4x4 High-Clearance Patrol Jeeps",
+      "icon": "👮",
+      "emoji": "👮",
+      "description": "Traffic diversion, flooded underpass barricading, and public evacuation order enforcement.",
+      "agency": "Amboli Police Station",
+      "base_location": "4RVX+28G, Patel Estate Rd, Prabhat Nagar, Jogeshwari West, Mumbai",
+      "address": "4RVX+28G, Patel Estate Rd, Prabhat Nagar, Jogeshwari West, Mumbai",
+      "latitude": 19.14257,
+      "longitude": 72.84834,
+      "lat": 19.14257,
+      "lng": 72.84834,
+      "distanceKm": 1.4,
+      "distance_km": 1.4,
+      "status": "AVAILABLE",
+      "phone": "112 / 100",
+      "simulation_id": "SIM-20260925-703",
+      "created_at": "2026-09-25T16:42:17.834Z",
+      "currentIncidentId": null,
+      "eta": "7 min"
+    },
+    {
+      "id": "RES-SIM-014",
+      "name": "High-Pressure Hydro-Jet Drain Cleanser",
+      "category": "RESCUE",
+      "unit": "Vehicles",
+      "quantity": 1,
+      "availableQuantity": 0,
+      "capacity": "Vacuum Suction & High-Pressure Jetting",
+      "icon": "🛠️",
+      "emoji": "🛠️",
+      "description": "High-velocity jetting rig to dislodge chronic plastic and silt bottlenecks from underground drains.",
+      "agency": "Brihanmumbai Municipal Corporation (BMC)",
+      "base_location": "Paliram Road, Near, Swami Vivekanand Rd, Andheri West, Mumbai",
+      "address": "Paliram Road, Near, Swami Vivekanand Rd, Andheri West, Mumbai",
+      "latitude": 19.11952,
+      "longitude": 72.84453,
+      "lat": 19.11952,
+      "lng": 72.84453,
+      "distanceKm": 1.4,
+      "distance_km": 1.4,
+      "status": "DEPLOYED",
+      "phone": "1916 / 1077",
+      "simulation_id": "SIM-20260925-703",
+      "created_at": "2026-09-25T16:42:17.834Z",
+      "currentIncidentId": null,
+      "eta": "7 min"
+    },
+    {
+      "id": "RES-SIM-015",
+      "name": "Major Trauma & Suture Kits",
+      "category": "MEDICAL",
+      "unit": "Kits",
+      "quantity": 44,
+      "availableQuantity": 44,
+      "capacity": "Sterile Wound Dressing & Splints",
+      "icon": "🩹",
+      "emoji": "🩹",
+      "description": "Field trauma kits for flood-borne debris lacerations and emergency first-aid.",
+      "agency": "City Multispeciality Hospital",
+      "base_location": "Ripon Apartment, 76, Swami Vivekanand Rd, Khoja Society, Vaishali Nagar, Jogeshwari West, Mumbai",
+      "address": "Ripon Apartment, 76, Swami Vivekanand Rd, Khoja Society, Vaishali Nagar, Jogeshwari West, Mumbai",
+      "latitude": 19.14318,
+      "longitude": 72.84319,
+      "lat": 19.14318,
+      "lng": 72.84319,
+      "distanceKm": 1.6,
+      "distance_km": 1.6,
+      "status": "AVAILABLE",
+      "phone": "108 / 102",
+      "simulation_id": "SIM-20260925-703",
+      "created_at": "2026-09-25T16:42:17.835Z",
+      "currentIncidentId": null,
+      "eta": "8 min"
+    },
+    {
+      "id": "RES-SIM-016",
+      "name": "Heavy Duty Fire & Water Pump Truck",
+      "category": "RESCUE",
+      "unit": "Trucks",
+      "quantity": 3,
+      "availableQuantity": 3,
+      "capacity": "10,000 L/min Dewatering Pump + 4000L Foam Tank",
+      "icon": "🚒",
+      "emoji": "🚒",
+      "description": "Equipped with high-pressure suction hoses, submersible flood drainage pumps, and cutting gear.",
+      "agency": "QRV 27K EAST WARD MINI FIRE STATION",
+      "base_location": "4V83+C96, Parsi Colony, Gundavali, Andheri East, Mumbai",
+      "address": "4V83+C96, Parsi Colony, Gundavali, Andheri East, Mumbai",
+      "latitude": 19.11605,
+      "longitude": 72.8534,
+      "lat": 19.11605,
+      "lng": 72.8534,
+      "distanceKm": 1.6,
+      "distance_km": 1.6,
+      "status": "AVAILABLE",
+      "phone": "101 / 022-23076111",
+      "simulation_id": "SIM-20260925-703",
+      "created_at": "2026-09-25T16:42:17.835Z",
+      "currentIncidentId": null,
+      "eta": "8 min"
+    },
+    {
+      "id": "RES-SIM-017",
+      "name": "Inflatable Zodiac Rescue Boat Squad",
+      "category": "RESCUE",
+      "unit": "Boats",
+      "quantity": 2,
+      "availableQuantity": 2,
+      "capacity": "6-Person Motorized Rescue Dinghy",
+      "icon": "🚤",
+      "emoji": "🚤",
+      "description": "Rapid shallow-water navigation for urban street flood rescue and casualty extraction.",
+      "agency": "QRV 27K EAST WARD MINI FIRE STATION",
+      "base_location": "4V83+C96, Parsi Colony, Gundavali, Andheri East, Mumbai",
+      "address": "4V83+C96, Parsi Colony, Gundavali, Andheri East, Mumbai",
+      "latitude": 19.11605,
+      "longitude": 72.8534,
+      "lat": 19.11605,
+      "lng": 72.8534,
+      "distanceKm": 1.6,
+      "distance_km": 1.6,
+      "status": "AVAILABLE",
+      "phone": "101 / 022-23076111",
+      "simulation_id": "SIM-20260925-703",
+      "created_at": "2026-09-25T16:42:17.835Z",
+      "currentIncidentId": null,
+      "eta": "8 min"
+    }
+  ],
   "users": [
     {
       "user_id": "USR-632055",
@@ -11430,160 +11560,7 @@
       "status": "unread"
     }
   ],
-  "sosAlerts": [
-    {
-      "id": "SOS-2011",
-      "userId": "USR-NEW-4572",
-      "userName": "New Citizen 4572",
-      "userPhone": "+9198000457299",
-      "emergencyNumber": "98000457299",
-      "role": "Resident",
-      "lat": 19.7572,
-      "lng": 73.3072,
-      "address": "Sector Road 4572",
-      "emergencyStatus": "ACTIVE_SOS",
-      "assignedTeam": "Disaster Management Command Cell",
-      "assignedTeamPhone": "1916 / 1077",
-      "eta": "3 mins",
-      "timestamp": "2026-09-25T14:51:21.443Z",
-      "isQuarantined": false,
-      "quarantineReason": null,
-      "smsSuppressed": false
-    },
-    {
-      "id": "SOS-2012",
-      "userId": "SIM-1-4572",
-      "userName": "Sim User 1",
-      "userPhone": "+919700045721",
-      "emergencyNumber": "9800000000",
-      "role": "Commuter",
-      "lat": 19.8572,
-      "lng": 73.2772,
-      "address": "Circle 1",
-      "emergencyStatus": "ACTIVE_SOS",
-      "assignedTeam": "Disaster Management Command Cell",
-      "assignedTeamPhone": "1916 / 1077",
-      "eta": "3 mins",
-      "timestamp": "2026-09-25T14:51:21.350Z",
-      "isQuarantined": false,
-      "quarantineReason": null,
-      "smsSuppressed": false
-    },
-    {
-      "id": "SOS-2011",
-      "userId": "USR-D-4572",
-      "userName": "User D (4572)",
-      "userPhone": "+9198000045724",
-      "emergencyNumber": "98000045724",
-      "role": "Resident",
-      "lat": 19.7622,
-      "lng": 73.31219999999999,
-      "address": "North Junction 4572",
-      "emergencyStatus": "ACTIVE_SOS",
-      "assignedTeam": "Disaster Management Command Cell",
-      "assignedTeamPhone": "1916 / 1077",
-      "eta": "3 mins",
-      "timestamp": "2026-09-25T14:51:21.323Z",
-      "isQuarantined": false,
-      "quarantineReason": null,
-      "smsSuppressed": false
-    },
-    {
-      "id": "SOS-2009",
-      "userId": "USR-NEW-4331",
-      "userName": "New Citizen 4331",
-      "userPhone": "+9198000433199",
-      "emergencyNumber": "98000433199",
-      "role": "Resident",
-      "lat": 19.7331,
-      "lng": 73.28309999999999,
-      "address": "Sector Road 4331",
-      "emergencyStatus": "ACTIVE_SOS",
-      "assignedTeam": "Disaster Management Command Cell",
-      "assignedTeamPhone": "1916 / 1077",
-      "eta": "3 mins",
-      "timestamp": "2026-09-25T14:43:44.823Z",
-      "isQuarantined": false,
-      "quarantineReason": null,
-      "smsSuppressed": false
-    },
-    {
-      "id": "SOS-2009",
-      "userId": "USR-D-4331",
-      "userName": "User D (4331)",
-      "userPhone": "+9198000043314",
-      "emergencyNumber": "98000043314",
-      "role": "Resident",
-      "lat": 19.7381,
-      "lng": 73.28809999999999,
-      "address": "North Junction 4331",
-      "emergencyStatus": "ACTIVE_SOS",
-      "assignedTeam": "Disaster Management Command Cell",
-      "assignedTeamPhone": "1916 / 1077",
-      "eta": "3 mins",
-      "timestamp": "2026-09-25T14:43:44.674Z",
-      "isQuarantined": false,
-      "quarantineReason": null,
-      "smsSuppressed": false
-    },
-    {
-      "id": "SOS-2007",
-      "userId": "USR-NEW-8269",
-      "userName": "New Citizen 8269",
-      "userPhone": "+9198000826999",
-      "emergencyNumber": "98000826999",
-      "role": "Resident",
-      "lat": 20.1269,
-      "lng": 73.67689999999999,
-      "address": "Sector Road 8269",
-      "emergencyStatus": "ACTIVE_SOS",
-      "assignedTeam": "Disaster Management Command Cell",
-      "assignedTeamPhone": "1916 / 1077",
-      "eta": "3 mins",
-      "timestamp": "2026-09-25T14:28:43.375Z",
-      "isQuarantined": false,
-      "quarantineReason": null,
-      "smsSuppressed": false
-    },
-    {
-      "id": "SOS-2007",
-      "userId": "USR-D-8269",
-      "userName": "User D (8269)",
-      "userPhone": "+9198000082694",
-      "emergencyNumber": "98000082694",
-      "role": "Resident",
-      "lat": 20.131899999999998,
-      "lng": 73.68189999999998,
-      "address": "North Junction 8269",
-      "emergencyStatus": "ACTIVE_SOS",
-      "assignedTeam": "Disaster Management Command Cell",
-      "assignedTeamPhone": "1916 / 1077",
-      "eta": "3 mins",
-      "timestamp": "2026-09-25T14:28:43.278Z",
-      "isQuarantined": false,
-      "quarantineReason": null,
-      "smsSuppressed": false
-    },
-    {
-      "id": "SOS-2009",
-      "userId": "SIM-1-6245",
-      "userName": "Sim User 1",
-      "userPhone": "+919700062451",
-      "emergencyNumber": "9800000000",
-      "role": "Commuter",
-      "lat": 20.0245,
-      "lng": 73.44449999999999,
-      "address": "Circle 1",
-      "emergencyStatus": "ACTIVE_SOS",
-      "assignedTeam": "Disaster Management Command Cell",
-      "assignedTeamPhone": "1916 / 1077",
-      "eta": "3 mins",
-      "timestamp": "2026-09-25T14:21:35.915Z",
-      "isQuarantined": false,
-      "quarantineReason": null,
-      "smsSuppressed": false
-    }
-  ],
+  "sosAlerts": [],
   "alertFeedbacks": [
     {
       "id": "FB-8548",
@@ -11683,6 +11660,195 @@
       "type": "FALSE_ALARM",
       "role": "Ward Admin",
       "timestamp": "2026-09-25T16:12:29.989Z"
+    },
+    {
+      "id": "FB-1790353678551",
+      "alertId": "ALT-FLD-04-100",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:27:58.551Z"
+    },
+    {
+      "id": "FB-1790353679582",
+      "alertId": "ALT-FLD-04-100",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:27:59.582Z"
+    },
+    {
+      "id": "FB-1790353728718",
+      "alertId": "ALT-FLD-04-100",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:28:48.718Z"
+    },
+    {
+      "id": "FB-1790353729813",
+      "alertId": "ALT-FLD-04-100",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:28:49.813Z"
+    },
+    {
+      "id": "FB-1790353787998",
+      "alertId": "ALT-SOS-SOS-2009",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:29:47.998Z"
+    },
+    {
+      "id": "FB-1790353839210",
+      "alertId": "ALT-FLD-04-100",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:30:39.210Z"
+    },
+    {
+      "id": "FB-1790353839730",
+      "alertId": "ALT-FLD-04-100",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:30:39.730Z"
+    },
+    {
+      "id": "FB-1790353840748",
+      "alertId": "ALT-SOS-SOS-2007",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:30:40.748Z"
+    },
+    {
+      "id": "FB-1790353841147",
+      "alertId": "ALT-SOS-SOS-2007",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:30:41.147Z"
+    },
+    {
+      "id": "FB-1790353841513",
+      "alertId": "ALT-SOS-SOS-2007",
+      "type": "RESOLVED",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:30:41.513Z"
+    },
+    {
+      "id": "FB-1790353948800",
+      "alertId": "ALT-FLD-04-100",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:32:28.800Z"
+    },
+    {
+      "id": "FB-1790353950215",
+      "alertId": "ALT-DRN-BLK-01",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:32:30.215Z"
+    },
+    {
+      "id": "FB-1790353955516",
+      "alertId": "ALT-LTG-01",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:32:35.516Z"
+    },
+    {
+      "id": "FB-1790353994766",
+      "alertId": "ALT-FLD-04-100",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:33:14.766Z"
+    },
+    {
+      "id": "FB-1790353995596",
+      "alertId": "ALT-FLD-04-100",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:33:15.596Z"
+    },
+    {
+      "id": "FB-1790354025614",
+      "alertId": "ALT-FLD-04-100",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:33:45.614Z"
+    },
+    {
+      "id": "FB-1790354370547",
+      "alertId": "ALT-DRN-BLK-01",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:39:30.547Z"
+    },
+    {
+      "id": "FB-1790354371679",
+      "alertId": "ALT-DRN-BLK-01",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:39:31.679Z"
+    },
+    {
+      "id": "FB-1790354372412",
+      "alertId": "ALT-LTG-01",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:39:32.412Z"
+    },
+    {
+      "id": "FB-1790354373313",
+      "alertId": "ALT-DRN-BLK-02",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:39:33.313Z"
+    },
+    {
+      "id": "FB-1790354377294",
+      "alertId": "ALT-LTG-01",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:39:37.294Z"
+    },
+    {
+      "id": "FB-1790354379628",
+      "alertId": "ALT-DRN-BLK-01",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:39:39.628Z"
+    },
+    {
+      "id": "FB-1790354380546",
+      "alertId": "ALT-DRN-BLK-02",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:39:40.546Z"
+    },
+    {
+      "id": "FB-1790354381562",
+      "alertId": "ALT-DRN-BLK-02",
+      "type": "RESOLVED",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:39:41.562Z"
+    },
+    {
+      "id": "FB-1790354471720",
+      "alertId": "ALT-DRN-BLK-01",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:41:11.721Z"
+    },
+    {
+      "id": "FB-1790354473296",
+      "alertId": "ALT-DRN-BLK-01",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:41:13.296Z"
+    },
+    {
+      "id": "FB-1790354475194",
+      "alertId": "ALT-LTG-01",
+      "type": "FALSE_ALARM",
+      "role": "Ward Admin",
+      "timestamp": "2026-09-25T16:41:15.194Z"
     }
   ],
   "chronicBlockages": [
@@ -11757,14 +11923,20 @@
       "userPhone": "+919869001892",
       "totalSubmissions": 18,
       "verifiedCount": 2,
-      "falseAlarmCount": 1,
-      "trustScore": 0.75,
-      "status": "NORMAL",
+      "falseAlarmCount": 2,
+      "trustScore": 0.43,
+      "status": "WARNING",
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-22T11:46:24.391Z",
-      "updatedAt": "2026-09-25T13:47:28.996Z",
+      "updatedAt": "2026-09-25T16:41:28.746Z",
       "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1031",
+          "reason": "Dismissed by Authority Admin",
+          "timestamp": "2026-09-25T16:41:28.746Z"
+        },
         {
           "action": "VERIFIED",
           "incidentId": "INC-1001",
@@ -11789,14 +11961,38 @@
       "userPhone": null,
       "totalSubmissions": 0,
       "verifiedCount": 0,
-      "falseAlarmCount": 1,
-      "trustScore": 0.33,
-      "status": "WARNING",
-      "isQuarantined": false,
-      "quarantineReason": null,
+      "falseAlarmCount": 5,
+      "trustScore": 0.09,
+      "status": "QUARANTINED",
+      "isQuarantined": true,
+      "quarantineReason": "Exceeded false alarm threshold (5 strikes): Marked as False Alarm by Authority Admin",
       "createdAt": "2026-09-25T12:03:12.992Z",
-      "updatedAt": "2026-09-25T12:03:12.992Z",
+      "updatedAt": "2026-09-25T16:35:19.349Z",
       "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1008",
+          "reason": "Marked as False Alarm by Authority Admin",
+          "timestamp": "2026-09-25T16:35:19.349Z"
+        },
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1002",
+          "reason": "Marked as False Alarm by Authority Admin",
+          "timestamp": "2026-09-25T16:35:17.919Z"
+        },
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1004",
+          "reason": "Marked as False Alarm by Authority Admin",
+          "timestamp": "2026-09-25T16:35:16.296Z"
+        },
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1007",
+          "reason": "Marked as False Alarm by Authority Admin",
+          "timestamp": "2026-09-25T16:35:15.263Z"
+        },
         {
           "action": "FALSE_ALARM_STRIKE",
           "incidentId": "INC-1006",
@@ -11838,14 +12034,26 @@
       "userPhone": "+919820011223",
       "totalSubmissions": 3,
       "verifiedCount": 3,
-      "falseAlarmCount": 0,
-      "trustScore": 1,
-      "status": "TRUSTED",
+      "falseAlarmCount": 2,
+      "trustScore": 0.5,
+      "status": "WARNING",
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-25T13:00:48.806Z",
-      "updatedAt": "2026-09-25T13:43:01.963Z",
+      "updatedAt": "2026-09-25T16:35:12.463Z",
       "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1017",
+          "reason": "Marked as False Alarm by Authority Admin",
+          "timestamp": "2026-09-25T16:35:12.463Z"
+        },
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1028",
+          "reason": "Marked as False Alarm by Authority Admin",
+          "timestamp": "2026-09-25T16:35:11.346Z"
+        },
         {
           "action": "VERIFIED",
           "incidentId": "INC-1028",
@@ -12225,14 +12433,21 @@
       "userPhone": "+9198000064974",
       "totalSubmissions": 1,
       "verifiedCount": 0,
-      "falseAlarmCount": 0,
-      "trustScore": 1,
-      "status": "NORMAL",
+      "falseAlarmCount": 1,
+      "trustScore": 0.33,
+      "status": "WARNING",
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-25T13:50:03.367Z",
-      "updatedAt": "2026-09-25T13:50:03.367Z",
-      "history": []
+      "updatedAt": "2026-09-25T16:41:27.085Z",
+      "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1033",
+          "reason": "Dismissed by Authority Admin",
+          "timestamp": "2026-09-25T16:41:27.085Z"
+        }
+      ]
     },
     "+919700064971": {
       "identifier": "+919700064971",
@@ -12360,14 +12575,21 @@
       "userPhone": "+9198000062454",
       "totalSubmissions": 1,
       "verifiedCount": 0,
-      "falseAlarmCount": 0,
-      "trustScore": 1,
-      "status": "NORMAL",
+      "falseAlarmCount": 1,
+      "trustScore": 0.33,
+      "status": "WARNING",
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-25T14:21:35.871Z",
-      "updatedAt": "2026-09-25T14:21:35.871Z",
-      "history": []
+      "updatedAt": "2026-09-25T16:41:24.857Z",
+      "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1037",
+          "reason": "Dismissed by Authority Admin",
+          "timestamp": "2026-09-25T16:41:24.857Z"
+        }
+      ]
     },
     "+919700062451": {
       "identifier": "+919700062451",
@@ -12375,14 +12597,21 @@
       "userPhone": "+919700062451",
       "totalSubmissions": 1,
       "verifiedCount": 0,
-      "falseAlarmCount": 0,
-      "trustScore": 1,
-      "status": "NORMAL",
+      "falseAlarmCount": 1,
+      "trustScore": 0.33,
+      "status": "WARNING",
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-25T14:21:35.930Z",
-      "updatedAt": "2026-09-25T14:21:35.931Z",
-      "history": []
+      "updatedAt": "2026-09-25T16:35:31.828Z",
+      "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1038",
+          "reason": "Marked as False Alarm by Authority Admin",
+          "timestamp": "2026-09-25T16:35:31.828Z"
+        }
+      ]
     },
     "+919700062453": {
       "identifier": "+919700062453",
@@ -12435,14 +12664,21 @@
       "userPhone": "+9198000624599",
       "totalSubmissions": 1,
       "verifiedCount": 0,
-      "falseAlarmCount": 0,
-      "trustScore": 1,
-      "status": "NORMAL",
+      "falseAlarmCount": 1,
+      "trustScore": 0.33,
+      "status": "WARNING",
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-25T14:21:36.094Z",
-      "updatedAt": "2026-09-25T14:21:36.094Z",
-      "history": []
+      "updatedAt": "2026-09-25T16:35:28.912Z",
+      "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1039",
+          "reason": "Marked as False Alarm by Authority Admin",
+          "timestamp": "2026-09-25T16:35:28.912Z"
+        }
+      ]
     },
     "+9198000082691": {
       "identifier": "+9198000082691",
@@ -12450,14 +12686,21 @@
       "userPhone": "+9198000082691",
       "totalSubmissions": 1,
       "verifiedCount": 0,
-      "falseAlarmCount": 0,
-      "trustScore": 1,
-      "status": "NORMAL",
+      "falseAlarmCount": 1,
+      "trustScore": 0.33,
+      "status": "WARNING",
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-25T14:28:43.231Z",
-      "updatedAt": "2026-09-25T14:28:43.231Z",
-      "history": []
+      "updatedAt": "2026-09-25T16:35:30.713Z",
+      "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1040",
+          "reason": "Marked as False Alarm by Authority Admin",
+          "timestamp": "2026-09-25T16:35:30.713Z"
+        }
+      ]
     },
     "+9198000082692": {
       "identifier": "+9198000082692",
@@ -12495,14 +12738,21 @@
       "userPhone": "+9198000082694",
       "totalSubmissions": 1,
       "verifiedCount": 0,
-      "falseAlarmCount": 0,
-      "trustScore": 1,
-      "status": "NORMAL",
+      "falseAlarmCount": 1,
+      "trustScore": 0.33,
+      "status": "WARNING",
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-25T14:28:43.279Z",
-      "updatedAt": "2026-09-25T14:28:43.279Z",
-      "history": []
+      "updatedAt": "2026-09-25T16:35:27.845Z",
+      "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1041",
+          "reason": "Marked as False Alarm by Authority Admin",
+          "timestamp": "2026-09-25T16:35:27.845Z"
+        }
+      ]
     },
     "+919700082691": {
       "identifier": "+919700082691",
@@ -12510,14 +12760,21 @@
       "userPhone": "+919700082691",
       "totalSubmissions": 1,
       "verifiedCount": 0,
-      "falseAlarmCount": 0,
-      "trustScore": 1,
-      "status": "NORMAL",
+      "falseAlarmCount": 1,
+      "trustScore": 0.33,
+      "status": "WARNING",
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-25T14:28:43.296Z",
-      "updatedAt": "2026-09-25T14:28:43.296Z",
-      "history": []
+      "updatedAt": "2026-09-25T16:34:02.846Z",
+      "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1042",
+          "reason": "Marked as False Alarm by Authority Admin",
+          "timestamp": "2026-09-25T16:34:02.846Z"
+        }
+      ]
     },
     "+919700082692": {
       "identifier": "+919700082692",
@@ -12570,14 +12827,21 @@
       "userPhone": "+9198000826999",
       "totalSubmissions": 1,
       "verifiedCount": 0,
-      "falseAlarmCount": 0,
-      "trustScore": 1,
-      "status": "NORMAL",
+      "falseAlarmCount": 1,
+      "trustScore": 0.33,
+      "status": "WARNING",
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-25T14:28:43.379Z",
-      "updatedAt": "2026-09-25T14:28:43.379Z",
-      "history": []
+      "updatedAt": "2026-09-25T16:30:40.748Z",
+      "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1043",
+          "reason": "Marked as false alarm via alert feedback",
+          "timestamp": "2026-09-25T16:30:40.748Z"
+        }
+      ]
     },
     "+9198000043311": {
       "identifier": "+9198000043311",
@@ -12585,14 +12849,21 @@
       "userPhone": "+9198000043311",
       "totalSubmissions": 1,
       "verifiedCount": 0,
-      "falseAlarmCount": 0,
-      "trustScore": 1,
-      "status": "NORMAL",
+      "falseAlarmCount": 1,
+      "trustScore": 0.33,
+      "status": "WARNING",
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-25T14:43:44.619Z",
-      "updatedAt": "2026-09-25T14:43:44.619Z",
-      "history": []
+      "updatedAt": "2026-09-25T16:34:00.863Z",
+      "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1044",
+          "reason": "Marked as False Alarm by Authority Admin",
+          "timestamp": "2026-09-25T16:34:00.863Z"
+        }
+      ]
     },
     "+9198000043312": {
       "identifier": "+9198000043312",
@@ -12630,14 +12901,21 @@
       "userPhone": "+9198000043314",
       "totalSubmissions": 1,
       "verifiedCount": 0,
-      "falseAlarmCount": 0,
-      "trustScore": 1,
-      "status": "NORMAL",
+      "falseAlarmCount": 1,
+      "trustScore": 0.33,
+      "status": "WARNING",
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-25T14:43:44.675Z",
-      "updatedAt": "2026-09-25T14:43:44.675Z",
-      "history": []
+      "updatedAt": "2026-09-25T16:34:05.112Z",
+      "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1045",
+          "reason": "Marked as False Alarm by Authority Admin",
+          "timestamp": "2026-09-25T16:34:05.112Z"
+        }
+      ]
     },
     "+919700043311": {
       "identifier": "+919700043311",
@@ -12645,14 +12923,21 @@
       "userPhone": "+919700043311",
       "totalSubmissions": 1,
       "verifiedCount": 0,
-      "falseAlarmCount": 0,
-      "trustScore": 1,
-      "status": "NORMAL",
+      "falseAlarmCount": 1,
+      "trustScore": 0.33,
+      "status": "WARNING",
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-25T14:43:44.700Z",
-      "updatedAt": "2026-09-25T14:43:44.700Z",
-      "history": []
+      "updatedAt": "2026-09-25T16:33:53.880Z",
+      "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1046",
+          "reason": "Marked as False Alarm by Authority Admin",
+          "timestamp": "2026-09-25T16:33:53.880Z"
+        }
+      ]
     },
     "+919700043312": {
       "identifier": "+919700043312",
@@ -12705,14 +12990,21 @@
       "userPhone": "+9198000433199",
       "totalSubmissions": 1,
       "verifiedCount": 0,
-      "falseAlarmCount": 0,
-      "trustScore": 1,
-      "status": "NORMAL",
+      "falseAlarmCount": 1,
+      "trustScore": 0.33,
+      "status": "WARNING",
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-25T14:43:44.829Z",
-      "updatedAt": "2026-09-25T14:43:44.829Z",
-      "history": []
+      "updatedAt": "2026-09-25T16:29:47.998Z",
+      "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1047",
+          "reason": "Marked as false alarm via alert feedback",
+          "timestamp": "2026-09-25T16:29:47.998Z"
+        }
+      ]
     },
     "+9198000063011": {
       "identifier": "+9198000063011",
@@ -12735,14 +13027,21 @@
       "userPhone": "+9198000045721",
       "totalSubmissions": 1,
       "verifiedCount": 0,
-      "falseAlarmCount": 0,
-      "trustScore": 1,
-      "status": "NORMAL",
+      "falseAlarmCount": 1,
+      "trustScore": 0.33,
+      "status": "WARNING",
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-25T14:51:21.249Z",
-      "updatedAt": "2026-09-25T14:51:21.249Z",
-      "history": []
+      "updatedAt": "2026-09-25T16:30:34.796Z",
+      "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1048",
+          "reason": "Marked as False Alarm by Authority Admin",
+          "timestamp": "2026-09-25T16:30:34.796Z"
+        }
+      ]
     },
     "+9198000045722": {
       "identifier": "+9198000045722",
@@ -12780,14 +13079,21 @@
       "userPhone": "+9198000045724",
       "totalSubmissions": 1,
       "verifiedCount": 0,
-      "falseAlarmCount": 0,
-      "trustScore": 1,
-      "status": "NORMAL",
+      "falseAlarmCount": 1,
+      "trustScore": 0.33,
+      "status": "WARNING",
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-25T14:51:21.327Z",
-      "updatedAt": "2026-09-25T14:51:21.327Z",
-      "history": []
+      "updatedAt": "2026-09-25T16:28:57.532Z",
+      "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1049",
+          "reason": "Marked as False Alarm by Authority Admin",
+          "timestamp": "2026-09-25T16:28:57.532Z"
+        }
+      ]
     },
     "+919700045721": {
       "identifier": "+919700045721",
@@ -12795,14 +13101,21 @@
       "userPhone": "+919700045721",
       "totalSubmissions": 1,
       "verifiedCount": 0,
-      "falseAlarmCount": 0,
-      "trustScore": 1,
-      "status": "NORMAL",
+      "falseAlarmCount": 1,
+      "trustScore": 0.33,
+      "status": "WARNING",
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-25T14:51:21.353Z",
-      "updatedAt": "2026-09-25T14:51:21.353Z",
-      "history": []
+      "updatedAt": "2026-09-25T16:27:51.559Z",
+      "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1050",
+          "reason": "Marked as False Alarm by Authority Admin",
+          "timestamp": "2026-09-25T16:27:51.559Z"
+        }
+      ]
     },
     "+919700045723": {
       "identifier": "+919700045723",
@@ -12855,15 +13168,22 @@
       "userPhone": "+9198000457299",
       "totalSubmissions": 1,
       "verifiedCount": 0,
-      "falseAlarmCount": 0,
-      "trustScore": 1,
-      "status": "NORMAL",
+      "falseAlarmCount": 1,
+      "trustScore": 0.33,
+      "status": "WARNING",
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-25T14:51:21.445Z",
-      "updatedAt": "2026-09-25T14:51:21.445Z",
-      "history": []
+      "updatedAt": "2026-09-25T16:27:48.525Z",
+      "history": [
+        {
+          "action": "FALSE_ALARM_STRIKE",
+          "incidentId": "INC-1051",
+          "reason": "Marked as False Alarm by Authority Admin",
+          "timestamp": "2026-09-25T16:27:48.525Z"
+        }
+      ]
     }
   },
-  "updatedAt": "2026-09-25T16:25:17.997Z"
+  "updatedAt": "2026-09-25T17:42:39.917Z"
 }

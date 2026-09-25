@@ -1,4 +1,26 @@
-import { spawn } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
+
+function freePort(port) {
+  try {
+    if (process.platform === "win32") {
+      const out = execSync(`netstat -ano | findstr :${port}`, { encoding: "utf8" });
+      const lines = out.trim().split("\n");
+      for (const line of lines) {
+        const parts = line.trim().split(/\s+/);
+        const pid = parts[parts.length - 1];
+        if (pid && !isNaN(pid)) {
+          execSync(`taskkill /F /PID ${pid} >nul 2>&1`);
+        }
+      }
+    } else {
+      execSync(`lsof -ti :${port} | xargs kill -9 >/dev/null 2>&1 || true`);
+    }
+  } catch (_) {}
+}
+
+// Automatically ensure default ports are clear of stale processes before starting
+freePort(5001);
+freePort(5173);
 
 const withMobile = process.argv.includes("--with-mobile") || process.argv.includes("--all");
 
@@ -56,11 +78,24 @@ function cleanup() {
   console.log("\n🛑 Stopping all services...");
   for (const { proc } of children) {
     try {
-      proc.kill("SIGTERM");
+      if (proc.pid) {
+        if (process.platform !== "win32") {
+          try {
+            process.kill(-proc.pid, "SIGTERM");
+          } catch (_) {
+            proc.kill("SIGTERM");
+          }
+        } else {
+          proc.kill("SIGTERM");
+        }
+      }
     } catch (_) {}
   }
+  freePort(5001);
+  freePort(5173);
   setTimeout(() => process.exit(0), 500);
 }
 
 process.on("SIGINT", cleanup);
 process.on("SIGTERM", cleanup);
+

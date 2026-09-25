@@ -174,9 +174,9 @@ function getIncidentPopupHtml(inc) {
           <button
             onclick="window.__falseAlarmIncident('${inc.id}')"
             style="background:#475569; color:#fff; border:none; border-radius:6px; padding:5px 8px; font-size:10px; font-weight:700; cursor:pointer; flex:1; display:flex; align-items:center; justify-content:center; gap:3px;"
-            title="Mark as false alarm and dismiss"
+            title="Mark as false alarm and dismiss from dashboard"
           >
-            ✕ False Alarm
+            ✕ Dismiss / False Alarm
           </button>
         </div>
         <a
@@ -276,6 +276,47 @@ function getZonePopupHtml(z, level, zoneIncidentsCount = 0) {
       </button>
     </div>
   `;
+}
+
+// Helper to identify if an incident is inactive (resolved, false alarm, dismissed, quarantined)
+export function isInactiveIncident(inc) {
+  if (!inc) return true;
+  if (inc.isQuarantined || inc.isDismissed) return true;
+  const statusUpper = String(inc.status || "").toUpperCase();
+  return (
+    statusUpper === "RESOLVED" ||
+    statusUpper === "FALSE ALARM" ||
+    statusUpper === "FALSE_ALARM" ||
+    statusUpper === "DISMISSED" ||
+    statusUpper === "QUARANTINED SPAM" ||
+    statusUpper === "QUARANTINED" ||
+    statusUpper === "COMPLETED"
+  );
+}
+
+export function isActiveIncident(inc) {
+  return !isInactiveIncident(inc);
+}
+
+// Helper to classify an incident into its operational execution stage
+export function getIncidentExecutionStage(i) {
+  if (!i) return "triaged";
+  const st = String(i.status || "").toUpperCase();
+  const prog = String(i.dispatchProgress || "").toLowerCase();
+
+  if (st === "FALSE ALARM" || st === "FALSE_ALARM" || st === "DISMISSED" || i.isDismissed) {
+    return "false_alarm";
+  }
+  if (st === "RESOLVED" || prog === "resolved" || st === "COMPLETED") {
+    return "mitigated";
+  }
+  if (st === "ON SCENE" || st === "ON_SCENE" || prog === "on_scene" || st === "REACHED_SITE") {
+    return "on_scene";
+  }
+  if (st === "DISPATCHED" || st === "EN_ROUTE" || prog === "en_route" || i.assignedTeam || Boolean(i.dispatched)) {
+    return "en_route";
+  }
+  return "triaged";
 }
 
 // Leaflet Map Component with Google Maps API tiles, Rainfall Radar Overlay, Drainage GIS Layer, Live Team Pins, and Safest Route Highlighting
@@ -702,11 +743,12 @@ function LeafletMap({
 
       const statusUpper = String(inc.status || "").toUpperCase();
       const isResolved = statusUpper === "RESOLVED" || inc.status === "Resolved";
-      const isFalseAlarm = statusUpper === "FALSE_ALARM" || inc.status === "False Alarm";
-      const isQuarantined = inc.isQuarantined || inc.status === "Quarantined Spam";
+      const isFalseAlarm = statusUpper === "FALSE_ALARM" || statusUpper === "FALSE ALARM" || inc.status === "False Alarm";
+      const isDismissed = statusUpper === "DISMISSED" || inc.status === "Dismissed" || inc.isDismissed;
+      const isQuarantined = inc.isQuarantined || inc.status === "Quarantined Spam" || statusUpper === "QUARANTINED";
 
-      // Filter out resolved / false alarms from active map unless historical view is requested
-      if ((isResolved || isFalseAlarm || isQuarantined) && !showHistoricalIncidents) {
+      // Filter out resolved / false alarms / dismissed from active map unless historical view is requested
+      if ((isResolved || isFalseAlarm || isDismissed || isQuarantined) && !showHistoricalIncidents) {
         return;
       }
 
@@ -1838,6 +1880,7 @@ function RiskBadge({ score }) {
 function AlertsPage({
   alerts = [],
   setAlerts,
+  setIncidents,
   userLat,
   userLng,
   userLocationName,
@@ -1856,17 +1899,20 @@ function AlertsPage({
   const handleFeedback = async (alertId, type) => {
     try {
       setActionLoading((prev) => ({ ...prev, [alertId]: true }));
+      // Immediately remove the alert from local UI state
+      if (setAlerts) {
+        setAlerts((prev) => prev.filter((a) => a.id !== alertId));
+      }
+      if (setIncidents) {
+        setIncidents((prev) => prev.filter((i) => i.id !== alertId && i.alertId !== alertId && i.sosId !== alertId));
+      }
       await apiFetch(`/alerts/${alertId}/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type, role: "Ward Admin" })
       });
-      if (setAlerts) {
-        setAlerts((prev) =>
-          prev.map((a) => (a.id === alertId ? { ...a, status: type === "RESOLVED" ? "Resolved" : "False Alarm" } : a))
-        );
-      }
-      notify(`Alert ${alertId} marked as ${type === "RESOLVED" ? "Resolved" : "False Alarm"}.`);
+      if (onReloadAlerts) onReloadAlerts();
+      notify(`Alert ${alertId} ${type === "RESOLVED" ? "marked as Resolved" : "dismissed as False Alarm"}.`);
     } catch (err) {
       notify(`Action failed: ${err.message}`);
     } finally {
@@ -2284,6 +2330,7 @@ function Dashboard({
   onAutoDispatch,
   onVerify,
   onFalseAlarm,
+  onDismiss,
   onResolve,
   onOpenOverride,
   onViewPhoto,
@@ -2323,14 +2370,14 @@ function Dashboard({
     ? [...incidents].sort((a, b) => new Date(b.userTimestamp || b.updatedAt || b.createdAt || b.time || 0) - new Date(a.userTimestamp || a.updatedAt || a.createdAt || a.time || 0))
     : [];
 
-  const activeDashboardIncidents = sortedIncidents.filter((i) => !i.isQuarantined && i.status !== "Quarantined Spam");
+  const activeDashboardIncidents = sortedIncidents.filter(isActiveIncident);
   const humanReviewCount = activeDashboardIncidents.filter((i) => isHumanInterventionNeeded(i)).length;
   const aiVerifiedCount = activeDashboardIncidents.filter((i) => i.aiVerification?.is_flooding === true || i.aiVerified).length;
 
-  const dashboardDisplayedIncidents = sortedIncidents.filter((i) => {
+  const dashboardDisplayedIncidents = activeDashboardIncidents.filter((i) => {
     if (dashboardIncidentFilter === "review") return isHumanInterventionNeeded(i);
     if (dashboardIncidentFilter === "ai") return i.aiVerification?.is_flooding === true || i.aiVerified;
-    return !i.isQuarantined && i.status !== "Quarantined Spam";
+    return true;
   });
 
   return (
@@ -2363,7 +2410,7 @@ function Dashboard({
 
       <div className="stats-grid">
         <StatCard label="CRITICAL ZONES" value={critical} delta={`${elevated} elevated`} icon={AlertTriangle} tone="red" />
-        <StatCard label="ACTIVE INCIDENTS" value={incidents.length} delta="Ground reports" icon={Siren} tone="orange" />
+        <StatCard label="ACTIVE INCIDENTS" value={activeDashboardIncidents.length} delta="Ground reports" icon={Siren} tone="orange" />
         <StatCard label="LIVE RAINFALL" value={`${avgRain} mm`} delta="Radar feed" icon={CloudRain} tone="blue" />
         <StatCard label="TEAMS AVAILABLE" value={`${availableTeams}/${resources.length}`} delta="Field units" icon={Truck} tone="green" />
       </div>
@@ -2381,7 +2428,7 @@ function Dashboard({
           <div style={{ padding: "12px" }}>
             <LeafletMap
               zones={zones}
-              incidents={incidents}
+              incidents={activeDashboardIncidents}
               resources={resources}
               shelters={shelters}
               selectedShelter={selectedShelter}
@@ -2416,7 +2463,7 @@ function Dashboard({
               <div>
                 <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#0b1b3a", margin: 0 }}>Incident Feed</h3>
                 <span style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
-                  {sortedIncidents.length} Real-Time Ground Reports
+                  {activeDashboardIncidents.length} Real-Time Ground Reports
                 </span>
               </div>
               <NavLink
@@ -2435,7 +2482,7 @@ function Dashboard({
                 onClick={() => setDashboardIncidentFilter("all")}
                 style={{ fontSize: "11px", padding: "4px 10px" }}
               >
-                All ({sortedIncidents.length})
+                All ({activeDashboardIncidents.length})
               </button>
               <button
                 className={`resource-filter-pill ${dashboardIncidentFilter === "review" ? "active" : ""}`}
@@ -2479,6 +2526,8 @@ function Dashboard({
                   onAutoDispatch={onAutoDispatch}
                   onVerify={onVerify}
                   onFalseAlarm={onFalseAlarm}
+                  onDismiss={onDismiss || onFalseAlarm}
+                  onResolve={onResolve}
                   onOpenOverride={onOpenOverride}
                   onViewPhoto={onViewPhoto}
                   onResetReputation={onResetReputation}
@@ -2970,8 +3019,7 @@ function Dashboard({
 
 // Helper to identify if an incident needs human intervention / manual review
 export function isHumanInterventionNeeded(inc) {
-  if (!inc) return false;
-  if (inc.status === "False Alarm" || inc.status === "Completed" || inc.isQuarantined || inc.status === "Quarantined Spam") return false;
+  if (!inc || isInactiveIncident(inc)) return false;
   if (inc.aiVerification) {
     if (inc.aiVerification.is_flooding === false) return true;
     const conf = inc.aiVerification.confidence_score ?? inc.aiVerification.confidence ?? 0;
@@ -2986,7 +3034,7 @@ export function isHumanInterventionNeeded(inc) {
 }
 
 // Professional Minimal Incident & Emergency Response Card
-function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFalseAlarm, onOpenOverride, onViewPhoto, onResetReputation }) {
+function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFalseAlarm, onDismiss, onResolve, onOpenOverride, onViewPhoto, onResetReputation }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const inc = incident;
   const isSos = Boolean(inc.isSos || inc.type === "SOS" || inc.status === "ACTIVE_SOS" || inc.causeCode === "SOS_EMERGENCY");
@@ -3217,22 +3265,33 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
         {!isVerified && !isDispatched && !isFalseAlarm && (
           <button
             className="ghost small"
-            onClick={() => onVerify(inc.id)}
+            onClick={() => (onResolve ? onResolve(inc.id) : onVerify(inc.id))}
             style={{ fontSize: "11px", padding: "5px 10px", color: "#16a34a", borderColor: "#bbf7d0", background: "#f0fdf4" }}
+            title="Mark incident as resolved"
           >
             <CheckCircle2 size={12} /> Resolve
           </button>
         )}
 
         {!isFalseAlarm && !isDispatched && (
-          <button
-            className="ghost small"
-            onClick={() => onFalseAlarm(inc.id)}
-            style={{ fontSize: "11px", padding: "5px 8px", color: "#991b1b", borderColor: "#fecaca" }}
-            title="Mark as false alarm"
-          >
-            <X size={12} /> False Alarm
-          </button>
+          <>
+            <button
+              className="ghost small"
+              onClick={() => (onDismiss ? onDismiss(inc.id) : onFalseAlarm(inc.id))}
+              style={{ fontSize: "11px", padding: "5px 8px", color: "#475569", borderColor: "#cbd5e1", background: "#f8fafc" }}
+              title="Dismiss incident from active dashboard"
+            >
+              <X size={12} /> Dismiss
+            </button>
+            <button
+              className="ghost small"
+              onClick={() => onFalseAlarm(inc.id)}
+              style={{ fontSize: "11px", padding: "5px 8px", color: "#b91c1c", borderColor: "#fecaca", background: "#fef2f2" }}
+              title="Flag as false alarm and remove from dashboard"
+            >
+              <AlertTriangle size={12} /> False Alarm
+            </button>
+          </>
         )}
 
         <button
@@ -3729,7 +3788,7 @@ function MediaLightboxModal({ mediaUrl, incident, isVideo, onClose }) {
 }
 
 // Dedicated Incident Management Page
-function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch, onVerify, onFalseAlarm, onOpenOverride, onViewPhoto, onResetReputation }) {
+function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch, onVerify, onFalseAlarm, onDismiss, onResolve, onOpenOverride, onViewPhoto, onResetReputation }) {
   const [filter, setFilter] = useState("All");
 
   useEffect(() => {
@@ -3741,7 +3800,7 @@ function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch
     (a, b) => new Date(b.userTimestamp || b.updatedAt || b.createdAt || b.time || 0) - new Date(a.userTimestamp || a.updatedAt || a.createdAt || a.time || 0)
   );
 
-  const activeIncidents = sortedIncidents.filter((i) => !i.isQuarantined && i.status !== "Quarantined Spam");
+  const activeIncidents = sortedIncidents.filter(isActiveIncident);
   const quarantinedCount = sortedIncidents.filter((i) => i.isQuarantined || i.status === "Quarantined Spam").length;
   const humanInterventionCount = activeIncidents.filter((i) => isHumanInterventionNeeded(i)).length;
   const aiVerifiedCount = activeIncidents.filter((i) => i.aiVerification?.is_flooding === true || i.aiVerified).length;
@@ -3752,6 +3811,16 @@ function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch
     ? activeIncidents.filter((i) => isHumanInterventionNeeded(i))
     : filter === "AiConfirmed"
     ? activeIncidents.filter((i) => i.aiVerification?.is_flooding === true || i.aiVerified)
+    : filter === "Triaged"
+    ? activeIncidents.filter((i) => getIncidentExecutionStage(i) === "triaged")
+    : filter === "En Route"
+    ? activeIncidents.filter((i) => getIncidentExecutionStage(i) === "en_route")
+    : filter === "On Scene"
+    ? activeIncidents.filter((i) => getIncidentExecutionStage(i) === "on_scene")
+    : filter === "Resolved"
+    ? sortedIncidents.filter((i) => getIncidentExecutionStage(i) === "mitigated")
+    : filter === "False Alarm"
+    ? sortedIncidents.filter((i) => getIncidentExecutionStage(i) === "false_alarm")
     : filter === "Quarantined"
     ? sortedIncidents.filter((i) => i.isQuarantined || i.status === "Quarantined Spam")
     : activeIncidents.filter((i) => i.role === filter || i.status === filter);
@@ -3782,7 +3851,7 @@ function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch
             >
               🌊 AI Verified ({aiVerifiedCount})
             </button>
-            {["Received", "Verified", "Dispatched", "False Alarm"].map((x) => (
+            {["Triaged", "En Route", "On Scene", "Resolved", "False Alarm"].map((x) => (
               <button className={filter === x ? "selected" : ""} onClick={() => setFilter(x)} key={x}>
                 {x}
               </button>
@@ -3839,6 +3908,8 @@ function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch
               onAutoDispatch={onAutoDispatch}
               onVerify={onVerify}
               onFalseAlarm={onFalseAlarm}
+              onDismiss={onDismiss || onFalseAlarm}
+              onResolve={onResolve}
               onOpenOverride={onOpenOverride}
               onViewPhoto={onViewPhoto}
               onResetReputation={onResetReputation}
@@ -4077,8 +4148,25 @@ function Dispatch({ incidents, resources = [], notify, onReload, onAutoDispatch 
     (a, b) => new Date(b.userTimestamp || b.updatedAt || b.createdAt || b.time || 0) - new Date(a.userTimestamp || a.updatedAt || a.createdAt || a.time || 0)
   );
 
-  const [selectedId, setSelectedId] = useState(sortedIncidents[0]?.id || null);
-  const selected = sortedIncidents.find((i) => i.id === selectedId) || sortedIncidents[0] || null;
+  const [stageFilter, setStageFilter] = useState("all");
+
+  const triagedCount = sortedIncidents.filter((i) => getIncidentExecutionStage(i) === "triaged").length;
+  const enRouteCount = sortedIncidents.filter((i) => getIncidentExecutionStage(i) === "en_route").length;
+  const onSceneCount = sortedIncidents.filter((i) => getIncidentExecutionStage(i) === "on_scene").length;
+  const mitigatedCount = sortedIncidents.filter((i) => getIncidentExecutionStage(i) === "mitigated").length;
+  const falseAlarmCount = sortedIncidents.filter((i) => getIncidentExecutionStage(i) === "false_alarm").length;
+  const activeCount = triagedCount + enRouteCount + onSceneCount + mitigatedCount;
+
+  const filteredIncidents = sortedIncidents.filter((i) => {
+    const stage = getIncidentExecutionStage(i);
+    if (stageFilter === "all") {
+      return stage !== "false_alarm";
+    }
+    return stage === stageFilter;
+  });
+
+  const [selectedId, setSelectedId] = useState(filteredIncidents[0]?.id || sortedIncidents[0]?.id || null);
+  const selected = filteredIncidents.find((i) => i.id === selectedId) || filteredIncidents[0] || null;
 
   // Dynamic Emergency Resource Discovery State
   const [searchRadius, setSearchRadius] = useState(5);
@@ -4100,12 +4188,17 @@ function Dispatch({ incidents, resources = [], notify, onReload, onAutoDispatch 
   const [updatingProgress, setUpdatingProgress] = useState(false);
   const [showDispatchConfirm, setShowDispatchConfirm] = useState(false);
 
-  // Keep selectedId valid
+  // Keep selectedId valid when stage filter or incidents change
   useEffect(() => {
-    if (!selectedId && sortedIncidents.length > 0) {
-      setSelectedId(sortedIncidents[0].id);
+    if (filteredIncidents.length > 0) {
+      const exists = filteredIncidents.some((i) => i.id === selectedId);
+      if (!exists) {
+        setSelectedId(filteredIncidents[0].id);
+      }
+    } else {
+      setSelectedId(null);
     }
-  }, [sortedIncidents.length]);
+  }, [stageFilter, filteredIncidents.length]);
 
   // Extract selected incident GPS
   const incLat = selected?.lat != null ? Number(selected.lat) : (selected?.liveLocation?.latitude != null ? Number(selected.liveLocation.latitude) : null);
@@ -4274,21 +4367,122 @@ function Dispatch({ incidents, resources = [], notify, onReload, onAutoDispatch 
         sub="Discover real nearby emergency services around citizen GPS coordinates using live Maps API integration and OSRM road routing."
       />
       <div className="dispatch-layout">
-        {/* Left Column: Incidents Queue */}
+        {/* Left Column: Incidents Queue with Execution Stage Filter */}
         <section className="panel">
-          <div className="panel-head">
-            <div>
-              <h3>Incidents Feed</h3>
-              <span>Choose an incident to discover nearby emergency services</span>
+          <div className="panel-head" style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "stretch", padding: "14px 18px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#0b1b3a", margin: 0 }}>Incidents Feed</h3>
+                <span style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
+                  {filteredIncidents.length} incident{filteredIncidents.length !== 1 ? "s" : ""} · Execution Pipeline
+                </span>
+              </div>
+            </div>
+
+            {/* Execution Stage Filter Pills */}
+            <div style={{ display: "flex", gap: "6px", alignItems: "center", overflowX: "auto", paddingBottom: "2px" }}>
+              <button
+                className={`resource-filter-pill ${stageFilter === "all" ? "active" : ""}`}
+                onClick={() => setStageFilter("all")}
+                style={{ fontSize: "11px", padding: "4px 9px", whiteSpace: "nowrap" }}
+              >
+                All ({activeCount})
+              </button>
+              <button
+                className={`resource-filter-pill ${stageFilter === "triaged" ? "active" : ""}`}
+                onClick={() => setStageFilter("triaged")}
+                style={{
+                  fontSize: "11px",
+                  padding: "4px 9px",
+                  whiteSpace: "nowrap",
+                  color: stageFilter === "triaged" ? "#ffffff" : "#0284c7",
+                  borderColor: stageFilter === "triaged" ? "#0284c7" : "#bae6fd",
+                  background: stageFilter === "triaged" ? "#0284c7" : "#f0f9ff"
+                }}
+              >
+                📋 1. Triaged ({triagedCount})
+              </button>
+              <button
+                className={`resource-filter-pill ${stageFilter === "en_route" ? "active" : ""}`}
+                onClick={() => setStageFilter("en_route")}
+                style={{
+                  fontSize: "11px",
+                  padding: "4px 9px",
+                  whiteSpace: "nowrap",
+                  color: stageFilter === "en_route" ? "#ffffff" : "#d97706",
+                  borderColor: stageFilter === "en_route" ? "#d97706" : "#fde68a",
+                  background: stageFilter === "en_route" ? "#d97706" : "#fffbeb"
+                }}
+              >
+                🚗 2. En Route ({enRouteCount})
+              </button>
+              <button
+                className={`resource-filter-pill ${stageFilter === "on_scene" ? "active" : ""}`}
+                onClick={() => setStageFilter("on_scene")}
+                style={{
+                  fontSize: "11px",
+                  padding: "4px 9px",
+                  whiteSpace: "nowrap",
+                  color: stageFilter === "on_scene" ? "#ffffff" : "#059669",
+                  borderColor: stageFilter === "on_scene" ? "#059669" : "#a7f3d0",
+                  background: stageFilter === "on_scene" ? "#059669" : "#ecfdf5"
+                }}
+              >
+                📍 3. On Scene ({onSceneCount})
+              </button>
+              <button
+                className={`resource-filter-pill ${stageFilter === "mitigated" ? "active" : ""}`}
+                onClick={() => setStageFilter("mitigated")}
+                style={{
+                  fontSize: "11px",
+                  padding: "4px 9px",
+                  whiteSpace: "nowrap",
+                  color: stageFilter === "mitigated" ? "#ffffff" : "#166534",
+                  borderColor: stageFilter === "mitigated" ? "#166534" : "#bbf7d0",
+                  background: stageFilter === "mitigated" ? "#166534" : "#f0fdf4"
+                }}
+              >
+                ✓ 4. Mitigated ({mitigatedCount})
+              </button>
+              {falseAlarmCount > 0 && (
+                <button
+                  className={`resource-filter-pill ${stageFilter === "false_alarm" ? "active" : ""}`}
+                  onClick={() => setStageFilter("false_alarm")}
+                  style={{
+                    fontSize: "11px",
+                    padding: "4px 9px",
+                    whiteSpace: "nowrap",
+                    color: stageFilter === "false_alarm" ? "#ffffff" : "#dc2626",
+                    borderColor: stageFilter === "false_alarm" ? "#dc2626" : "#fecaca",
+                    background: stageFilter === "false_alarm" ? "#dc2626" : "#fef2f2"
+                  }}
+                >
+                  ✕ False Alarm ({falseAlarmCount})
+                </button>
+              )}
             </div>
           </div>
-          {sortedIncidents.length === 0 ? (
-            <div style={{ padding: "20px", color: "#8a9ba8", fontSize: "11px" }}>No incidents awaiting dispatch.</div>
+          {filteredIncidents.length === 0 ? (
+            <div style={{ padding: "28px 16px", textAlign: "center", color: "#64748b", fontSize: "12px" }}>
+              <div style={{ fontSize: "20px", marginBottom: "6px" }}>🔍</div>
+              No incidents found in <b>{stageFilter === "all" ? "active pipeline" : stageFilter.replace("_", " ")}</b>.
+              <div style={{ marginTop: "8px" }}>
+                <button
+                  className="ghost small"
+                  onClick={() => setStageFilter("all")}
+                  style={{ fontSize: "11px", padding: "4px 10px" }}
+                >
+                  View All Stages
+                </button>
+              </div>
+            </div>
           ) : (
-            sortedIncidents.map((i) => {
-              const itemResolved = i.status === "Resolved";
-              const itemOnScene = i.status === "On Scene" || i.dispatchProgress === "on_scene";
-              const itemDispatched = i.status === "Dispatched" || i.dispatchProgress === "en_route" || itemOnScene;
+            filteredIncidents.map((i) => {
+              const stage = getIncidentExecutionStage(i);
+              const itemResolved = stage === "mitigated";
+              const itemOnScene = stage === "on_scene";
+              const itemDispatched = stage === "en_route";
+              const itemFalseAlarm = stage === "false_alarm";
               const isChosen = selected?.id === i.id;
               const itemLat = i.lat != null ? Number(i.lat) : (i.liveLocation?.latitude != null ? Number(i.liveLocation.latitude) : null);
               const itemLng = i.lng != null ? Number(i.lng) : (i.liveLocation?.longitude != null ? Number(i.liveLocation.longitude) : null);
@@ -4299,7 +4493,9 @@ function Dispatch({ incidents, resources = [], notify, onReload, onAutoDispatch 
                   key={i.id}
                   onClick={() => setSelectedId(i.id)}
                   style={{
-                    borderLeft: itemResolved
+                    borderLeft: itemFalseAlarm
+                      ? "4px solid #ef4444"
+                      : itemResolved
                       ? "4px solid #10b981"
                       : itemOnScene
                       ? "4px solid #059669"
@@ -4311,21 +4507,29 @@ function Dispatch({ incidents, resources = [], notify, onReload, onAutoDispatch 
                   }}
                 >
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                       <b>{i.id}</b>
-                      {itemResolved ? (
+                      {itemFalseAlarm ? (
+                        <span style={{ fontSize: "9px", background: "#fef2f2", color: "#991b1b", padding: "1px 6px", borderRadius: "10px", fontWeight: "800", border: "1px solid #fecaca" }}>
+                          ✕ False Alarm
+                        </span>
+                      ) : itemResolved ? (
                         <span style={{ fontSize: "9px", background: "#dcfce7", color: "#166534", padding: "1px 6px", borderRadius: "10px", fontWeight: "800" }}>
-                          ✓ Resolved
+                          ✓ Stage 4: Mitigated
                         </span>
                       ) : itemOnScene ? (
                         <span style={{ fontSize: "9px", background: "#ecfdf5", color: "#047857", padding: "1px 6px", borderRadius: "10px", fontWeight: "800", border: "1px solid #a7f3d0" }}>
-                          📍 On Scene
+                          📍 Stage 3: On Scene
                         </span>
                       ) : itemDispatched ? (
                         <span style={{ fontSize: "9px", background: "#fef3c7", color: "#92400e", padding: "1px 6px", borderRadius: "10px", fontWeight: "800", border: "1px solid #fde68a" }}>
-                          🚗 En Route
+                          🚗 Stage 2: En Route
                         </span>
-                      ) : null}
+                      ) : (
+                        <span style={{ fontSize: "9px", background: "#f0f9ff", color: "#0369a1", padding: "1px 6px", borderRadius: "10px", fontWeight: "700", border: "1px solid #bae6fd" }}>
+                          📋 Stage 1: Triaged
+                        </span>
+                      )}
                     </div>
                     <span>{i.address || i.zoneId} · {i.cause}</span>
 
@@ -8466,25 +8670,45 @@ function App() {
   };
 
   const handleFalseAlarm = async (id) => {
+    setIncidents((prev) => prev.filter((i) => i.id !== id && i.sosId !== id));
+    setAlerts((prev) => prev.filter((a) => a.incidentId !== id && a.sosId !== id && a.id !== id));
+    notify(`Incident ${id} marked as False Alarm and removed from dashboard.`);
     try {
       await apiFetch(`/incidents/${id}/false-alarm`, { method: "POST" });
-      notify(`Incident ${id} marked as False Alarm. User trust score updated.`);
-      setIncidents((prev) => prev.filter((i) => i.id !== id && i.sosId !== id));
       loadInitialData();
     } catch (err) {
       notify("Operation failed: " + err.message);
+      loadInitialData();
+    }
+  };
+
+  const handleDismiss = async (id) => {
+    setIncidents((prev) => prev.filter((i) => i.id !== id && i.sosId !== id));
+    setAlerts((prev) => prev.filter((a) => a.incidentId !== id && a.sosId !== id && a.id !== id));
+    notify(`Incident ${id} dismissed from active dashboard.`);
+    try {
+      await apiFetch(`/incidents/${id}/false-alarm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: "Dismissed by Authority Admin" })
+      });
+      loadInitialData();
+    } catch (err) {
+      notify("Dismiss notice: " + err.message);
+      loadInitialData();
     }
   };
 
   const handleResolve = async (id) => {
+    setIncidents((prev) => prev.filter((i) => i.id !== id && i.sosId !== id));
+    setAlerts((prev) => prev.filter((a) => a.incidentId !== id && a.sosId !== id && a.id !== id));
+    notify(`Incident / SOS ${id} marked as RESOLVED and cleared from active map.`);
     try {
       await apiFetch(`/incidents/${id}/resolve`, { method: "POST" });
-      notify(`Incident / SOS ${id} marked as RESOLVED and cleared from active map.`);
-      setIncidents((prev) => prev.filter((i) => i.id !== id && i.sosId !== id));
-      setAlerts((prev) => prev.filter((a) => a.incidentId !== id && a.sosId !== id && a.id !== id));
       loadInitialData();
     } catch (err) {
       notify("Resolution failed: " + err.message);
+      loadInitialData();
     }
   };
 
@@ -8535,8 +8759,9 @@ function App() {
   );
 
   const activeSosIncidents = incidents.filter(
-    (i) => (i.isSos || i.type === "SOS" || i.status === "ACTIVE_SOS" || i.causeCode === "SOS_EMERGENCY") &&
-           i.status !== "Dispatched" && i.status !== "Resolved" && i.status !== "RESOLVED" && !i.dispatched && !i.assignedTeam
+    (i) => isActiveIncident(i) &&
+           (i.isSos || i.type === "SOS" || i.status === "ACTIVE_SOS" || i.causeCode === "SOS_EMERGENCY") &&
+           i.status !== "Dispatched" && !i.dispatched && !i.assignedTeam
   );
 
   const activeAlerts = alerts.filter(
@@ -8615,6 +8840,8 @@ function App() {
                   onAutoDispatch={handleAutoDispatch}
                   onVerify={handleVerify}
                   onFalseAlarm={handleFalseAlarm}
+                  onDismiss={handleDismiss}
+                  onResolve={handleResolve}
                   onOpenOverride={setOverrideIncident}
                   onViewPhoto={(url, inc, isVideo) => setPhotoModal({ url, incident: inc, isVideo })}
                   onGenerateReport={handleGenerateReport}
@@ -8628,6 +8855,7 @@ function App() {
                 <AlertsPage
                   alerts={alerts}
                   setAlerts={setAlerts}
+                  setIncidents={setIncidents}
                   userLat={userLat}
                   userLng={userLng}
                   userLocationName={userLocationName}
@@ -8684,6 +8912,7 @@ function App() {
                   onAutoDispatch={handleAutoDispatch}
                   onVerify={handleVerify}
                   onFalseAlarm={handleFalseAlarm}
+                  onDismiss={handleDismiss}
                   onResolve={handleResolve}
                   onOpenOverride={setOverrideIncident}
                   onViewPhoto={(url, inc, isVideo) => setPhotoModal({ url, incident: inc, isVideo })}

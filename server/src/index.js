@@ -967,6 +967,14 @@ app.post("/api/incidents/:id/false-alarm", (req, res) => {
   res.json({ success: true, incident: inc });
 });
 
+// Dismiss an incident from authority dashboard
+app.post("/api/incidents/:id/dismiss", (req, res) => {
+  const reason = req.body?.reason || "Dismissed by Authority Admin";
+  const inc = store.markFalseAlarm(req.params.id, reason);
+  if (!inc) return res.status(404).json({ error: "Incident not found" });
+  res.json({ success: true, incident: inc });
+});
+
 // One-click cause-based dispatch per incident
 app.post("/api/incidents/:id/dispatch", (req, res) => {
   try {
@@ -1056,6 +1064,17 @@ app.post("/api/deduplicate", (req, res) => {
 });
 
 const PORT = process.env.PORT || 5001;
-app.listen(PORT, "0.0.0.0", () => {
+const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`VarshaRaksha API running on http://0.0.0.0:${PORT} (Real Data & SSE Connected)`);
+});
+
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(`\n⚠️ Port ${PORT} was occupied. Freeing port ${PORT} automatically...`);
+    try {
+      if (process.platform !== "win32") {
+        require("node:child_process").execSync(`lsof -ti :${PORT} | xargs kill -9 >/dev/null 2>&1 || true`);
+      }
+    } catch (_) {}
+  }
 });

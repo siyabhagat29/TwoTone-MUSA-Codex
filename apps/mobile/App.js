@@ -13,6 +13,8 @@ import {
   RefreshControl,
   Platform,
   Dimensions,
+  useWindowDimensions,
+  StatusBar as RNStatusBar,
   Image,
   PanResponder,
   Linking
@@ -22,6 +24,26 @@ import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-ico
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import Constants from "expo-constants";
+
+// Responsive container styling for Web previews & browser environments
+if (Platform.OS === "web" && typeof document !== "undefined") {
+  try {
+    const styleEl = document.createElement("style");
+    styleEl.innerHTML = `
+      html, body, #root {
+        height: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow-x: hidden !important;
+      }
+      * {
+        box-sizing: border-box !important;
+      }
+    `;
+    document.head.appendChild(styleEl);
+  } catch (_) {}
+}
 
 // Global +15% Font Scaling for all Text & TextInput components
 const FONT_SCALE = 1.15;
@@ -44,15 +66,785 @@ function scaleStyle(style) {
   return style;
 }
 
+export const LanguageContext = React.createContext({
+  lang: "en",
+  setLang: () => {},
+  t: {}
+});
+
+let activeGlobalLang = "en";
+
+export const UI_TRANSLATIONS = {
+  hi: {
+    // Branding & Header
+    "Varsha": "वर्षा",
+    "Raksha": "रक्षा",
+    "VarshaRaksha": "वर्षा रक्षा",
+    "Hyperlocal Real-Time Flood Intelligence": "रीयल-टाइम बाढ़ चेतावनी एवं सुरक्षा प्रणाली",
+    "Profile": "प्रोफ़ाइल",
+    "LIVE SENSORS": "लाइव सेंसर",
+    "LIVE SENSOR FEEDS": "लाइव सेंसर डेटा",
+    "LIVE": "लाइव",
+    "Live Sensors": "लाइव सेंसर",
+
+    // Roles & Accounts
+    "Shop Owner": "दुकानदार",
+    "Resident": "निवासी",
+    "Shopkeeper Account": "दुकानदार खाता",
+    "Resident Account": "निवासी खाता",
+    "Protect stock • Flood alerts • Checklists": "सामान की सुरक्षा • बाढ़ अलर्ट • चेकलिस्ट",
+    "Flood alerts • Safe routes • Emergency reports": "बाढ़ अलर्ट • सुरक्षित मार्ग • आपातकालीन रिपोर्ट",
+    "Protect stock, receive shop checklists & alert neighbors": "सामान की सुरक्षा करें, चेकलिस्ट पाएं और पड़ोसियों को सचेत करें",
+    "Receive flood warnings & report street waterlogging": "बाढ़ की चेतावनी प्राप्त करें और जलभराव की रिपोर्ट करें",
+
+    // Onboarding / Login
+    "Enter Your Details": "अपना विवरण दर्ज करें",
+    "Full Name": "पूरा नाम",
+    "Mobile Number": "मोबाइल नंबर",
+    "Mobile number": "मोबाइल नंबर",
+    "mobile number": "मोबाइल नंबर",
+    "Mobile Number (10 Digits)": "मोबाइल नंबर (10 अंक)",
+    "Emergency Contact Number": "आपातकालीन संपर्क नंबर",
+    "Family / Neighbor": "परिवार / पड़ोसी",
+    "Emergency number cannot be the same as your personal number": "आपातकालीन नंबर आपके व्यक्तिगत नंबर के समान नहीं हो सकता",
+    "The emergency contact number cannot be the same as your mobile number.": "आपातकालीन संपर्क नंबर आपके मोबाइल नंबर के समान नहीं हो सकता।",
+    "The emergency contact cannot be your personal phone number.": "आपातकालीन संपर्क आपका व्यक्तिगत फोन नंबर नहीं हो सकता।",
+    "Select Your Role": "अपनी भूमिका चुनें",
+    "Select your role": "अपनी भूमिका चुनें",
+    "Choose Your Role": "अपनी भूमिका चुनें",
+    "Choose your role": "अपनी भूमिका चुनें",
+    "Chose your role": "अपनी भूमिका चुनें",
+    "chose your role": "अपनी भूमिका चुनें",
+    "Area / Market Location": "इलाका / बाजार स्थान",
+    "Location": "स्थान",
+    "Detect Location": "स्थान खोजें",
+    "Detecting...": "खोज रहे हैं...",
+    "Auto-detecting your location...": "आपका स्थान स्वचालित रूप से खोजा जा रहा है...",
+    "Auto-detected location or enter area": "स्वचालित खोजा गया स्थान या क्षेत्र दर्ज करें",
+    "Acquiring live GPS location...": "लाइव जीपीएस स्थान प्राप्त किया जा रहा है...",
+    "Location is automatically detected via live GPS. You can edit it if needed.": "स्थान लाइव जीपीएस द्वारा स्वचालित रूप से पहचाना गया है। आप इसे बदल भी सकते हैं।",
+    "Save Profile & Enter App": "प्रोफ़ाइल सहेजें और ऐप में जाएं",
+    "Missing Name": "नाम दर्ज नहीं किया",
+    "Please enter your full name.": "कृपया अपना पूरा नाम दर्ज करें।",
+    "Invalid Phone Number": "अमान्य फोन नंबर",
+    "Please enter a valid 10-digit mobile number.": "कृपया 10 अंकों का वैध मोबाइल नंबर दर्ज करें।",
+    "Invalid Emergency Number": "अमान्य आपातकालीन नंबर",
+    "Please enter a valid 10-digit emergency contact number.": "कृपया 10 अंकों का वैध आपातकालीन संपर्क नंबर दर्ज करें।",
+    "Validation Error": "सत्यापन त्रुटि",
+    "Permission Needed": "अनुमति आवश्यक है",
+    "Please allow location access to detect your live GPS position.": "लाइव जीपीएस स्थान का पता लगाने के लिए कृपया स्थान अनुमति दें।",
+    "Location Notice": "स्थान सूचना",
+    "Using approximate coordinates. You can enter your location manually.": "अनुमानित निर्देशांक का उपयोग कर रहे हैं। आप स्थान मैन्युअल रूप से दर्ज कर सकते हैं।",
+    "e.g. Ramesh Patel": "उदा. रमेश पटेल",
+    "e.g. 9876543210": "उदा. 9876543210",
+    "e.g. 9820012345 (Family / Neighbor)": "उदा. 9820012345 (परिवार / पड़ोसी)",
+    "Tap 'Detect Location' or enter your area": "स्थान का पता लगाएं या अपना क्षेत्र दर्ज करें",
+
+    // Dashboard & Home
+    "Welcome": "स्वागत है",
+    "Welcome,": "नमस्ते,",
+    "Good day 👋": "नमस्ते 👋",
+    "Good day": "नमस्ते",
+    "LIVE FLOOD RISK SCORE": "लाइव बाढ़ जोखिम स्कोर",
+    "Live Flood Risk": "लाइव बाढ़ जोखिम",
+    "Estimated Water Depth (from photo)": "अनुमानित पानी की गहराई (फोटो से)",
+    "Live Rainfall": "लाइव वर्षा",
+    "Open-Meteo": "ओपन-मेटियो",
+    "Drainage Diagnosis": "जल निकासी स्थिति",
+    "Citizen Signals": "नागरिक रिपोर्ट",
+    "EMERGENCY SOS": "आपातकालीन SOS",
+    "One-tap rescue dispatch to your GPS": "तुरंत बचाव दल को अपना जीपीएस भेजें",
+    "Tap for Help": "मदद के लिए दबाएं",
+    "COOLDOWN": "प्रतीक्षा समय",
+    "Rescue Deployed": "बचाव दल रवाना",
+    "SOS Broadcasted · Emergency Team Dispatched · ETA:": "SOS भेजा गया · आपातकालीन टीम रवाना · पहुंचने का समय:",
+    "SOS Reports Generated in this 500m Sector": "इस 500 मीटर क्षेत्र में SOS रिपोर्ट दर्ज हुई",
+    "Call Squad:": "बचाव दल को कॉल करें:",
+    "Nearby Emergency Resources Discovered Around SOS:": "SOS के निकट उपलब्ध आपातकालीन संसाधन:",
+    "Call": "कॉल करें",
+    "Map": "नक्शा",
+    "Report Incident": "घटना की रिपोर्ट करें",
+    "Report a flood situation": "बाढ़ या जलभराव की सूचना दें",
+    "Checklist": "चेकलिस्ट",
+    "Emergency Checklist": "आपातकालीन चेकलिस्ट",
+    "Flood Buddy": "फ्लड बडी",
+    "Flood Buddy (Nearby Shops)": "फ्लड बडी (आस-पास की दुकानें)",
+    "Evacuation Map": "निकासी नक्शा",
+    "Nearby Emergency Services": "निकटवर्ती आपातकालीन सेवाएं",
+    "View All →": "सभी देखें →",
+    "GOVT HOSPITAL": "सरकारी अस्पताल",
+    "Healthcare Center & Emergency Ward": "स्वास्थ्य केंद्र एवं आपातकालीन वार्ड",
+    "No nearby government hospital available within radius": "इस दायरे में कोई सरकारी अस्पताल उपलब्ध नहीं है",
+    "Directions": "दिशा-निर्देश",
+    "NGO": "स्वयंसेवी संस्था (NGO)",
+    "Designated NGO Community Hub": "नामित एनजीओ सामुदायिक केंद्र",
+    "No nearby NGO relief center available": "निकट में कोई एनजीओ राहत केंद्र उपलब्ध नहीं है",
+    "GOVERNMENT": "सरकारी प्रशासन",
+    "Disaster Response Base": "आपदा प्रबंधन केंद्र",
+    "No nearby government unit available": "निकट में कोई सरकारी इकाई उपलब्ध नहीं है",
+    "Acknowledge & Dismiss": "स्वीकार करें और बंद करें",
+    "Mark as Resolved": "समाधान हुआ",
+    "False Alarm": "गलत अलार्म",
+    "Emergency Shelters": "राहत शिविर",
+    "Safe Evacuation Route (OSRM)": "सुरक्षित निकासी मार्ग (OSRM)",
+    "Notify": "सचेत करें",
+    "Quick Actions": "त्वरित कार्रवाई",
+    "Live Sensor Feeds & Divergence Diagnosis": "लाइव सेंसर और जल निकासी निदान",
+    "Blitzortung Lightning": "ब्लिट्जऑर्टुंग तड़ित (बिजली)",
+    "All monitored areas are operating safely.": "सभी निगरानी क्षेत्र सुरक्षित रूप से काम कर रहे हैं।",
+    "ETA": "अनुमानित समय",
+    "Contact": "संपर्क",
+    "Open Full Incident Form": "पूर्ण रिपोर्ट फॉर्म खोलें",
+    "Cancel": "रद्द करें",
+    "Close": "बंद करें",
+    "CONFIRM SOS": "SOS की पुष्टि करें",
+
+    // Checklist
+    "Shop Checklist": "दुकान चेकलिस्ट",
+    "Resident Checklist": "निवासी चेकलिस्ट",
+    "Completed": "पूर्ण",
+    "of": "में से",
+    "Reset": "रीसेट करें",
+    "All essential flood safety steps completed!": "सभी आवश्यक बाढ़ सुरक्षा कदम पूरे हुए!",
+    "Move to Upper Floor / High Ground": "ऊपरी मंजिल / सुरक्षित ऊंचाई पर जाएं",
+    "Move staff and customers to a safe elevated floor immediately.": "कर्मचारियों और ग्राहकों को तुरंत सुरक्षित ऊपरी मंजिल पर ले जाएं।",
+    "Move family, elderly members, and pets above ground flood levels.": "परिवार, बुजुर्गों और पालतू जानवरों को बाढ़ के स्तर से ऊपर ले जाएं।",
+    "Elevate Stock & Inventory": "सामान व स्टॉक को ऊपर उठाएं",
+    "Move dry goods, electronics, and stock at least 3 feet off the floor.": "सामान, इलेक्ट्रॉनिक्स और माल को जमीन से कम से कम 3 फीट ऊपर रखें।",
+    "Turn Off Main Power Switch": "मुख्य बिजली स्विच बंद करें",
+    "Safely cut off main breaker and unplug ground appliances to prevent shocks.": "करंट से बचने के लिए मेन स्विच बंद करें और उपकरणों को अनप्लग करें।",
+    "Install Flood Barriers & Seal Shutters": "फ्लड बैरियर लगाएं और शटर बंद करें",
+    "Put sandbags/flood boards in place and lock the shop shutter securely.": "रेत की बोरियां/फ्लड बोर्ड लगाएं और शटर को अच्छी तरह लॉक करें।",
+    "Secure Cash & Essential Documents": "नकदी और आवश्यक दस्तावेज सुरक्षित रखें",
+    "Seal cash, tax registers, and POS devices in waterproof bags.": "नकदी, बिल बुक और स्वाइप मशीन को वाटरप्रूफ बैग में सील करें।",
+    "Turn Off Electricity & Gas Valves": "बिजली और गैस वाल्व बंद करें",
+    "Switch off the main breaker and cooking gas to prevent fires/leaks.": "आग/रिसाव से बचने के लिए मेन स्विच और गैस सिलेंडर बंद करें।",
+    "Pack Emergency Go-Bag": "आपातकालीन बैग तैयार रखें",
+    "Keep emergency medicines, power bank, torch, drinking water, and IDs ready.": "दवाइयां, पावर बैंक, टॉर्च, पीने का पानी और पहचान पत्र तैयार रखें।",
+    "Avoid Moving Floodwater": "बहते बाढ़ के पानी से बचें",
+    "Do not walk or drive through flowing water or submerged streets.": "बहते पानी या डूबी हुई सड़कों पर पैदल या गाड़ी से न जाएं।",
+    "CRITICAL": "अति महत्वपूर्ण",
+    "STOCK": "स्टॉक सुरक्षा",
+    "SAFETY": "सुरक्षा",
+    "BARRIER": "बैरियर",
+    "DOCS": "दस्तावेज",
+    "SUPPLIES": "सामग्री",
+    "HAZARD": "खतरा",
+
+    // Map Screen
+    "Live Flood Map": "लाइव बाढ़ नक्शा",
+    "Current Location": "वर्तमान स्थान",
+    "Change": "बदलें",
+    "You are here": "आप यहां हैं",
+    "Active Location": "सक्रिय स्थान",
+    "Call Unit": "यूनिट को कॉल करें",
+    "Directions ↗": "दिशा-निर्देश ↗",
+    "Nearby Evacuation Shelters": "निकटवर्ती राहत शिविर",
+    "Available": "उपलब्ध",
+    "Showing nearest": "निकटतम प्रदर्शित",
+    "Tap to calculate verified safe route": "सत्यापित सुरक्षित मार्ग देखने के लिए टैप करें",
+    "Loading nearby shelters...": "निकटवर्ती राहत शिविर लोड हो रहे हैं...",
+    "No nearby evacuation shelters found within 5 km.": "5 किमी के दायरे में कोई राहत शिविर नहीं मिला।",
+    "Retry / Refresh": "पुनः प्रयास / रीफ्रेश करें",
+    "VERIFIED": "सत्यापित",
+    "Relief Center": "राहत केंद्र",
+    "away": "दूर",
+    "travel time": "यात्रा समय",
+    "km away": "किमी दूर",
+    "min travel time": "मिनट यात्रा समय",
+    "Route Displayed": "मार्ग प्रदर्शित है",
+    "Safe Route": "सुरक्षित मार्ग",
+    "Nearby Emergency Services & Responders": "आपातकालीन सेवाएं और बचाव दल",
+    "Units": "इकाइयां",
+    "Showing nearest 2 units per category (Hospitals, Fire, Police, Municipal, NGOs)": "प्रति श्रेणी 2 निकटतम इकाइयां प्रदर्शित हैं",
+    "HOSPITAL": "अस्पताल",
+    "FIRE & RESCUE": "दमकल एवं बचाव दल",
+    "POLICE": "पुलिस स्टेशन",
+    "NGO & RELIEF": "एनजीओ एवं राहत",
+    "GOVERNMENT / CIVIC": "नगरपालिका / प्रशासन",
+
+    // Flood Buddy
+    "Nearby Flood Buddies": "निकटवर्ती फ्लड बडी",
+    "Connect with real logged-in users nearby to exchange live flood risk warnings.": "लाइव बाढ़ चेतावनियां साझा करने के लिए आस-पास के उपयोगकर्ताओं से जुड़ें।",
+    "Current GPS Location": "वर्तमान जीपीएस स्थान",
+    "Dynamically discovering active users around you": "आपके आस-पास सक्रिय उपयोगकर्ताओं की खोज की जा रही है",
+    "Discovery Radius:": "खोज का दायरा:",
+    "No nearby Flood Buddies found.": "निकट कोई फ्लड बडी नहीं मिला।",
+    "Flood Buddy will show nearby users when they become available within": "इस दायरे में उपलब्ध होने पर उपयोगकर्ता यहां दिखाई देंगे",
+    "Refresh Discovery": "खोज रीफ्रेश करें",
+    "Warning Sent": "चेतावनी भेजी गई",
+    "Broadcast Alert": "अलर्ट प्रसारित करें",
+    "Connected": "जुड़ा हुआ",
+    "Online": "ऑनलाइन",
+    "Offline": "ऑफलाइन",
+
+    // Alerts Screen
+    "Live Alerts & Warnings": "लाइव चेतावनियां व अलर्ट",
+    "Live GPS:": "लाइव जीपीएस:",
+    "Alert distances calculated dynamically from your position": "अलर्ट दूरी आपके स्थान से वास्तविक समय में आंकी गई है",
+    "Update GPS": "जीपीएस अपडेट करें",
+    "Enable location to see alert distances.": "अलर्ट दूरी देखने के लिए स्थान सक्षम करें।",
+    "Allow GPS access to compute real-time alert proximity": "निकटता जानने के लिए जीपीएस की अनुमति दें",
+    "Enable Location": "स्थान सक्षम करें",
+    "LIGHTNING (BLITZORTUNG)": "बिजली कड़कना (ब्लिट्जऑर्टुंग)",
+    "Nearby Thunderstorm Activity Detected": "आस-पास गरज-चमक के साथ गतिविधि दर्ज",
+    "Live Detector": "लाइव डिटेक्टर",
+    "View on Map": "नक्शे पर देखें",
+    "INCIDENT SOS": "आपातकालीन SOS घटना",
+    "FLOOD RISK": "बाढ़ का जोखिम",
+    "RAINFALL RADAR": "वर्षा रडार",
+    "DRAINAGE": "जल निकासी",
+    "HIGH": "उच्च जोखिम",
+    "MODERATE": "मध्यम जोखिम",
+    "LOW": "कम जोखिम",
+    "Dismiss": "हटाएं",
+    "Resolved": "हल हो गया",
+    "Feedback Recorded": "प्रतिक्रिया दर्ज हुई",
+    "from you": "आपसे दूर",
+
+    // Report Screen
+    "Report Flood Incident": "बाढ़ की घटना दर्ज करें",
+    "Ground truth for municipal response and CV depth analysis.": "नगरपालिका कार्रवाई और एआई गहराई विश्लेषण हेतु जमीनी साक्ष्य।",
+    "Live GPS Incident Location": "लाइव जीपीएस घटना स्थल",
+    "Refresh GPS": "जीपीएस रीफ्रेश करें",
+    "Acquiring live GPS...": "लाइव जीपीएस खोजा जा रहा है...",
+    "Live Device Clock": "डिवाइस समय",
+    "Reporting Timestamp:": "रिपोर्टिंग समय:",
+    "1. Visual Evidence (Photo or Video)": "1. साक्ष्य (फोटो या वीडियो)",
+    "Visual Evidence (Photo or Video)": "साक्ष्य (फोटो या वीडियो)",
+    "Take Photo": "फोटो खींचें",
+    "Choose Photo": "गैलरी से चुनें",
+    "Choose Gallery": "गैलरी से चुनें",
+    "Retake Photo": "✓ फोटो दोबारा लें",
+    "Change Photo": "✓ फोटो बदलें",
+    "📹 Take Video": "📹 वीडियो बनाएं",
+    "📁 Choose Video": "📁 वीडियो चुनें",
+    "Take Video": "वीडियो बनाएं",
+    "Choose Video": "वीडियो चुनें",
+    "Retake Video": "✓ वीडियो दोबारा लें",
+    "Change Video": "✓ वीडियो बदलें",
+    "Ground Photo Attached": "📸 फोटो संलग्न है",
+    "Remove": "हटाएं",
+    "Flood Video Attached": "🎥 वीडियो संलग्न है",
+    "READY": "तैयार",
+    "AI Model Verification Active": "एआई मॉडल सत्यापन सक्रिय",
+    "Scanning visual evidence for active flooding...": "बाढ़ की स्थिति का विश्लेषण किया जा रहा है...",
+    "Verification Notice": "सत्यापन सूचना",
+    "Evidence Attached & Ready": "साक्ष्य संलग्न और तैयार है",
+    "Visual evidence will be securely transmitted with your report to Disaster Response Authorities.": "साक्ष्य सीधे आपदा प्रबंधन अधिकारियों को भेजा जाएगा।",
+    "2. Water Depth (Select exact status)": "2. पानी की गहराई (सटीक स्थिति चुनें)",
+    "Water Depth (Select exact status)": "पानी की गहराई (सटीक स्थिति चुनें)",
+    "3. Direct Drain Observation": "3. नाले की स्थिति",
+    "Direct Drain Observation": "नाले की स्थिति",
+    "4. Onset Speed of Rising Water": "4. जलस्तर बढ़ने की गति",
+    "Onset Speed of Rising Water": "जलस्तर बढ़ने की गति",
+    "5. Has this happened before at this location?": "5. क्या इस स्थान पर पहले भी ऐसा हुआ है?",
+    "Has this happened before at this location?": "क्या इस स्थान पर पहले भी ऐसा हुआ है?",
+    "6. Additional Observations / Notes": "6. अतिरिक्त विवरण / अवलोकन",
+    "Additional Observations / Notes": "अतिरिक्त विवरण / अवलोकन",
+    "Submit Ground Report": "जमीनी रिपोर्ट सबमिट करें",
+    "Submitting...": "सबमिट हो रहा है...",
+    "At doorstep (not entered)": "दरवाजे पर (दुकान में नहीं घुसा)",
+    "Entered shop — ankle deep": "दुकान में घुसा — टखने तक",
+    "Entered shop — knee deep": "दुकान में घुसा — घुटने तक",
+    "Custom / Other": "अन्य / कस्टम गहराई",
+    "Blocked": "अवरुद्ध / जाम",
+    "Clear": "साफ़ / खुला",
+    "Unsure": "पता नहीं",
+    "Yes": "हाँ",
+    "No": "नहीं",
+    "<10 min": "<10 मिनट",
+    "10–20 min": "10–20 मिनट",
+    "> 20 min": "> 20 मिनट",
+
+    // Profile Screen & Modal
+    "Profile & Preferences": "प्रोफ़ाइल और प्राथमिकताएं",
+    "Language Settings": "भाषा सेटिंग्स",
+    "Emergency Notification Channels": "आपातकालीन सूचना चैनल",
+    "Real-time GPS Proximity Alerts": "वास्तविक समय जीपीएस निकटता अलर्ट",
+    "High-Risk (RED) Evacuation Alarms": "उच्च-जोखिम (लाल अलर्ट) निकासी अलार्म",
+    "Emergency SMS Gateway Broadcasts": "आपातकालीन एसएमएस गेटवे",
+    "WhatsApp Ward Flash Directives": "व्हाट्सएप वार्ड फ्लैश निर्देश",
+    "Active on primary mobile device": "प्राथमिक मोबाइल डिवाइस पर सक्रिय",
+    "User Profile": "उपयोगकर्ता प्रोफ़ाइल",
+    "Personal Phone": "व्यक्तिगत फोन",
+    "Emergency Number": "आपातकालीन नंबर",
+    "Twilio SOS Alert Recipient": "SOS संदेश प्राप्तकर्ता",
+    "Emergency Alert Channel Active": "आपातकालीन सूचना चैनल सक्रिय",
+    "SOS alerts are dispatched immediately to:": "SOS अलर्ट तुरंत इस नंबर पर भेजे जाते हैं:",
+    "Edit Profile": "प्रोफ़ाइल संपादित करें",
+    "Log Out": "लॉग आउट करें",
+
+    // Location Selector Modal
+    "Change Location": "स्थान बदलें",
+    "Set Shop Location": "दुकान का स्थान निर्धारित करें",
+    "Shelters and flood risk auto-refresh relative to this spot.": "राहत शिविर और बाढ़ जोखिम इस स्थान के अनुसार अपडेट होते हैं।",
+    "Search area (e.g. Mulund, Andheri, Kurla, Dadar)...": "इलाका खोजें (उदा. मुलुंड, अंधेरी, कुर्ला, दादर)...",
+    "Use Live GPS Location": "लाइव जीपीएस स्थान का उपयोग करें",
+    "Select Market Hub:": "बाजार केंद्र चुनें:",
+
+    // Navigation Tabs
+    "Home": "होम",
+    "Alerts": "अलर्ट",
+    "Buddy": "फ्लड बडी",
+    "Back": "वापस"
+  },
+
+  mr: {
+    // Branding & Header
+    "Varsha": "वर्षा",
+    "Raksha": "रक्षा",
+    "VarshaRaksha": "वर्षा रक्षा",
+    "Hyperlocal Real-Time Flood Intelligence": "थेट पूर चेतावणी व सुरक्षा प्रणाली",
+    "Profile": "प्रोफाइल",
+    "LIVE SENSORS": "थेट सेन्सर्स",
+    "LIVE SENSOR FEEDS": "थेट सेन्सर प्रवाह",
+    "LIVE": "थेट",
+    "Live Sensors": "थेट सेन्सर्स",
+
+    // Roles & Accounts
+    "Shop Owner": "दुकानदार",
+    "Resident": "रहिवासी",
+    "Shopkeeper Account": "दुकानदार खाते",
+    "Resident Account": "रहिवासी खाते",
+    "Protect stock • Flood alerts • Checklists": "मालाचे रक्षण • पूर चेतावणी • चेकलिस्ट",
+    "Flood alerts • Safe routes • Emergency reports": "पूर चेतावणी • सुरक्षित मार्ग • आपत्कालीन तक्रारी",
+    "Protect stock, receive shop checklists & alert neighbors": "मालाचे रक्षण करा, चेकलिस्ट मिळवा आणि शेजाऱ्यांना सावध करा",
+    "Receive flood warnings & report street waterlogging": "पूर चेतावणी मिळवा आणि पाणी साचल्याची तक्रार नोंदवा",
+
+    // Onboarding / Login
+    "Enter Your Details": "तुमचा तपशील भरा",
+    "Full Name": "पूर्ण नाव",
+    "Mobile Number (10 Digits)": "मोबाईल क्रमांक (१० अंक)",
+    "Mobile Number": "मोबाईल क्रमांक",
+    "Mobile number": "मोबाईल क्रमांक",
+    "mobile number": "मोबाईल क्रमांक",
+    "Emergency Contact Number": "आपत्कालीन संपर्क क्रमांक",
+    "Family / Neighbor": "कुटुंब / शेजारी",
+    "Emergency number cannot be the same as your personal number": "आपत्कालीन क्रमांक आणि वैयक्तिक मोबाईल क्रमांक एकच असू शकत नाही",
+    "The emergency contact number cannot be the same as your mobile number.": "आपत्कालीन संपर्क क्रमांक तुमच्या मोबाईल क्रमांकासारखा असू शकत नाही.",
+    "The emergency contact cannot be your personal phone number.": "आपत्कालीन संपर्क तुमचा स्वतःचा मोबाईल क्रमांक असू शकत नाही.",
+    "Select Your Role": "तुमची भूमिका निवडा",
+    "Select your role": "तुमची भूमिका निवडा",
+    "Choose Your Role": "तुमची भूमिका निवडा",
+    "Choose your role": "तुमची भूमिका निवडा",
+    "Chose your role": "तुमची भूमिका निवडा",
+    "chose your role": "तुमची भूमिका निवडा",
+    "Area / Market Location": "परिसर / बाजारपेठ स्थान",
+    "Location": "स्थान",
+    "Detect Location": "स्थान शोधा",
+    "Detecting...": "शोधत आहे...",
+    "Auto-detecting your location...": "तुमचे थेट स्थान आपोआप शोधत आहे...",
+    "Auto-detected location or enter area": "आपोआप शोधलेले स्थान किंवा परिसर टाका",
+    "Acquiring live GPS location...": "थेट जीपीएस स्थान मिळवत आहे...",
+    "Location is automatically detected via live GPS. You can edit it if needed.": "थेट GPS द्वारे स्थान आपोआप शोधले आहे. हवे असल्यास तुम्ही बदलू शकता.",
+    "Save Profile & Enter App": "प्रोफाइल सेव्ह करा आणि ॲप उघडा",
+    "Missing Name": "नाव टाकले नाही",
+    "Please enter your full name.": "कृपया तुमचे पूर्ण नाव टाका.",
+    "Invalid Phone Number": "अवैध फोन नंबर",
+    "Please enter a valid 10-digit mobile number.": "कृपया १० अंकी वैध मोबाईल क्रमांक टाका.",
+    "Invalid Emergency Number": "अवैध आपत्कालीन क्रमांक",
+    "Please enter a valid 10-digit emergency contact number.": "कृपया १० अंकी वैध आपत्कालीन संपर्क क्रमांक टाका.",
+    "Validation Error": "तपासणी त्रुटी",
+    "Permission Needed": "परवानगी आवश्यक आहे",
+    "Please allow location access to detect your live GPS position.": "थेट GPS स्थान शोधण्यासाठी कृपया स्थान परवानगी द्या.",
+    "Location Notice": "स्थान सूचना",
+    "Using approximate coordinates. You can enter your location manually.": "अंदाजे स्थान वापरत आहे. तुम्ही स्वतःचे स्थान लिहू शकता.",
+    "e.g. Ramesh Patel": "उदा. रमेश पटेल",
+    "e.g. 9876543210": "उदा. ९८७६५४३२१०",
+    "e.g. 9820012345 (Family / Neighbor)": "उदा. ९८२००१२३४५ (कुटुंब / शेजारी)",
+    "Tap 'Detect Location' or enter your area": "स्थान शोधा किंवा परिसर टाका",
+
+    // Dashboard & Home
+    "Welcome": "स्वागत आहे",
+    "Welcome,": "नमस्कार,",
+    "Good day 👋": "नमस्कार 👋",
+    "Good day": "नमस्कार",
+    "LIVE FLOOD RISK SCORE": "थेट पूर जोखीम गुणांक",
+    "Live Flood Risk": "थेट पूर जोखीम",
+    "Estimated Water Depth (from photo)": "अंदाजे पाण्याची खोली (फोटोवरून)",
+    "Live Rainfall": "थेट पाऊस",
+    "Open-Meteo": "ओपन-मेटिओ",
+    "Drainage Diagnosis": "निचरा निदान",
+    "Citizen Signals": "नागरिक नोंदी",
+    "EMERGENCY SOS": "तातडीची मदत (SOS)",
+    "One-tap rescue dispatch to your GPS": "तुमच्या स्थानावर बचाव पथक बोलवा",
+    "Tap for Help": "मदतीसाठी दाबा",
+    "COOLDOWN": "प्रतीक्षा वेळ",
+    "Rescue Deployed": "बचाव पथक रवाना",
+    "SOS Broadcasted · Emergency Team Dispatched · ETA:": "SOS पाठवला · आपत्कालीन पथक रवाना · येण्याची वेळ:",
+    "SOS Reports Generated in this 500m Sector": "या ५०० मी परिसरात SOS तक्रारी नोंदवल्या गेल्या",
+    "Call Squad:": "बचाव पथकाला कॉल करा:",
+    "Nearby Emergency Resources Discovered Around SOS:": "SOS जवळ आढळलेली आपत्कालीन मदत केंद्रे:",
+    "Call": "कॉल करा",
+    "Map": "नकाशा",
+    "Report Incident": "तक्रार नोंदवा",
+    "Report a flood situation": "पूर परिस्थितीची तक्रार नोंदवा",
+    "Checklist": "चेकलिस्ट",
+    "Emergency Checklist": "सुरक्षा चेकलिस्ट",
+    "Flood Buddy": "फ्लड बडी",
+    "Flood Buddy (Nearby Shops)": "फ्लड बडी (जवळचे दुकानदार)",
+    "Evacuation Map": "स्थलांतर नकाशा",
+    "Nearby Emergency Services": "जवळच्या आपत्कालीन सेवा",
+    "View All →": "सर्व पहा →",
+    "GOVT HOSPITAL": "शासकीय रुग्णालय",
+    "Healthcare Center & Emergency Ward": "आरोग्य केंद्र आणि आपत्कालीन कक्ष",
+    "No nearby government hospital available within radius": "या परिसरात कोणतेही शासकीय रुग्णालय उपलब्ध नाही",
+    "Directions": "दिशा मार्ग",
+    "NGO": "स्वयंसेवी संस्था (NGO)",
+    "Designated NGO Community Hub": "मान्यताप्राप्त मदत केंद्र",
+    "No nearby NGO relief center available": "जवळ कोणतेही स्वयंसेवी मदत केंद्र उपलब्ध नाही",
+    "GOVERNMENT": "शासकीय मदत कक्ष",
+    "Disaster Response Base": "आपत्ती निवारण केंद्र",
+    "No nearby government unit available": "जवळ कोणतीही शासकीय मदत चौकी उपलब्ध नाही",
+    "Acknowledge & Dismiss": "समजले आणि बंद करा",
+    "Mark as Resolved": "निवारण झाले",
+    "False Alarm": "खोटी चेतावणी",
+    "Emergency Shelters": "सुरक्षित निवारे",
+    "Safe Evacuation Route (OSRM)": "सुरक्षित स्थलांतर मार्ग (OSRM)",
+    "Notify": "सावध करा",
+    "Quick Actions": "त्वरित कृती",
+    "Live Sensor Feeds & Divergence Diagnosis": "थेट सेन्सर व निचरा निदान",
+    "Blitzortung Lightning": "विजांचा कडकडाट",
+    "All monitored areas are operating safely.": "सर्व भाग सुरक्षितपणे कार्यरत आहेत.",
+    "ETA": "अंदाजे वेळ",
+    "Contact": "संपर्क",
+    "Open Full Incident Form": "पूर्ण तक्रार फॉर्म उघडा",
+    "Cancel": "रद्द करा",
+    "Close": "बंद करा",
+    "CONFIRM SOS": "SOS पाठवा",
+
+    // Checklist
+    "Shop Checklist": "दुकान चेकलिस्ट",
+    "Resident Checklist": "रहिवासी चेकलिस्ट",
+    "Completed": "पूर्ण झाले",
+    "of": "पैकी",
+    "Reset": "रीसेट",
+    "All essential flood safety steps completed!": "सर्व आवश्यक पूर सुरक्षा उपाय पूर्ण झाले!",
+    "Move to Upper Floor / High Ground": "वरच्या मजल्यावर / सुरक्षित उंच ठिकाणी जा",
+    "Move staff and customers to a safe elevated floor immediately.": "कर्मचारी आणि ग्राहकांना लगेच सुरक्षित वरच्या मजल्यावर हलवा.",
+    "Move family, elderly members, and pets above ground flood levels.": "कुटुंब, वृद्ध आणि पाळीव प्राण्यांना पुराच्या पाण्यापासून वर ठेवा.",
+    "Elevate Stock & Inventory": "माल व साहित्य उंचावर ठेवा",
+    "Move dry goods, electronics, and stock at least 3 feet off the floor.": "किमती माल आणि साहित्य जमिनीपासून किमान ३ फूट उंच कपाटावर ठेवा.",
+    "Turn Off Main Power Switch": "मुख्य विद्युत पुरवठा बंद करा",
+    "Safely cut off main breaker and unplug ground appliances to prevent shocks.": "शॉर्ट सर्किट टाळण्यासाठी मेन स्विच बंद करा व उपकरणे अनप्लग करा.",
+    "Install Flood Barriers & Seal Shutters": "फ्लड बॅरियर लावा व शटर बंद करा",
+    "Put sandbags/flood boards in place and lock the shop shutter securely.": "फ्लड बॅरियर किंवा वाळूच्या गोण्या लावा आणि शटर सुरक्षितपणे लॉक करा.",
+    "Secure Cash & Essential Documents": "रोकड व महत्त्वाची कागदपत्रे सुरक्षित ठेवा",
+    "Seal cash, tax registers, and POS devices in waterproof bags.": "रोकड, बिलांची पुस्तके आणि स्वाइप मशीन वॉटरप्रूफ पिशवीत सुरक्षित ठेवा.",
+    "Turn Off Electricity & Gas Valves": "वीज व गॅस सिलेंडर बंद करा",
+    "Switch off the main breaker and cooking gas to prevent fires/leaks.": "आग टाळण्यासाठी मेन स्विच आणि गॅस सिलिंडरचे व्हॉल्व्ह सुरक्षितपणे बंद करा.",
+    "Pack Emergency Go-Bag": "आपत्कालीन बॅग तयार ठेवा",
+    "Keep emergency medicines, power bank, torch, drinking water, and IDs ready.": "औषधे, पॉवर बँक, टॉर्च, पिण्याचे पाणी आणि ओळखपत्रे जवळ ठेवा.",
+    "Avoid Moving Floodwater": "वाहत्या पाण्यात जाणे टाळा",
+    "Do not walk or drive through flowing water or submerged streets.": "वाहत्या पाण्यातून चालू नका किंवा पाण्याखाली गेलेल्या रस्त्यांवर वाहने नेऊ नका.",
+    "CRITICAL": "अति महत्त्वाचे",
+    "STOCK": "माल संरक्षण",
+    "SAFETY": "सुरक्षा",
+    "BARRIER": "संरक्षक भिंत",
+    "DOCS": "कागदपत्रे",
+    "SUPPLIES": "साहित्य",
+    "HAZARD": "धोका",
+
+    // Map Screen
+    "Live Flood Map": "थेट पूर नकाशा",
+    "Current Location": "सध्याचे स्थान",
+    "Change": "बदला",
+    "You are here": "तुम्ही येथे आहात",
+    "Active Location": "सक्रिय स्थान",
+    "Call Unit": "कॉल करा",
+    "Directions ↗": "दिशा मार्ग ↗",
+    "Nearby Evacuation Shelters": "जवळचे सुरक्षित निवारे",
+    "Available": "उपलब्ध",
+    "Showing nearest": "जवळचे दाखवत आहे",
+    "Tap to calculate verified safe route": "सुरक्षित मार्ग शोधण्यासाठी टॅप करा",
+    "Loading nearby shelters...": "जवळचे निवारे शोधत आहे...",
+    "No nearby evacuation shelters found within 5 km.": "५ किमी परिसरात कोणताही निवारा आढळला नाही.",
+    "Retry / Refresh": "पुन्हा प्रयत्न / रीफ्रेश करा",
+    "VERIFIED": "सत्यापित",
+    "Relief Center": "मदत केंद्र",
+    "away": "लांब",
+    "travel time": "प्रवासाचा वेळ",
+    "km away": "किमी लांब",
+    "min travel time": "मिनिटे प्रवासाचा वेळ",
+    "Route Displayed": "मार्ग दाखवला",
+    "Safe Route": "सुरक्षित मार्ग",
+    "Nearby Emergency Services & Responders": "जवळच्या आपत्कालीन सेवा व मदत पथके",
+    "Units": "पथके",
+    "Showing nearest 2 units per category (Hospitals, Fire, Police, Municipal, NGOs)": "प्रत्येक प्रवर्गातील २ जवळची पथके दाखवली आहेत",
+    "HOSPITAL": "रुग्णालय",
+    "FIRE & RESCUE": "अग्निशामक व बचाव दल",
+    "POLICE": "पोलीस ठाणे",
+    "NGO & RELIEF": "स्वयंसेवी मदत",
+    "GOVERNMENT / CIVIC": "शासकीय / पालिका",
+
+    // Flood Buddy
+    "Nearby Flood Buddies": "जवळचे फ्लड बडी",
+    "Connect with real logged-in users nearby to exchange live flood risk warnings.": "थेट पूर चेतावणी शेअर करण्यासाठी जवळच्या वापरकर्त्यांशी संपर्क साधा.",
+    "Current GPS Location": "सध्याचे थेट GPS स्थान",
+    "Dynamically discovering active users around you": "तुमच्या आसपासच्या सक्रिय वापरकर्त्यांचा शोध घेत आहे",
+    "Discovery Radius:": "शोध अंतर मर्यादा:",
+    "No nearby Flood Buddies found.": "जवळ कोणतेही फ्लड बडी आढळले नाहीत.",
+    "Flood Buddy will show nearby users when they become available within": "या मर्यादेत वापरकर्ते उपलब्ध झाल्यावर येथे दिसतील",
+    "Refresh Discovery": "पुन्हा शोधा",
+    "Warning Sent": "चेतावणी पाठवली",
+    "Broadcast Alert": "चेतावणी पाठवा",
+    "Connected": "जोडलेले",
+    "Online": "ऑनलाइन",
+    "Offline": "ऑफलाइन",
+
+    // Alerts Screen
+    "Live Alerts & Warnings": "थेट चेतावण्या व सूचना",
+    "Live GPS:": "थेट जीपीएस:",
+    "Alert distances calculated dynamically from your position": "अलर्ट अंतर तुमच्या स्थानावरून थेट मोजले आहे",
+    "Update GPS": "जीपीएस अपडेट करा",
+    "Enable location to see alert distances.": "अलर्टचे अंतर पाहण्यासाठी स्थान सेवा चालू करा.",
+    "Allow GPS access to compute real-time alert proximity": "थेट अंतर मोजण्यासाठी जीपीएसची परवानगी द्या",
+    "Enable Location": "स्थान सेवा सुरू करा",
+    "LIGHTNING (BLITZORTUNG)": "विजांचा कडकडाट (ब्लिट्झऑर्टुंग)",
+    "Nearby Thunderstorm Activity Detected": "जवळपास वादळी पावसाची व विजांची शक्यता",
+    "Live Detector": "थेट डिटेक्टर",
+    "View on Map": "नकाशावर पहा",
+    "INCIDENT SOS": "आपत्कालीन SOS घटना",
+    "FLOOD RISK": "पुराचा धोका",
+    "RAINFALL RADAR": "पाऊस रडार",
+    "DRAINAGE": "निचरा",
+    "HIGH": "उच्च धोका",
+    "MODERATE": "मध्यम धोका",
+    "LOW": "कमी धोका",
+    "Dismiss": "काढून टाका",
+    "Resolved": "निवारण झाले",
+    "Feedback Recorded": "नोंद केली",
+    "from you": "तुमच्यापासून",
+
+    // Report Screen
+    "Report Flood Incident": "पूर परिस्थितीची तक्रार नोंदवा",
+    "Ground truth for municipal response and CV depth analysis.": "पालिका कारवाई आणि एआय विश्लेषणासाठी पुरावा.",
+    "Live GPS Incident Location": "थेट जीपीएस घटना स्थळ",
+    "Refresh GPS": "जीपीएस रीफ्रेश",
+    "Acquiring live GPS...": "थेट जीपीएस शोधत आहे...",
+    "Live Device Clock": "घड्याळ वेळ",
+    "Reporting Timestamp:": "तक्रार वेळ:",
+    "1. Visual Evidence (Photo or Video)": "१. पुरावा (फोटो किंवा व्हिडिओ)",
+    "Visual Evidence (Photo or Video)": "पुरावा (फोटो किंवा व्हिडिओ)",
+    "Take Photo": "फोटो काढा",
+    "Choose Photo": "गॅलरीतून निवडा",
+    "Choose Gallery": "गॅलरी निवडा",
+    "Retake Photo": "✓ पुन्हा फोटो काढा",
+    "Change Photo": "✓ फोटो बदला",
+    "📹 Take Video": "📹 व्हिडिओ काढा",
+    "📁 Choose Video": "📁 व्हिडिओ निवडा",
+    "Take Video": "व्हिडिओ काढा",
+    "Choose Video": "व्हिडिओ निवडा",
+    "Retake Video": "✓ पुन्हा व्हिडिओ काढा",
+    "Change Video": "✓ व्हिडिओ बदला",
+    "Ground Photo Attached": "📸 फोटो जोडला आहे",
+    "Remove": "काढा",
+    "Flood Video Attached": "🎥 पुराचा व्हिडिओ जोडला आहे",
+    "READY": "तयार",
+    "AI Model Verification Active": "एआय मॉडेल तपासणी सुरू आहे",
+    "Scanning visual evidence for active flooding...": "पुराच्या स्थितीची पडताळणी केली जात आहे...",
+    "Verification Notice": "तपासणी सूचना",
+    "Evidence Attached & Ready": "पुरावा जोडला आहे व तयार आहे",
+    "Visual evidence will be securely transmitted with your report to Disaster Response Authorities.": "हा पुरावा थेट पालिका आपत्ती नियंत्रण कक्षाकडे पाठवला जाईल.",
+    "2. Water Depth (Select exact status)": "२. पाण्याची खोली (अचूक स्थिती निवडा)",
+    "Water Depth (Select exact status)": "पाण्याची खोली (अचूक स्थिती निवडा)",
+    "3. Direct Drain Observation": "३. गटाराची स्थिती",
+    "Direct Drain Observation": "गटाराची स्थिती",
+    "4. Onset Speed of Rising Water": "४. पाणी वाढण्याचा वेग",
+    "Onset Speed of Rising Water": "पाणी वाढण्याचा वेग",
+    "5. Has this happened before at this location?": "५. या ठिकाणी यापूर्वी असे घडले आहे का?",
+    "Has this happened before at this location?": "या ठिकाणी यापूर्वी असे घडले आहे का?",
+    "6. Additional Observations / Notes": "६. इतर माहिती / नोंदी",
+    "Additional Observations / Notes": "इतर माहिती / नोंदी",
+    "Submit Ground Report": "तक्रार दाखल करा",
+    "Submitting...": "दाखल होत आहे...",
+    "At doorstep (not entered)": "दारापाशी (दुकानात आले नाही)",
+    "Entered shop — ankle deep": "दुकानात आले — घोट्यापर्यंत",
+    "Entered shop — knee deep": "दुकानात आले — गुडघ्यापर्यंत",
+    "Custom / Other": "इतर / स्वतःची नोंद",
+    "Blocked": "तुंबलेले",
+    "Clear": "मोकळे",
+    "Unsure": "माहित नाही",
+    "Yes": "होय",
+    "No": "नाही",
+    "<10 min": "<१० मिनिटे",
+    "10–20 min": "१०–२० मिनिटे",
+    "> 20 min": "> २० मिनिटे",
+
+    // Profile Screen & Modal
+    "Profile & Preferences": "प्रोफाइल व प्राधान्ये",
+    "Language Settings": "भाषा सेटिंग्ज",
+    "Emergency Notification Channels": "आपत्कालीन सूचना माध्यमे",
+    "Real-time GPS Proximity Alerts": "थेट GPS जवळीक अलर्ट",
+    "High-Risk (RED) Evacuation Alarms": "रेड अलर्ट स्थलांतर गजर",
+    "Emergency SMS Gateway Broadcasts": "तातडीचे एसएमएस संदेश",
+    "WhatsApp Ward Flash Directives": "व्हॉट्सॲप थेट सूचना",
+    "Active on primary mobile device": "मोबाईलवर सक्रिय",
+    "User Profile": "वापरकर्ता प्रोफाइल",
+    "Personal Phone": "वैयक्तिक फोन",
+    "Emergency Number": "आपत्कालीन क्रमांक",
+    "Twilio SOS Alert Recipient": "SOS संदेश प्राप्तकर्ता",
+    "Emergency Alert Channel Active": "आपत्कालीन सूचना मार्ग सक्रिय",
+    "SOS alerts are dispatched immediately to:": "या नंबरवर SOS सूचना तात्काळ पाठवल्या जातात:",
+    "Edit Profile": "प्रोफाइल बदला",
+    "Log Out": "लॉग आउट करा",
+
+    // Location Selector Modal
+    "Change Location": "स्थान बदला",
+    "Set Shop Location": "दुकानाचे स्थान निश्चित करा",
+    "Shelters and flood risk auto-refresh relative to this spot.": "निवारे आणि पूर धोका या स्थानानुसार आपोआप अपडेट होतात.",
+    "Search area (e.g. Mulund, Andheri, Kurla, Dadar)...": "परिसर शोधा (उदा. मुलुंड, अंधेरी, कुर्ला, दादर)...",
+    "Use Live GPS Location": "थेट GPS स्थान वापरा",
+    "Select Market Hub:": "बाजारपेठ निवडा:",
+
+    // Navigation Tabs
+    "Home": "मुख्य",
+    "Alerts": "अलर्ट",
+    "Buddy": "फ्लड बडी",
+    "Back": "मागे"
+  }
+};
+
+const UI_LOWER_TRANSLATIONS = {
+  hi: {},
+  mr: {}
+};
+for (const l of ["hi", "mr"]) {
+  for (const [k, v] of Object.entries(UI_TRANSLATIONS[l])) {
+    UI_LOWER_TRANSLATIONS[l][k.toLowerCase()] = v;
+  }
+}
+
+function translateString(str, lang) {
+  if (typeof str !== "string" || !str.trim() || lang === "en") return str;
+
+  const dict = UI_TRANSLATIONS[lang];
+  if (!dict) return str;
+
+  const trimmed = str.trim();
+
+  // 1. Direct dictionary match
+  if (dict[trimmed]) {
+    const leading = str.match(/^\s*/)[0];
+    const trailing = str.match(/\s*$/)[0];
+    return leading + dict[trimmed] + trailing;
+  }
+
+  // 2. Trailing asterisk (required indicator: "Full Name *")
+  if (trimmed.endsWith(" *")) {
+    const base = trimmed.slice(0, -2).trim();
+    if (dict[base]) {
+      const leading = str.match(/^\s*/)[0];
+      return leading + dict[base] + " *";
+    }
+  }
+
+  // 3. Leading emoji/symbol/number prefix ("🚨 RED ALERT...", "1. Visual Evidence...", "• Flood alerts...")
+  const prefixMatch = trimmed.match(/^([🚨📍⚡🌊🌧️👥📋🏪🏠🎯✓📹📁⚠️•📸🎥⏱️📏🤖✕\s\d+\.\-—·]+)(.*)$/u);
+  if (prefixMatch) {
+    const prefix = prefixMatch[1];
+    const rest = prefixMatch[2].trim();
+    if (rest) {
+      if (dict[rest]) {
+        const leading = str.match(/^\s*/)[0];
+        const trailing = str.match(/\s*$/)[0];
+        return leading + prefix + dict[rest] + trailing;
+      }
+      if (rest.endsWith(" *")) {
+        const base = rest.slice(0, -2).trim();
+        if (dict[base]) {
+          const leading = str.match(/^\s*/)[0];
+          return leading + prefix + dict[base] + " *";
+        }
+      }
+    }
+  }
+
+  // 4. Case-insensitive dictionary match
+  const lower = trimmed.toLowerCase();
+  const lowerDict = UI_LOWER_TRANSLATIONS[lang];
+  if (lowerDict && lowerDict[lower]) {
+    const leading = str.match(/^\s*/)[0];
+    const trailing = str.match(/\s*$/)[0];
+    return leading + lowerDict[lower] + trailing;
+  }
+
+  // 5. Replace common embedded English phrases in mixed strings
+  let modified = str;
+  let hasReplaced = false;
+
+  const phraseReplacements = [
+    ["km away", dict["km away"] || "किमी दूर"],
+    ["min travel time", dict["min travel time"] || "मिनट यात्रा समय"],
+    ["from you", dict["from you"] || "आपसे दूर"],
+    ["Available", dict["Available"] || "उपलब्ध"],
+    ["Units", dict["Units"] || "इकाइयां"],
+    ["Showing nearest", dict["Showing nearest"] || "निकटतम प्रदर्शित"],
+    ["Tap to calculate verified safe route", dict["Tap to calculate verified safe route"] || "सुरक्षित मार्ग देखने के लिए टैप करें"],
+    ["Welcome, ", (dict["Welcome,"] || "नमस्ते,") + " "],
+    ["👋 Welcome, ", "👋 " + (dict["Welcome,"] || "नमस्ते,") + " "],
+    ["You are here", dict["You are here"] || "आप यहां हैं"],
+    ["Reporting Timestamp:", dict["Reporting Timestamp:"] || "रिपोर्टिंग समय:"]
+  ];
+
+  for (const [enPhrase, trPhrase] of phraseReplacements) {
+    if (modified.includes(enPhrase)) {
+      modified = modified.replace(new RegExp(enPhrase, "g"), trPhrase);
+      hasReplaced = true;
+    }
+  }
+
+  if (hasReplaced) {
+    return modified;
+  }
+
+  return str;
+}
+
+function translateNode(node, lang) {
+  if (node === null || node === undefined) return node;
+  if (typeof node === "string") {
+    return translateString(node, lang);
+  }
+  if (Array.isArray(node)) {
+    return node.map((child) => translateNode(child, lang));
+  }
+  return node;
+}
+
+// Global Alert intercepter for automatic alert translation
+const originalAlert = Alert.alert;
+Alert.alert = (title, message, buttons, options) => {
+  const lang = activeGlobalLang || "en";
+  const trTitle = typeof title === "string" ? translateString(title, lang) : title;
+  const trMessage = typeof message === "string" ? translateString(message, lang) : message;
+  return originalAlert.call(Alert, trTitle, trMessage, buttons, options);
+};
+
 const Text = React.forwardRef((props, ref) => {
+  const langCtx = React.useContext(LanguageContext);
+  const lang = langCtx?.lang || activeGlobalLang || "en";
   const scaledStyle = scaleStyle(props.style);
-  return <RNText {...props} ref={ref} style={scaledStyle} />;
+
+  let children = props.children;
+  if (lang !== "en" && children !== null && children !== undefined) {
+    children = translateNode(children, lang);
+  }
+  return <RNText {...props} ref={ref} style={scaledStyle}>{children}</RNText>;
 });
 Text.displayName = "ScaledText";
 
 const TextInput = React.forwardRef((props, ref) => {
+  const langCtx = React.useContext(LanguageContext);
+  const lang = langCtx?.lang || activeGlobalLang || "en";
   const scaledStyle = scaleStyle(props.style);
-  return <RNTextInput {...props} ref={ref} style={scaledStyle} />;
+
+  let placeholder = props.placeholder;
+  if (lang !== "en" && typeof placeholder === "string" && placeholder) {
+    placeholder = translateString(placeholder, lang);
+  }
+  return <RNTextInput {...props} placeholder={placeholder} ref={ref} style={scaledStyle} />;
 });
 TextInput.displayName = "ScaledTextInput";
 
@@ -597,7 +1389,17 @@ export const MUMBAI_MARKET_HUBS = [
 ];
 
 export default function App() {
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [lang, setLang] = useState("en");
+
+  const handleSetLang = (newLang) => {
+    activeGlobalLang = newLang;
+    setLang(newLang);
+  };
+
+  useEffect(() => {
+    activeGlobalLang = lang;
+  }, [lang]);
   const [userProfile, setUserProfile] = useState(() => {
     try {
       if (typeof window !== "undefined" && window.localStorage) {
@@ -988,65 +1790,52 @@ export default function App() {
 
   if (!isLoggedIn) {
     return (
-      <LoginPage
-        lang={lang}
-        setLang={setLang}
-        onLogin={handleLogin}
-        requestLocation={requestLocation}
-        userLoc={userLoc}
-        userAddress={userAddress}
-        apiUrl={apiUrl}
-        gpsError={gpsError}
-        t={t}
-      />
+      <LanguageContext.Provider value={{ lang, setLang: handleSetLang, t }}>
+        <LoginPage
+          lang={lang}
+          setLang={handleSetLang}
+          onLogin={handleLogin}
+          requestLocation={requestLocation}
+          userLoc={userLoc}
+          userAddress={userAddress}
+          apiUrl={apiUrl}
+          gpsError={gpsError}
+          t={t}
+        />
+      </LanguageContext.Provider>
     );
   }
 
   return (
-    <SafeAreaView style={s.safe}>
-      <StatusBar style="dark" />
+    <LanguageContext.Provider value={{ lang, setLang: handleSetLang, t }}>
+      <SafeAreaView style={s.safe}>
+        <StatusBar style="dark" />
 
-      {/* User Profile Modal */}
-      <ProfileModal
-        visible={profileModalOpen}
-        onClose={() => setProfileModalOpen(false)}
-        userProfile={userProfile}
-        onLogout={handleLogout}
-        onEdit={() => {
-          setProfileModalOpen(false);
-          setIsLoggedIn(false);
-        }}
-      />
+        {/* User Profile Modal */}
+        <ProfileModal
+          visible={profileModalOpen}
+          onClose={() => setProfileModalOpen(false)}
+          userProfile={userProfile}
+          onLogout={handleLogout}
+          onEdit={() => {
+            setProfileModalOpen(false);
+            setIsLoggedIn(false);
+          }}
+          t={t}
+          lang={lang}
+          setLang={handleSetLang}
+        />
 
-      {/* Main Header with Instant Language Switcher & User Profile Pill */}
-      <View style={s.header}>
-        <View>
-          <Text style={s.brand}>
-            Varsha<Text style={{ color: BLUE }}>Raksha</Text>
-          </Text>
-          <Text style={s.sub}>{t.appTagline}</Text>
-        </View>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          {/* User Profile / Emergency Contact Badge */}
-          {userProfile && (
-            <TouchableOpacity
-              style={s.headerProfileBtn}
-              onPress={() => setProfileModalOpen(true)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="person-circle" size={16} color={BLUE} />
-              <Text style={s.headerProfileText} numberOfLines={1}>
-                {userProfile.name ? userProfile.name.split(" ")[0] : "Profile"}
-              </Text>
-              {userProfile.emergencyNumber ? (
-                <View style={s.headerSosBadge}>
-                  <Text style={s.headerSosBadgeText}>SOS</Text>
-                </View>
-              ) : null}
-            </TouchableOpacity>
-          )}
-
-          <View style={{ flexDirection: "row", backgroundColor: "#E2E8F0", borderRadius: 8, padding: 2 }}>
+        {/* Main Header with Instant Language Switcher */}
+        <View style={s.header}>
+          <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
+            <Text style={s.brand} numberOfLines={1}>
+              Varsha<Text style={{ color: BLUE }}>Raksha</Text>
+            </Text>
+            <Text style={s.sub} numberOfLines={1}>{t.appTagline}</Text>
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            <View style={{ flexDirection: "row", backgroundColor: "#E2E8F0", borderRadius: 8, padding: 2 }}>
             {["en", "hi", "mr"].map((l) => (
               <TouchableOpacity
                 key={l}
@@ -1054,7 +1843,7 @@ export default function App() {
                   { paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6 },
                   lang === l && { backgroundColor: BLUE }
                 ]}
-                onPress={() => setLang(l)}
+                onPress={() => handleSetLang(l)}
               >
                 <Text style={{ fontSize: 10, fontWeight: "800", color: lang === l ? "#fff" : TEXT }}>
                   {l.toUpperCase()}
@@ -1162,7 +1951,7 @@ export default function App() {
       {tab === "Profile" && (
         <ProfileScreen
           lang={lang}
-          setLang={setLang}
+          setLang={handleSetLang}
           role={role}
           userAddress={userAddress}
           t={t}
@@ -1188,13 +1977,13 @@ export default function App() {
       {role === "Shop Owner" && (
         <Modal visible={autoModalOpen} transparent animationType="slide">
           <View style={s.modalBack}>
-            <View style={[s.modal, { borderColor: RED, borderWidth: 2, maxHeight: SCREEN_HEIGHT * 0.85 }]}>
+            <View style={[s.modal, { borderColor: RED, borderWidth: 2, maxHeight: (windowHeight || 700) * 0.85 }]}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
                 <Ionicons name="warning" size={28} color={RED} />
                 <Text style={[s.modalTitle, { color: RED, flex: 1 }]}>{t.riskIncreasedTitle}</Text>
               </View>
               <Text style={s.modalSub}>{t.riskIncreasedSub}</Text>
-              <ScrollView style={{ maxHeight: SCREEN_HEIGHT * 0.55 }} showsVerticalScrollIndicator={false}>
+              <ScrollView style={{ maxHeight: (windowHeight || 700) * 0.55 }} showsVerticalScrollIndicator={false}>
                 <EmergencyChecklistView role={role} t={t} userProfile={userProfile} />
               </ScrollView>
               <TouchableOpacity style={[s.primary, { marginTop: 14 }]} onPress={() => setAutoModalOpen(false)}>
@@ -1208,7 +1997,7 @@ export default function App() {
       {/* Manual Emergency Checklist Modal */}
       <Modal visible={checklistOpen} transparent animationType="slide">
         <View style={s.modalBack}>
-          <View style={[s.modal, { maxHeight: SCREEN_HEIGHT * 0.85, paddingBottom: 24 }]}>
+          <View style={[s.modal, { maxHeight: (windowHeight || 700) * 0.85, paddingBottom: 24 }]}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <View>
                 <Text style={s.modalTitle}>📋 {t.emergencyChecklist}</Text>
@@ -1262,11 +2051,13 @@ export default function App() {
         </View>
       </Modal>
     </SafeAreaView>
+    </LanguageContext.Provider>
   );
 }
 
 // Location Selector Modal (Available on Home & Map anytime) with Live Search & Geocoding
 function LocationSelectorModal({ visible, onClose, onSelectLocation, requestLocation, currentAddress, apiUrl, role, t }) {
+  const { height: windowHeight } = useWindowDimensions();
   const [detecting, setDetecting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -1346,7 +2137,7 @@ function LocationSelectorModal({ visible, onClose, onSelectLocation, requestLoca
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={s.modalBack}>
-        <View style={[s.modal, { maxHeight: SCREEN_HEIGHT * 0.88 }]}>
+        <View style={[s.modal, { maxHeight: (windowHeight || 700) * 0.88 }]}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
             <View>
               <Text style={s.modalTitle}>📍 {role === "Shop Owner" ? "Set Shop Location" : "Change Location"}</Text>
@@ -1475,10 +2266,10 @@ function LoginPage({
   const [phone, setPhone] = useState("");
   const [emergencyNumber, setEmergencyNumber] = useState("");
   const [role, setRole] = useState("Shop Owner");
-  const [selectedHub, setSelectedHub] = useState(null); // No hub pre-selected by default
-  const [locationInput, setLocationInput] = useState(""); // Starts empty (no blocking autofill)
+  const [locationInput, setLocationInput] = useState(userAddress || "");
   const [loadingGps, setLoadingGps] = useState(false);
   const [validationError, setValidationError] = useState("");
+  const userEditedLocationRef = useRef(false);
 
   const cleanPhone = phone.replace(/\D/g, "").slice(-10);
   const cleanEmergency = emergencyNumber.replace(/\D/g, "").slice(-10);
@@ -1487,14 +2278,23 @@ function LoginPage({
   const isSameNumber = Boolean(cleanPhone && cleanEmergency && cleanPhone === cleanEmergency);
   const isFormValid = Boolean(name.trim() && cleanPhone.length === 10 && cleanEmergency.length === 10 && !isSameNumber);
 
-  const handleGpsDetect = async () => {
+  // Auto-sync parent detected address if user hasn't typed a custom location
+  useEffect(() => {
+    if (!userEditedLocationRef.current) {
+      if (userAddress) {
+        setLocationInput(userAddress);
+      } else if (userLoc && !locationInput) {
+        setLocationInput(`${userLoc.latitude.toFixed(4)}, ${userLoc.longitude.toFixed(4)}`);
+      }
+    }
+  }, [userAddress, userLoc]);
+
+  const handleGpsDetect = async (silent = false) => {
     // Instant Step 1: Pre-populate from existing cached parent state (0ms instant)
     if (userAddress && !locationInput) {
       setLocationInput(userAddress);
-      setSelectedHub(null);
     } else if (userLoc && !locationInput) {
       setLocationInput(`${userLoc.latitude.toFixed(4)}, ${userLoc.longitude.toFixed(4)}`);
-      setSelectedHub(null);
     }
 
     setLoadingGps(true);
@@ -1512,7 +2312,9 @@ function LoginPage({
       }
 
       if (!hasPerm) {
-        Alert.alert("Permission Needed", "Please allow location access to detect your live GPS position.");
+        if (!silent) {
+          Alert.alert("Permission Needed", "Please allow location access to detect your live GPS position.");
+        }
         setLoadingGps(false);
         return;
       }
@@ -1523,7 +2325,7 @@ function LoginPage({
         const lastKnown = await Location.getLastKnownPositionAsync({});
         if (lastKnown?.coords) {
           activeCoords = lastKnown.coords;
-          if (!locationInput) {
+          if (!userEditedLocationRef.current && !locationInput) {
             setLocationInput(`${activeCoords.latitude.toFixed(4)}, ${activeCoords.longitude.toFixed(4)}`);
           }
         }
@@ -1585,15 +2387,23 @@ function LoginPage({
         }
       } catch (_) {}
 
-      setLocationInput(resolvedAddress);
-      setSelectedHub(null);
+      if (!userEditedLocationRef.current) {
+        setLocationInput(resolvedAddress);
+      }
     } catch (err) {
       console.log("GPS Detect Error:", err);
-      Alert.alert("Location Notice", "Using approximate coordinates. You can select a market hub below or type manually.");
+      if (!silent) {
+        Alert.alert("Location Notice", "Using approximate coordinates. You can enter your location manually.");
+      }
     } finally {
       setLoadingGps(false);
     }
   };
+
+  // Automatically trigger live GPS location detection on mount
+  useEffect(() => {
+    handleGpsDetect(true);
+  }, []);
 
   const handleSubmit = () => {
     setValidationError("");
@@ -1626,8 +2436,7 @@ function LoginPage({
       return;
     }
 
-    const hub = selectedHub ? MUMBAI_MARKET_HUBS.find((h) => h.id === selectedHub) : null;
-    const finalAddress = locationInput.trim() || (hub ? `${hub.name}, ${hub.ward}` : "Mumbai, Maharashtra");
+    const finalAddress = locationInput.trim() || userAddress || "Mumbai, Maharashtra";
     const profile = {
       id: `USR-${Date.now().toString().slice(-6)}`,
       name: name.trim(),
@@ -1636,7 +2445,7 @@ function LoginPage({
       emergencyRelation: "Emergency Contact",
       role,
       address: finalAddress,
-      marketHubId: selectedHub || null,
+      marketHubId: null,
       registeredAt: new Date().toISOString()
     };
 
@@ -1645,7 +2454,11 @@ function LoginPage({
 
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: "#F4F8FF" }]}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 36 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 40, width: "100%", alignItems: "center" }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Top Header Branding */}
         <View style={s.loginTopHeader}>
           <View style={s.logoCircle}>
@@ -1769,11 +2582,11 @@ function LoginPage({
                 onPress={() => setRole("Shop Owner")}
               >
                 <Text style={{ fontSize: 20 }}>🏪</Text>
-                <View style={{ flex: 1 }}>
+                <View style={{ flex: 1, minWidth: 0, paddingRight: 4 }}>
                   <Text style={s.loginRoleBtnTitle}>Shop Owner</Text>
                   <Text style={s.loginRoleBtnSub}>Protect stock • Flood alerts • Checklists</Text>
                 </View>
-                {role === "Shop Owner" && <Ionicons name="checkmark-circle" size={20} color={BLUE} />}
+                {role === "Shop Owner" && <Ionicons name="checkmark-circle" size={20} color={BLUE} style={{ flexShrink: 0 }} />}
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1781,22 +2594,27 @@ function LoginPage({
                 onPress={() => setRole("Resident")}
               >
                 <Text style={{ fontSize: 20 }}>🏠</Text>
-                <View style={{ flex: 1 }}>
+                <View style={{ flex: 1, minWidth: 0, paddingRight: 4 }}>
                   <Text style={s.loginRoleBtnTitle}>Resident</Text>
                   <Text style={s.loginRoleBtnSub}>Flood alerts • Safe routes • Emergency reports</Text>
                 </View>
-                {role === "Resident" && <Ionicons name="checkmark-circle" size={20} color={BLUE} />}
+                {role === "Resident" && <Ionicons name="checkmark-circle" size={20} color={BLUE} style={{ flexShrink: 0 }} />}
               </TouchableOpacity>
             </View>
           </View>
 
           {/* 5. Location */}
           <View style={s.loginInputGroup}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <Text style={s.loginInputLabel}>Location</Text>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 6 }}>
+              <Text style={[s.loginInputLabel, { flex: 1, minWidth: 110, marginBottom: 0 }]}>
+                {t.location || "Area / Market Location"} <Text style={{ color: RED }}>*</Text>
+              </Text>
               <TouchableOpacity
-                style={s.loginDetectBtn}
-                onPress={handleGpsDetect}
+                style={[s.loginDetectBtn, { flexShrink: 0 }]}
+                onPress={() => {
+                  userEditedLocationRef.current = false;
+                  handleGpsDetect(false);
+                }}
                 disabled={loadingGps}
               >
                 {loadingGps ? (
@@ -1813,45 +2631,32 @@ function LoginPage({
             <View style={s.loginInputBox}>
               <TextInput
                 style={s.loginInputField}
-                placeholder="Tap 'Detect Location' or enter your area"
+                placeholder={loadingGps ? "Auto-detecting your location..." : "Auto-detected location or enter area"}
                 placeholderTextColor="#94A3B8"
                 value={locationInput}
-                onChangeText={setLocationInput}
+                onChangeText={(val) => {
+                  userEditedLocationRef.current = true;
+                  setLocationInput(val);
+                }}
               />
-              {locationInput.length > 0 && (
-                <TouchableOpacity onPress={() => setLocationInput("")} style={{ paddingHorizontal: 10 }}>
+              {loadingGps && (
+                <View style={{ paddingHorizontal: 6 }}>
+                  <ActivityIndicator color={BLUE} size="small" />
+                </View>
+              )}
+              {locationInput.length > 0 && !loadingGps && (
+                <TouchableOpacity
+                  onPress={() => {
+                    userEditedLocationRef.current = true;
+                    setLocationInput("");
+                  }}
+                  style={{ paddingHorizontal: 10 }}
+                >
                   <Ionicons name="close-circle" size={18} color="#94A3B8" />
                 </TouchableOpacity>
               )}
             </View>
 
-            <Text style={[s.loginFieldHelp, { marginTop: 10, marginBottom: 6, fontWeight: "700" }]}>
-              📍 Quick Select Hub (Optional):
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
-              {MUMBAI_MARKET_HUBS.map((hub) => {
-                const isChosen = selectedHub === hub.id;
-                return (
-                  <TouchableOpacity
-                    key={hub.id}
-                    style={[s.hubChip, isChosen && s.hubChipActive]}
-                    onPress={() => {
-                      if (selectedHub === hub.id) {
-                        setSelectedHub(null);
-                        setLocationInput("");
-                      } else {
-                        setSelectedHub(hub.id);
-                        setLocationInput(`${hub.name}, ${hub.ward}`);
-                      }
-                    }}
-                  >
-                    <Text style={[s.hubChipText, isChosen && s.hubChipTextActive]}>
-                      🏪 {hub.name.split(" ")[0]} ({hub.ward})
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
           </View>
 
           {/* Primary CTA Button */}
@@ -1869,7 +2674,7 @@ function LoginPage({
 }
 
 // User Profile Details & Emergency Settings Modal
-function ProfileModal({ visible, onClose, userProfile, onLogout, onEdit }) {
+function ProfileModal({ visible, onClose, userProfile, onLogout, onEdit, t, lang, setLang }) {
   if (!userProfile) return null;
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -2030,8 +2835,8 @@ function Home({
       {/* 1. User Welcome & Role Bar */}
       {userProfile && (
         <View style={s.userWelcomeCard}>
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <View style={{ flex: 1, minWidth: 0, marginRight: 6 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <Text style={s.userWelcomeName}>
                 👋 Welcome, {userProfile.name}
               </Text>
@@ -2040,7 +2845,7 @@ function Home({
               </View>
             </View>
           </View>
-          <TouchableOpacity style={s.userProfileEditIconBtn} onPress={onOpenProfile}>
+          <TouchableOpacity style={[s.userProfileEditIconBtn, { flexShrink: 0 }]} onPress={onOpenProfile}>
             <Ionicons name="settings-outline" size={16} color={BLUE} />
           </TouchableOpacity>
         </View>
@@ -2162,17 +2967,17 @@ function Home({
       <View style={{ flexDirection: "row", gap: 10, marginTop: 12, marginBottom: 18 }}>
         <TouchableOpacity style={s.quickActionCard} onPress={onOpenChecklist} activeOpacity={0.7}>
           <Ionicons name="clipboard-outline" size={18} color={BLUE} />
-          <Text style={s.quickActionText}>📋 Checklist</Text>
+          <Text style={s.quickActionText}>Checklist</Text>
         </TouchableOpacity>
         {role === "Shop Owner" ? (
           <TouchableOpacity style={s.quickActionCard} onPress={onOpenBuddy} activeOpacity={0.7}>
             <Ionicons name="people-outline" size={18} color={BLUE} />
-            <Text style={s.quickActionText}>👥 Flood Buddy</Text>
+            <Text style={s.quickActionText}>Flood Buddy</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={s.quickActionCard} onPress={onNavigateToMap} activeOpacity={0.7}>
             <Ionicons name="navigate-outline" size={18} color={BLUE} />
-            <Text style={s.quickActionText}>🗺️ Evacuation Map</Text>
+            <Text style={s.quickActionText}>Evacuation Map</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -2194,7 +2999,7 @@ function Home({
               <View style={[s.cleanResourceIconCircle, { backgroundColor: "#EFF6FF" }]}>
                 <Text style={{ fontSize: 22 }}>🏥</Text>
               </View>
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={s.cleanResourceCategory}>GOVT HOSPITAL</Text>
                 <Text style={s.cleanResourceTitle} numberOfLines={1}>{closestHospital.name}</Text>
                 <Text style={s.cleanResourceAddress} numberOfLines={1}>
@@ -2205,7 +3010,7 @@ function Home({
                 </Text>
               </View>
               <TouchableOpacity
-                style={s.cleanDirectionsBtn}
+                style={[s.cleanDirectionsBtn, { flexShrink: 0 }]}
                 onPress={() => {
                   const navUrl = closestHospital.navigateUrl || closestHospital.mapsUrl || ((closestHospital.latitude || closestHospital.lat) && (closestHospital.longitude || closestHospital.lng) ? `https://www.google.com/maps/dir/?api=1&destination=${closestHospital.latitude || closestHospital.lat},${closestHospital.longitude || closestHospital.lng}&travelmode=driving` : null);
                   if (navUrl) Linking.openURL(navUrl).catch(() => null);
@@ -2220,7 +3025,7 @@ function Home({
           <View style={s.cleanResourceCard}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <Text style={{ fontSize: 20 }}>🏥</Text>
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={s.cleanResourceCategory}>GOVT HOSPITAL</Text>
                 <Text style={s.cleanResourceMeta}>No nearby government hospital available within radius</Text>
               </View>
@@ -2235,7 +3040,7 @@ function Home({
               <View style={[s.cleanResourceIconCircle, { backgroundColor: "#F0FDF4" }]}>
                 <Text style={{ fontSize: 22 }}>🤝</Text>
               </View>
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={[s.cleanResourceCategory, { color: "#16a34a" }]}>NGO</Text>
                 <Text style={s.cleanResourceTitle} numberOfLines={1}>{closestNgo.name}</Text>
                 <Text style={s.cleanResourceAddress} numberOfLines={1}>
@@ -2246,7 +3051,7 @@ function Home({
                 </Text>
               </View>
               <TouchableOpacity
-                style={[s.cleanDirectionsBtn, { backgroundColor: "#16a34a" }]}
+                style={[s.cleanDirectionsBtn, { backgroundColor: "#16a34a", flexShrink: 0 }]}
                 onPress={() => {
                   const navUrl = closestNgo.maps_url || closestNgo.mapsUrl || closestNgo.navigateUrl || ((closestNgo.latitude || closestNgo.lat) && (closestNgo.longitude || closestNgo.lng) ? `https://www.google.com/maps/dir/?api=1&destination=${closestNgo.latitude || closestNgo.lat},${closestNgo.longitude || closestNgo.lng}&travelmode=driving` : null);
                   if (navUrl) Linking.openURL(navUrl).catch(() => null);
@@ -2261,7 +3066,7 @@ function Home({
           <View style={s.cleanResourceCard}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <Text style={{ fontSize: 20 }}>🤝</Text>
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={[s.cleanResourceCategory, { color: "#16a34a" }]}>NGO</Text>
                 <Text style={s.cleanResourceMeta}>No nearby NGO relief center available</Text>
               </View>
@@ -2276,7 +3081,7 @@ function Home({
               <View style={[s.cleanResourceIconCircle, { backgroundColor: "#FEF3C7" }]}>
                 <Text style={{ fontSize: 22 }}>{closestGov.category === "fire" ? "🚒" : closestGov.category === "police" ? "👮" : "🏛️"}</Text>
               </View>
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={[s.cleanResourceCategory, { color: "#d97706" }]}>GOVERNMENT</Text>
                 <Text style={s.cleanResourceTitle} numberOfLines={1}>{closestGov.name}</Text>
                 <Text style={s.cleanResourceAddress} numberOfLines={1}>
@@ -2287,7 +3092,7 @@ function Home({
                 </Text>
               </View>
               <TouchableOpacity
-                style={[s.cleanDirectionsBtn, { backgroundColor: "#d97706" }]}
+                style={[s.cleanDirectionsBtn, { backgroundColor: "#d97706", flexShrink: 0 }]}
                 onPress={() => {
                   const navUrl = closestGov.navigateUrl || closestGov.mapsUrl || ((closestGov.latitude || closestGov.lat) && (closestGov.longitude || closestGov.lng) ? `https://www.google.com/maps/dir/?api=1&destination=${closestGov.latitude || closestGov.lat},${closestGov.longitude || closestGov.lng}&travelmode=driving` : null);
                   if (navUrl) Linking.openURL(navUrl).catch(() => null);
@@ -2302,7 +3107,7 @@ function Home({
           <View style={s.cleanResourceCard}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <Text style={{ fontSize: 20 }}>🏛️</Text>
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={[s.cleanResourceCategory, { color: "#d97706" }]}>GOVERNMENT</Text>
                 <Text style={s.cleanResourceMeta}>No nearby government unit available</Text>
               </View>
@@ -2582,8 +3387,8 @@ function MapScreen({
   centerLngRef.current = centerLng;
   zoomRef.current = zoom;
 
-  const { width: winWidth } = Dimensions.get("window");
-  const mapWidth = Math.max(300, (winWidth || 390) - 24);
+  const { width: winWidth } = useWindowDimensions();
+  const mapWidth = Math.max(280, Math.min((winWidth || 390) - 24, 600));
   const mapHeight = 350;
 
   // Safe Route Calculation
@@ -4616,9 +5421,15 @@ function AlertMini({ a }) {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: BG },
+  safe: {
+    flex: 1,
+    width: "100%",
+    maxWidth: "100%",
+    backgroundColor: BG,
+    paddingTop: Platform.OS === "android" ? (RNStatusBar.currentHeight || 28) : 0
+  },
   header: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingTop: 10,
     paddingBottom: 10,
     backgroundColor: "#fff",
@@ -4626,7 +5437,9 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     borderBottomWidth: 1,
-    borderBottomColor: "#E5EBF4"
+    borderBottomColor: "#E5EBF4",
+    width: "100%",
+    maxWidth: "100%"
   },
   brand: { fontSize: 20, fontWeight: "900", color: NAVY, letterSpacing: -0.5 },
   sub: { fontSize: 9, color: MUTED, marginTop: 1 },
@@ -4634,7 +5447,7 @@ const s = StyleSheet.create({
   liveDot: { width: 7, height: 7, borderRadius: 7, backgroundColor: GREEN },
   live: { fontSize: 8, fontWeight: "800", color: GREEN, letterSpacing: 0.5 },
 
-  body: { flex: 1, paddingHorizontal: 16 },
+  body: { flex: 1, width: "100%", maxWidth: "100%", paddingHorizontal: 14 },
   // Large Circular SOS Button Styles
   sosCircularContainer: {
     alignItems: "center",
@@ -4799,16 +5612,19 @@ const s = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 75,
+    height: 72,
     backgroundColor: "#fff",
     borderTopWidth: 1,
     borderTopColor: "#E5EBF4",
     flexDirection: "row",
     justifyContent: "space-around",
-    paddingTop: 9
+    paddingTop: 8,
+    paddingBottom: Platform.OS === "ios" ? 18 : 6,
+    width: "100%",
+    maxWidth: "100%"
   },
-  navItem: { alignItems: "center", gap: 3, width: 65 },
-  navText: { fontSize: 8, color: "#8795A8" },
+  navItem: { alignItems: "center", gap: 2, flex: 1, maxWidth: 90 },
+  navText: { fontSize: 8.5, color: "#8795A8", textAlign: "center" },
 
   modalBack: { flex: 1, justifyContent: "flex-end", backgroundColor: "#06162d88" },
   modal: { backgroundColor: "#fff", padding: 22, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
@@ -5434,9 +6250,11 @@ const s = StyleSheet.create({
 
   // Login Page Styles
   loginTopHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 16,
+    width: "100%",
+    maxWidth: 480,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === "android" ? 14 : 20,
+    paddingBottom: 14,
     alignItems: "center"
   },
   loginLangRow: {
@@ -5445,7 +6263,9 @@ const s = StyleSheet.create({
     marginTop: 12,
     backgroundColor: "#E2E8F0",
     padding: 3,
-    borderRadius: 10
+    borderRadius: 10,
+    flexWrap: "wrap",
+    justifyContent: "center"
   },
   loginLangBtn: {
     paddingHorizontal: 12,
@@ -5463,8 +6283,10 @@ const s = StyleSheet.create({
   loginMainCard: {
     backgroundColor: "#fff",
     borderRadius: 20,
-    marginHorizontal: 16,
-    padding: 20,
+    width: "92%",
+    maxWidth: 480,
+    alignSelf: "center",
+    padding: 18,
     borderWidth: 1,
     borderColor: "#E2E8F0",
     elevation: 4,
@@ -5519,7 +6341,8 @@ const s = StyleSheet.create({
     lineHeight: 15
   },
   loginInputGroup: {
-    marginBottom: 14
+    marginBottom: 14,
+    width: "100%"
   },
   loginInputLabel: {
     fontSize: 12,
@@ -5539,16 +6362,18 @@ const s = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "#CBD5E1",
     borderRadius: 10,
-    overflow: "hidden"
+    overflow: "hidden",
+    width: "100%"
   },
   loginPrefixBox: {
     backgroundColor: "#E2E8F0",
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 10,
     justifyContent: "center",
     alignItems: "center",
     borderRightWidth: 1,
-    borderRightColor: "#CBD5E1"
+    borderRightColor: "#CBD5E1",
+    flexShrink: 0
   },
   loginPrefixText: {
     fontSize: 13,
@@ -5557,7 +6382,8 @@ const s = StyleSheet.create({
   },
   loginInputField: {
     flex: 1,
-    paddingHorizontal: 12,
+    minWidth: 0,
+    paddingHorizontal: 10,
     paddingVertical: 10,
     fontSize: 13.5,
     fontWeight: "700",
@@ -5578,7 +6404,8 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: "#E2E8F0"
+    borderColor: "#E2E8F0",
+    width: "100%"
   },
   loginRoleBtnActive: {
     backgroundColor: "#EFF6FF",

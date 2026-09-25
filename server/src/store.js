@@ -501,7 +501,7 @@ class Store {
   getActiveIncidents() {
     return this.getIncidents().filter((i) => {
       const st = String(i.status || "").toLowerCase();
-      return st !== "resolved" && st !== "false alarm" && st !== "quarantined spam" && !i.isQuarantined;
+      return st !== "resolved" && st !== "false alarm" && st !== "dismissed" && st !== "quarantined spam" && !i.isQuarantined && !i.isDismissed;
     });
   }
 
@@ -2227,8 +2227,8 @@ class Store {
     if (normalized === "RESOLVED" || normalized === "RESOLVE") {
       return this.resolveIncident(incidentId);
     }
-    if (normalized === "FALSE_ALARM" || normalized === "FALSE ALARM") {
-      return this.markFalseAlarm(incidentId, meta.reason || "Marked False Alarm");
+    if (normalized === "FALSE_ALARM" || normalized === "FALSE ALARM" || normalized === "DISMISSED" || normalized === "DISMISS") {
+      return this.markFalseAlarm(incidentId, meta.reason || "Marked False Alarm / Dismissed");
     }
     if (normalized === "VERIFIED") {
       return this.verifyIncident(incidentId);
@@ -2337,6 +2337,7 @@ class Store {
     const inc = this.incidents.find((i) => i.id === incidentId || i.sosId === incidentId);
     if (inc) {
       inc.status = "False Alarm";
+      inc.isDismissed = true;
       inc.falseAlarmReason = reason;
       inc.falseAlarmAt = new Date().toISOString();
 
