@@ -336,7 +336,192 @@ const handleClearResources = (req, res) => {
 app.post("/api/resources/clear", handleClearResources);
 app.delete("/api/resources/simulate", handleClearResources);
 app.delete("/api/resources", handleClearResources);
+
+// ==========================================
+// TEAM TRACKER 2.0 — INTELLIGENT RESOURCE MANAGEMENT
+// ==========================================
+
+// GET operational analytics for resource fleet
+app.get("/api/resources/analytics", (_, res) => {
+  try {
+    const analytics = store.getResourceAnalytics();
+    res.json(analytics);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET coverage gap analysis across Mumbai emergency sectors/wards
+app.get("/api/resources/coverage-gaps", (_, res) => {
+  try {
+    const gaps = store.getCoverageGaps();
+    res.json(gaps);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST AI-assisted resource recommendation for an active incident
+app.post("/api/resources/recommend", (req, res) => {
+  try {
+    const { incidentId } = req.body;
+    if (!incidentId) {
+      return res.status(400).json({ success: false, error: "incidentId is required" });
+    }
+    const rec = store.getAiResourceRecommendation(incidentId);
+    res.json(rec);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// PATCH update resource lifecycle status
+app.patch("/api/resources/:id/status", (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, notes, user } = req.body;
+    const updated = store.updateResourceStatus(id, { status, notes, user });
+    res.json({ success: true, resource: updated });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// PATCH update resource capacity & inventory
+app.patch("/api/resources/:id/capacity", (req, res) => {
+  try {
+    const { id } = req.params;
+    const { quantity, availableQuantity, capacity } = req.body;
+    const updated = store.updateResourceCapacity(id, { quantity, availableQuantity, capacity });
+    res.json({ success: true, resource: updated });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// POST record maintenance activity for a resource
+app.post("/api/resources/:id/maintenance", (req, res) => {
+  try {
+    const { id } = req.params;
+    const updated = store.recordResourceMaintenance(id, req.body);
+    res.json({ success: true, resource: updated });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// POST assign resource to an incident
+app.post("/api/resources/:id/assign", (req, res) => {
+  try {
+    const { id } = req.params;
+    const { incidentId, notes, isOverride } = req.body;
+    if (!incidentId) {
+      return res.status(400).json({ success: false, error: "incidentId is required" });
+    }
+    const resource = (store.resources || []).find((r) => r.id === id);
+    if (!resource) {
+      return res.status(404).json({ success: false, error: `Resource ${id} not found` });
+    }
+
+    const st = (resource.status || "").toUpperCase();
+    if (!isOverride && (st === "DEPLOYED" || st === "EN_ROUTE" || st === "MAINTENANCE")) {
+      return res.status(409).json({
+        success: false,
+        conflict: true,
+        currentStatus: resource.status,
+        message: `Resource is currently ${resource.status}. Require supervisor override to reassign.`
+      });
+    }
+
+    // Create dispatch
+    const dispatch = store.addDispatch({
+      incidentId,
+      team: resource.name,
+      teamId: resource.id,
+      reason: notes || `Direct dispatch assignment from Team Tracker`,
+      isOverride: Boolean(isOverride)
+    });
+
+    // Mark resource as assigned
+    store.updateResourceStatus(id, {
+      status: "EN_ROUTE",
+      notes: notes ? `Dispatched to incident ${incidentId}: ${notes}` : `Dispatched to incident ${incidentId}`
+    });
+
+    res.json({
+      success: true,
+      message: `Resource ${resource.name} successfully dispatched to incident ${incidentId}`,
+      dispatch,
+      resource: (store.resources || []).find((r) => r.id === id)
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.get("/api/chronic-blockages", (_, res) => res.json(store.getChronicBlockages()));
+
+app.patch("/api/chronic-blockages/:id", (req, res) => {
+  try {
+    const updated = store.updateChronicBlockage(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ success: false, error: "Hotspot not found" });
+    res.json({ success: true, hotspot: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/chronic-blockages/work-orders", (_, res) => {
+  res.json(store.getWorkOrders());
+});
+
+app.post("/api/chronic-blockages/work-orders", (req, res) => {
+  try {
+    const newOrder = store.createWorkOrder(req.body);
+    res.status(201).json({ success: true, workOrder: newOrder });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.patch("/api/chronic-blockages/work-orders/:id", (req, res) => {
+  try {
+    const updated = store.updateWorkOrder(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ success: false, error: "Work order not found" });
+    res.json({ success: true, workOrder: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/chronic-blockages/outfalls", (_, res) => {
+  res.json(store.getOutfallCorridors());
+});
+
+app.patch("/api/chronic-blockages/outfalls/:id", (req, res) => {
+  try {
+    const updated = store.updateOutfallCorridor(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ success: false, error: "Outfall corridor not found" });
+    res.json({ success: true, outfall: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/chronic-blockages/evidence", (_, res) => {
+  res.json(store.getEvidenceClusters());
+});
+
+app.patch("/api/chronic-blockages/evidence/:id", (req, res) => {
+  try {
+    const { status, reviewer } = req.body;
+    const updated = store.verifyEvidence(req.params.id, status, reviewer);
+    if (!updated) return res.status(404).json({ success: false, error: "Evidence cluster not found" });
+    res.json({ success: true, evidence: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // Dedicated Dynamic Emergency Resources for a Specific Incident
 // GET /api/incidents/:id/nearby-resources?radius_km=5&category=all
@@ -633,10 +818,120 @@ app.post("/api/reputations/reset", (req, res) => {
   }
 });
 
-// Generate official maintenance report for chronic blockages
-app.post("/api/chronic-blockages/report", (_, res) => {
+// Generate official maintenance report for chronic blockages (supports GET and POST)
+app.all("/api/chronic-blockages/report", (req, res) => {
   const report = store.generateChronicReport();
-  res.json(report);
+  if (req.query.format === "json" || (req.headers.accept && req.headers.accept.includes("application/json") && !req.headers.accept.includes("text/html"))) {
+    return res.json(report);
+  }
+  // Return printable HTML Directive
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>VarshaRaksha | ${report.title}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 36px auto; max-width: 1000px; color: #1e293b; background: #fff; line-height: 1.5; }
+    .header { border-bottom: 2px solid #0B1F41; padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-start; }
+    h1 { font-size: 20px; color: #0B1F41; margin: 0 0 6px 0; }
+    .meta { font-size: 13px; color: #64748b; }
+    .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+    .badge-critical { background: #fee2e2; color: #dc2626; }
+    .badge-high { background: #ffedd5; color: #ea580c; }
+    .badge-mod { background: #fef3c7; color: #d97706; }
+    .badge-low { background: #dcfce7; color: #16a34a; }
+    table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
+    th { text-align: left; background: #f8fafc; padding: 10px 12px; border: 1px solid #e2e8f0; color: #334155; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+    td { padding: 10px 12px; border: 1px solid #e2e8f0; vertical-align: top; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+    .summary-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 14px; }
+    .summary-card .val { font-size: 24px; font-weight: 700; color: #0f172a; margin-top: 4px; }
+    .summary-card .lbl { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; }
+    .print-btn { background: #2563EB; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; }
+    @media print { .print-btn { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>${report.title}</h1>
+      <div class="meta">${report.wardAuthority} · Directive Ref: <strong>${report.reportId}</strong> · Generated: ${new Date(report.generatedAt).toLocaleString()}</div>
+    </div>
+    <button class="print-btn" onclick="window.print()">🖨️ Print Directives</button>
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-card"><div class="lbl">Chronic Hotspots</div><div class="val">${report.totalHotspots}</div></div>
+    <div class="summary-card"><div class="lbl">Action Required</div><div class="val">${report.actionRequiredCount}</div></div>
+    <div class="summary-card"><div class="lbl">Open Work Orders</div><div class="val">${report.openWorkOrders}</div></div>
+    <div class="summary-card"><div class="lbl">Critical Risk Zones</div><div class="val">${report.criticalZonesCount}</div></div>
+  </div>
+
+  <h2 style="font-size: 15px; margin-top: 24px; color: #0B1F41;">1. Monitored Drainage Hotspots & Risk Priority</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Hotspot Location</th>
+        <th>Ward</th>
+        <th>Risk Score</th>
+        <th>Flag Count</th>
+        <th>Primary Cause</th>
+        <th>Recommended Action</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${(report.hotspots || []).map(h => `
+        <tr>
+          <td><strong>${h.id}</strong></td>
+          <td>${h.name}</td>
+          <td>${h.ward}</td>
+          <td><span class="badge ${(h.riskScore || 50) >= 75 ? 'badge-critical' : (h.riskScore || 50) >= 50 ? 'badge-high' : 'badge-mod'}">${h.riskScore || 50}/100</span></td>
+          <td>${h.flagCount} times</td>
+          <td>${h.primaryCause}</td>
+          <td>${h.recommendedAction || 'Schedule desilting'}</td>
+          <td><strong>${h.status}</strong></td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  <h2 style="font-size: 15px; margin-top: 28px; color: #0B1F41;">2. Active Desilting & Maintenance Work Orders</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Order ID</th>
+        <th>Hotspot Target</th>
+        <th>Work Scope</th>
+        <th>Priority</th>
+        <th>Assigned Municipal Team</th>
+        <th>Due Date</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${(report.workOrders || []).map(w => `
+        <tr>
+          <td><strong>${w.id}</strong></td>
+          <td>${w.hotspotId} · ${w.hotspotName}</td>
+          <td>${w.workType}</td>
+          <td><span class="badge ${w.priority === 'Critical' ? 'badge-critical' : w.priority === 'High' ? 'badge-high' : 'badge-mod'}">${w.priority}</span></td>
+          <td>${w.assignedTeam}</td>
+          <td>${w.dueDate}</td>
+          <td><strong>${w.status} (${w.progressPercent || 0}%)</strong></td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  <div style="margin-top: 40px; padding-top: 20px; border-top: 1px dashed #cbd5e1; font-size: 12px; color: #64748b; display: flex; justify-content: space-between;">
+    <span>Brihanmumbai Municipal Corporation (BMC) · Storm Water Drains Dept.</span>
+    <span>VarshaRaksha Municipal Drainage Intelligence</span>
+  </div>
+</body>
+</html>`;
+  res.send(html);
 });
 
 // Real Data Sources with live latency & health probes
@@ -1027,6 +1322,47 @@ app.post("/api/incidents/:id/override", (req, res) => {
     res.json({ success: true, dispatch });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Escalate an Incident
+app.post("/api/incidents/:id/escalate", (req, res) => {
+  try {
+    const inc = store.escalateIncident(req.params.id, req.body);
+    res.json({ success: true, incident: inc });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Add Operational Communication Note
+app.post("/api/incidents/:id/note", (req, res) => {
+  try {
+    const note = store.addIncidentNote(req.params.id, req.body);
+    res.json({ success: true, note });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Get Potential Duplicates
+app.get("/api/incidents/:id/duplicates", (req, res) => {
+  try {
+    const duplicates = store.getPotentialDuplicates(req.params.id);
+    res.json({ success: true, duplicates });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Merge Duplicate Incident
+app.post("/api/incidents/:id/merge", (req, res) => {
+  try {
+    const { duplicateId, notes } = req.body;
+    const result = store.mergeIncidents(req.params.id, duplicateId, { notes });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
   }
 });
 

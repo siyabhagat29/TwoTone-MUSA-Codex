@@ -224,8 +224,26 @@ const initialChronicBlockages = [
     flagCount: 7,
     lastFlaggedAt: new Date(Date.now() - 3600000 * 4).toISOString(),
     severityTrend: "Critical (85%)",
+    riskScore: 85,
+    riskLevel: "Critical",
+    assetId: "SWD-CULV-72-A",
+    roadLandmark: "Andheri Subway S.V. Road Junction",
     primaryCause: "Choked storm silt trap & plastic accumulation",
-    status: "Desilting Required"
+    rootCauseCategory: "Solid Waste & Silt",
+    causeConfidence: 94,
+    supportingEvidence: "Heavy plastic entrapment in trash rack; 65% cross-section silt accumulation documented across 7 monsoons.",
+    recommendedAction: "Deploy high-capacity suction excavator & clear trash racks before high tide.",
+    status: "Desilting Required",
+    connectedOutfall: "OUTF-01",
+    lastInspection: new Date(Date.now() - 3600000 * 24).toISOString(),
+    drainageType: "Box Culvert (2.5m x 1.8m)",
+    recurrenceTrend: [65, 70, 78, 82, 85],
+    auditTrail: [
+      { timestamp: new Date(Date.now() - 3600000 * 48).toISOString(), action: "Hotspot Flagged", user: "Citizen App (4 geo-tagged reports)", detail: "Water logging 35cm reported" },
+      { timestamp: new Date(Date.now() - 3600000 * 36).toISOString(), action: "AI Evidence Verified", user: "Observation Agent", detail: "Trash rack choke verified (confidence 94%)" },
+      { timestamp: new Date(Date.now() - 3600000 * 24).toISOString(), action: "Field Inspection", user: "Inspector K. Patil (Ward 72)", detail: "Silt trap filled beyond 65% capacity" },
+      { timestamp: new Date(Date.now() - 3600000 * 4).toISOString(), action: "Risk Escalation", user: "Risk Scoring Agent", detail: "Risk upgraded to Critical (85/100)" }
+    ]
   },
   {
     id: "BLK-02",
@@ -236,8 +254,24 @@ const initialChronicBlockages = [
     flagCount: 5,
     lastFlaggedAt: new Date(Date.now() - 3600000 * 18).toISOString(),
     severityTrend: "Elevated (62%)",
+    riskScore: 62,
+    riskLevel: "High",
+    assetId: "SWD-GUT-72-B",
+    roadLandmark: "Fish Market Road North Intersection",
     primaryCause: "Debris constriction under commercial stalls",
-    status: "Inspection Pending"
+    rootCauseCategory: "Commercial Debris",
+    causeConfidence: 86,
+    supportingEvidence: "Vegetable waste & illegal stall pavement extensions encroaching over primary stormwater drain.",
+    recommendedAction: "Coordinate stall clearance & conduct CCTV pipe flushing.",
+    status: "Inspection Pending",
+    connectedOutfall: "OUTF-01",
+    lastInspection: new Date(Date.now() - 3600000 * 72).toISOString(),
+    drainageType: "Masonry Drain (1.2m width)",
+    recurrenceTrend: [45, 52, 55, 60, 62],
+    auditTrail: [
+      { timestamp: new Date(Date.now() - 3600000 * 96).toISOString(), action: "Hotspot Flagged", user: "Ward Patrol", detail: "Water stagnation after 25mm rain" },
+      { timestamp: new Date(Date.now() - 3600000 * 18).toISOString(), action: "AI Cluster Detected", user: "Evidence Agent", detail: "3 linked citizen photos grouped under BLK-02" }
+    ]
   },
   {
     id: "BLK-03",
@@ -248,8 +282,24 @@ const initialChronicBlockages = [
     flagCount: 4,
     lastFlaggedAt: new Date(Date.now() - 3600000 * 26).toISOString(),
     severityTrend: "Moderate (48%)",
+    riskScore: 48,
+    riskLevel: "Moderate",
+    assetId: "SWD-CB-73-C",
+    roadLandmark: "Marol Temple Road Dip #2",
     primaryCause: "Tree roots obstructing underground stormwater pipe",
-    status: "Active Desilting Order"
+    rootCauseCategory: "Root Infiltration",
+    causeConfidence: 79,
+    supportingEvidence: "Endoscopic camera logs confirm extensive Banyan tree root web restricting 500mm RCC pipe throughput.",
+    recommendedAction: "Deploy hydro-jet mechanical root cutter and sleeve internal liner.",
+    status: "Active Desilting Order",
+    connectedOutfall: "OUTF-03",
+    lastInspection: new Date(Date.now() - 3600000 * 30).toISOString(),
+    drainageType: "500mm RCC Underground Pipe",
+    recurrenceTrend: [30, 38, 42, 45, 48],
+    auditTrail: [
+      { timestamp: new Date(Date.now() - 3600000 * 60).toISOString(), action: "Inspection Completed", user: "Team 03 Drainage Tech", detail: "Root obstruction confirmed at 14m depth" },
+      { timestamp: new Date(Date.now() - 3600000 * 26).toISOString(), action: "Work Order Issued", user: "BMC Ward 73 Desk", detail: "WO-2042 created for mechanical root extraction" }
+    ]
   },
   {
     id: "BLK-04",
@@ -260,8 +310,209 @@ const initialChronicBlockages = [
     flagCount: 3,
     lastFlaggedAt: new Date(Date.now() - 3600000 * 48).toISOString(),
     severityTrend: "Low (32%)",
+    riskScore: 32,
+    riskLevel: "Low",
+    assetId: "SWD-OUTF-73-D",
+    roadLandmark: "Powai Lake Eastern Outflow Channel",
     primaryCause: "Tidal silt backflow at lake discharge point",
-    status: "Normal Maintenance"
+    rootCauseCategory: "Tidal Backflow",
+    causeConfidence: 71,
+    supportingEvidence: "High sediment accumulation at outfall mouth during spring tides; flap gate hinges partially stuck.",
+    recommendedAction: "Service mechanical flap gate and dredge outfall silt bar.",
+    status: "Normal Maintenance",
+    connectedOutfall: "OUTF-04",
+    lastInspection: new Date(Date.now() - 3600000 * 96).toISOString(),
+    drainageType: "Twin Sluice Flap Outfall (3.0m x 2.0m)",
+    recurrenceTrend: [25, 28, 30, 30, 32],
+    auditTrail: [
+      { timestamp: new Date(Date.now() - 3600000 * 120).toISOString(), action: "Routine Audit", user: "Hydraulics Engineer S. Rao", detail: "Flap gate lubricated and inspected" }
+    ]
+  }
+];
+
+const initialWorkOrders = [
+  {
+    id: "WO-2041",
+    hotspotId: "BLK-01",
+    hotspotName: "S.V. Road Station Subway Culvert",
+    ward: "Ward 72",
+    workType: "Mechanical Desilting & Trash Rack Clearance",
+    priority: "Critical",
+    assignedTeam: "BMC Ward 72 Stormwater Mech Unit 01",
+    assignedTeamId: "TEAM-SWD-01",
+    dueDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+    status: "In Progress",
+    progressPercent: 65,
+    createdAt: new Date(Date.now() - 3600000 * 14).toISOString(),
+    notes: "High capacity suction vehicle deployed. Trash rack debris cleared; 12 MT silt removed to date.",
+    completionEvidence: null
+  },
+  {
+    id: "WO-2042",
+    hotspotId: "BLK-03",
+    hotspotName: "Temple Street Low-Dip Catchbasin",
+    ward: "Ward 73",
+    workType: "Hydro-Jet Root Extraction & Pipe Relining",
+    priority: "Moderate",
+    assignedTeam: "Specialized Trenchless Drain Techs",
+    assignedTeamId: "TEAM-SWD-03",
+    dueDate: new Date(Date.now() + 86400000 * 3).toISOString().slice(0, 10),
+    status: "Assigned",
+    progressPercent: 20,
+    createdAt: new Date(Date.now() - 3600000 * 26).toISOString(),
+    notes: "Root cutting equipment scheduled for morning low-traffic window (05:00 - 09:00).",
+    completionEvidence: null
+  },
+  {
+    id: "WO-2043",
+    hotspotId: "BLK-02",
+    hotspotName: "Market Lane Gutter Junction #4",
+    ward: "Ward 72",
+    workType: "Debris Clearing & Silt Flushing",
+    priority: "High",
+    assignedTeam: "Ward 72 Rapid Drainage Gang 04",
+    assignedTeamId: "TEAM-SWD-04",
+    dueDate: new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10),
+    status: "Awaiting Verification",
+    progressPercent: 90,
+    createdAt: new Date(Date.now() - 3600000 * 36).toISOString(),
+    notes: "Primary drain cleared under fish market stalls. Field photos uploaded for authority sign-off.",
+    completionEvidence: {
+      photoUrl: "https://images.unsplash.com/photo-1541888946425-d0fbb18086f6?auto=format&fit=crop&w=400&q=80",
+      verifiedAt: null,
+      supervisor: "Supervisor D. Sharma"
+    }
+  },
+  {
+    id: "WO-2040",
+    hotspotId: "BLK-04",
+    hotspotName: "Lake View Road Primary Outfall",
+    ward: "Ward 73",
+    workType: "Flap Gate Silt Dredging & Lubrication",
+    priority: "Low",
+    assignedTeam: "Coastal Sluice Maintenance Division",
+    assignedTeamId: "TEAM-SWD-02",
+    dueDate: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
+    status: "Completed",
+    progressPercent: 100,
+    createdAt: new Date(Date.now() - 3600000 * 96).toISOString(),
+    notes: "Flap gate sandbar dredged (45 MT). Automatic backflow closure mechanism tested successfully.",
+    completionEvidence: {
+      photoUrl: "https://images.unsplash.com/photo-1584467735815-f778f274e296?auto=format&fit=crop&w=400&q=80",
+      verifiedAt: new Date(Date.now() - 3600000 * 24).toISOString(),
+      supervisor: "Exec Engineer P. Kulkarni"
+    }
+  }
+];
+
+const initialOutfalls = [
+  {
+    id: "OUTF-01",
+    name: "Irla Nullah Marine Outfall Gate",
+    ward: "Ward 72 / Juhu",
+    lat: 19.1022,
+    lng: 72.8256,
+    gateStatus: "Operational (Open)",
+    tidalLevel: "2.1m (Ebb Tide)",
+    siltLevel: "Normal (22%)",
+    dischargeCapacity: "85 m³/s",
+    basin: "Irla Stormwater Basin",
+    linkedHotspots: ["BLK-01", "BLK-02"],
+    lastInspection: new Date(Date.now() - 3600000 * 24).toISOString(),
+    sluiceGateType: "Automated Crest Flap Gate (4 Bays)"
+  },
+  {
+    id: "OUTF-02",
+    name: "Oshiwara River Tidal Discharge Sluice",
+    ward: "Ward K-West",
+    lat: 19.1550,
+    lng: 72.8280,
+    gateStatus: "Restricted (Silt 48%)",
+    tidalLevel: "1.9m",
+    siltLevel: "Warning (48%)",
+    dischargeCapacity: "110 m³/s",
+    basin: "Oshiwara River Catchment",
+    linkedHotspots: ["BLK-01"],
+    lastInspection: new Date(Date.now() - 3600000 * 48).toISOString(),
+    sluiceGateType: "Vertical Lift Motorized Sluice"
+  },
+  {
+    id: "OUTF-03",
+    name: "Mithi River Basin Culvert Outfall #7",
+    ward: "Ward 73",
+    lat: 19.0750,
+    lng: 72.8620,
+    gateStatus: "Under Maintenance",
+    tidalLevel: "2.4m",
+    siltLevel: "Moderate (35%)",
+    dischargeCapacity: "65 m³/s",
+    basin: "Mithi Catchment Central",
+    linkedHotspots: ["BLK-03"],
+    lastInspection: new Date(Date.now() - 3600000 * 12).toISOString(),
+    sluiceGateType: "Gravity Tidal Flap Gate"
+  },
+  {
+    id: "OUTF-04",
+    name: "Love Grove Stormwater Pumping Corridor",
+    ward: "Worli Coastal",
+    lat: 19.0010,
+    lng: 72.8160,
+    gateStatus: "Active Automated Discharge",
+    tidalLevel: "1.6m",
+    siltLevel: "Clear (12%)",
+    dischargeCapacity: "140 m³/s",
+    basin: "South-Central Drainage Network",
+    linkedHotspots: ["BLK-04"],
+    lastInspection: new Date(Date.now() - 3600000 * 8).toISOString(),
+    sluiceGateType: "Submersible Heavy Axial Pumps (6 Units)"
+  }
+];
+
+const initialEvidenceClusters = [
+  {
+    id: "EVID-01",
+    hotspotId: "BLK-01",
+    hotspotName: "S.V. Road Station Subway Culvert",
+    reportedAt: new Date(Date.now() - 3600000 * 5).toISOString(),
+    reporterType: "Citizen Verification & Ward Inspector",
+    reportCount: 4,
+    coordinates: "19.1325° N, 72.8478° E",
+    photoUrl: "https://images.unsplash.com/photo-1547683905-f686c993aae5?auto=format&fit=crop&w=500&q=80",
+    visualAnalysis: "High plastic & polythene bottle accumulation at culvert mouth; water stagnation depth 28cm.",
+    aiConfidence: 94,
+    status: "Verified",
+    siltSeverity: "Severe",
+    humanReviewedBy: "Eng. K. Patil"
+  },
+  {
+    id: "EVID-02",
+    hotspotId: "BLK-02",
+    hotspotName: "Market Lane Gutter Junction #4",
+    reportedAt: new Date(Date.now() - 3600000 * 18).toISOString(),
+    reporterType: "Citizen Ground Report (Cluster of 3)",
+    reportCount: 3,
+    coordinates: "19.1288° N, 72.8515° E",
+    photoUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=500&q=80",
+    visualAnalysis: "Wooden crate debris and solid organic waste restricting drain inlet flow.",
+    aiConfidence: 86,
+    status: "Pending Review",
+    siltSeverity: "Elevated",
+    humanReviewedBy: null
+  },
+  {
+    id: "EVID-03",
+    hotspotId: "BLK-03",
+    hotspotName: "Temple Street Low-Dip Catchbasin",
+    reportedAt: new Date(Date.now() - 3600000 * 30).toISOString(),
+    reporterType: "Municipal Endoscopic Inspection Log",
+    reportCount: 1,
+    coordinates: "19.1245° N, 72.8435° E",
+    photoUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=500&q=80",
+    visualAnalysis: "Root network penetrated joint seals; 60% interior bore obstructed.",
+    aiConfidence: 91,
+    status: "Verified",
+    siltSeverity: "Moderate",
+    humanReviewedBy: "Tech Lead R. Deshmukh"
   }
 ];
 
@@ -293,6 +544,9 @@ class Store {
     this.notifications = [];
     this.notificationCooldowns = {};
     this.chronicBlockages = [...initialChronicBlockages];
+    this.workOrders = [...initialWorkOrders];
+    this.outfallCorridors = [...initialOutfalls];
+    this.evidenceClusters = [...initialEvidenceClusters];
     this.sosAlerts = [];
     this.alertFeedbacks = [];
     this.userReputations = {};
@@ -338,7 +592,27 @@ class Store {
         this.sosAlerts = data.sosAlerts || [];
         this.alertFeedbacks = data.alertFeedbacks || [];
         this.chronicBlockages = data.chronicBlockages?.length ? data.chronicBlockages : this.chronicBlockages;
+        this.workOrders = data.workOrders?.length ? data.workOrders : this.workOrders;
+        this.outfallCorridors = data.outfallCorridors?.length ? data.outfallCorridors : this.outfallCorridors;
+        this.evidenceClusters = data.evidenceClusters?.length ? data.evidenceClusters : this.evidenceClusters;
         this.userReputations = data.userReputations || {};
+
+        // Merge enriched fields onto existing chronicBlockages if loaded from older db.json
+        if (this.chronicBlockages?.length) {
+          this.chronicBlockages = this.chronicBlockages.map((b) => {
+            const init = initialChronicBlockages.find((ib) => ib.id === b.id) || {};
+            return {
+              ...init,
+              ...b,
+              riskScore: b.riskScore ?? init.riskScore ?? 50,
+              riskLevel: b.riskLevel ?? init.riskLevel ?? "Moderate",
+              rootCauseCategory: b.rootCauseCategory ?? init.rootCauseCategory ?? "Solid Waste & Silt",
+              causeConfidence: b.causeConfidence ?? init.causeConfidence ?? 80,
+              recommendedAction: b.recommendedAction ?? init.recommendedAction ?? "Schedule inspection",
+              auditTrail: b.auditTrail?.length ? b.auditTrail : (init.auditTrail || [])
+            };
+          });
+        }
         this.syncResourceStatuses();
 
         // Ensure any mobile reports buried inside INC-1002 are surfaced as standalone incidents
@@ -476,6 +750,9 @@ class Store {
             sosAlerts: this.sosAlerts,
             alertFeedbacks: this.alertFeedbacks,
             chronicBlockages: this.chronicBlockages,
+            workOrders: this.workOrders,
+            outfallCorridors: this.outfallCorridors,
+            evidenceClusters: this.evidenceClusters,
             userReputations: this.userReputations,
             updatedAt: new Date().toISOString()
           },
@@ -889,6 +1166,436 @@ class Store {
     return { success: true, count: 0, resources: [] };
   }
 
+  /**
+   * Update operational status of a specific emergency resource
+   */
+  updateResourceStatus(resourceId, { status, notes, user } = {}) {
+    if (!resourceId) throw new Error("Resource ID is required");
+    const validStatuses = ["AVAILABLE", "DEPLOYED", "EN_ROUTE", "ON_SCENE", "LIMITED", "MAINTENANCE", "OFFLINE", "UNAVAILABLE"];
+    const normalizedStatus = (status || "").toUpperCase();
+    if (!validStatuses.includes(normalizedStatus)) {
+      throw new Error(`Invalid status: ${status}. Must be one of ${validStatuses.join(", ")}`);
+    }
+
+    const resource = (this.resources || []).find((r) => r.id === resourceId);
+    if (!resource) throw new Error(`Resource ${resourceId} not found in inventory.`);
+
+    const previousStatus = resource.status;
+    resource.status = normalizedStatus;
+    resource.lastUpdated = new Date().toISOString();
+
+    if (!Array.isArray(resource.history)) {
+      resource.history = [];
+    }
+
+    // If transitioned back to AVAILABLE, release active incident assignment
+    if (normalizedStatus === "AVAILABLE") {
+      resource.currentIncidentId = null;
+      resource.activeDispatchId = null;
+      resource.eta = null;
+      if (resource.availableQuantity === 0 && resource.quantity > 0) {
+        resource.availableQuantity = resource.quantity;
+      }
+    } else if (normalizedStatus === "MAINTENANCE") {
+      if (!resource.maintenance) {
+        resource.maintenance = { status: "Under Maintenance", lastInspectionDate: new Date().toISOString(), notes: notes || "Servicing required" };
+      } else {
+        resource.maintenance.status = "Under Maintenance";
+        if (notes) resource.maintenance.notes = notes;
+      }
+    }
+
+    resource.history.unshift({
+      event: "STATUS_CHANGE",
+      from: previousStatus,
+      to: normalizedStatus,
+      notes: notes || null,
+      user: user || "Authority Dispatcher",
+      timestamp: new Date().toISOString()
+    });
+
+    this.save();
+    this.emit("resources:updated", this.resources);
+    this.emit("resource:updated", resource);
+    return resource;
+  }
+
+  /**
+   * Update capacity and available quantity for a resource
+   */
+  updateResourceCapacity(resourceId, { quantity, availableQuantity, capacity } = {}) {
+    if (!resourceId) throw new Error("Resource ID is required");
+    const resource = (this.resources || []).find((r) => r.id === resourceId);
+    if (!resource) throw new Error(`Resource ${resourceId} not found in inventory.`);
+
+    if (quantity != null) {
+      const q = Number(quantity);
+      if (isNaN(q) || q < 0) throw new Error("Quantity cannot be negative");
+      resource.quantity = q;
+    }
+
+    if (availableQuantity != null) {
+      const aq = Number(availableQuantity);
+      if (isNaN(aq) || aq < 0) throw new Error("Available quantity cannot be negative");
+      if (resource.quantity != null && aq > resource.quantity) {
+        resource.quantity = aq;
+      }
+      resource.availableQuantity = aq;
+    }
+
+    if (capacity != null) {
+      resource.capacity = String(capacity).trim();
+    }
+
+    resource.lastUpdated = new Date().toISOString();
+
+    if (!Array.isArray(resource.history)) resource.history = [];
+    resource.history.unshift({
+      event: "CAPACITY_UPDATE",
+      quantity: resource.quantity,
+      availableQuantity: resource.availableQuantity,
+      capacity: resource.capacity,
+      timestamp: new Date().toISOString()
+    });
+
+    this.save();
+    this.emit("resources:updated", this.resources);
+    this.emit("resource:updated", resource);
+    return resource;
+  }
+
+  /**
+   * Record maintenance update for a resource
+   */
+  recordResourceMaintenance(resourceId, { status = "Operational", lastInspectionDate, nextInspectionDate, notes, assignedTeam } = {}) {
+    if (!resourceId) throw new Error("Resource ID is required");
+    const resource = (this.resources || []).find((r) => r.id === resourceId);
+    if (!resource) throw new Error(`Resource ${resourceId} not found in inventory.`);
+
+    const now = new Date().toISOString();
+    resource.maintenance = {
+      status: status || "Operational",
+      lastInspectionDate: lastInspectionDate || resource.maintenance?.lastInspectionDate || now,
+      nextInspectionDate: nextInspectionDate || resource.maintenance?.nextInspectionDate || new Date(Date.now() + 14 * 86400000).toISOString(),
+      notes: notes || resource.maintenance?.notes || "",
+      assignedTeam: assignedTeam || resource.maintenance?.assignedTeam || "Base Workshop Crew"
+    };
+
+    if (status === "Under Maintenance" || status === "Maintenance Required") {
+      resource.status = "MAINTENANCE";
+    } else if (status === "Operational" && resource.status === "MAINTENANCE") {
+      resource.status = "AVAILABLE";
+    }
+
+    resource.lastUpdated = now;
+
+    if (!Array.isArray(resource.history)) resource.history = [];
+    resource.history.unshift({
+      event: "MAINTENANCE",
+      maintenanceStatus: status,
+      notes: notes || "",
+      timestamp: now
+    });
+
+    this.save();
+    this.emit("resources:updated", this.resources);
+    this.emit("resource:updated", resource);
+    return resource;
+  }
+
+  /**
+   * Get operational analytics for resource fleet
+   */
+  getResourceAnalytics() {
+    this.syncResourceStatuses();
+    const res = this.resources || [];
+    const total = res.length;
+    const available = res.filter((r) => {
+      const st = (r.status || "").toUpperCase();
+      return st === "AVAILABLE" || st === "READY";
+    }).length;
+    const deployed = res.filter((r) => {
+      const st = (r.status || "").toUpperCase();
+      return st === "DEPLOYED" || st === "ALLOCATED" || st === "ON_SCENE";
+    }).length;
+    const enRoute = res.filter((r) => {
+      const st = (r.status || "").toUpperCase();
+      return st === "EN_ROUTE" || st === "EN ROUTE";
+    }).length;
+    const limited = res.filter((r) => (r.status || "").toUpperCase() === "LIMITED").length;
+    const maintenance = res.filter((r) => {
+      const st = (r.status || "").toUpperCase();
+      return st === "MAINTENANCE" || r.maintenance?.status === "Under Maintenance" || r.maintenance?.status === "Maintenance Required";
+    }).length;
+    const offline = res.filter((r) => (r.status || "").toUpperCase() === "OFFLINE" || (r.status || "").toUpperCase() === "UNAVAILABLE").length;
+
+    // Category distribution
+    const categories = {};
+    for (const r of res) {
+      const cat = (r.category || r.resource_type || "OTHER").toUpperCase();
+      if (!categories[cat]) categories[cat] = { total: 0, available: 0, deployed: 0 };
+      categories[cat].total++;
+      const st = (r.status || "").toUpperCase();
+      if (st === "AVAILABLE" || st === "READY") categories[cat].available++;
+      if (st === "DEPLOYED" || st === "EN_ROUTE" || st === "ON_SCENE") categories[cat].deployed++;
+    }
+
+    // Facilities
+    const facilitiesSet = new Set(res.map((r) => r.agency || r.station).filter(Boolean));
+
+    // Active dispatches
+    const activeDispatches = (this.dispatches || []).filter((d) => d.status !== "Completed" && d.status !== "Cancelled");
+
+    return {
+      total,
+      available,
+      deployed,
+      enRoute,
+      limited,
+      maintenance,
+      offline,
+      facilitiesCount: facilitiesSet.size,
+      activeDispatchesCount: activeDispatches.length,
+      utilizationRate: total > 0 ? Math.round(((deployed + enRoute) / total) * 100) : 0,
+      availabilityRate: total > 0 ? Math.round((available / total) * 100) : 0,
+      categories,
+      lastCalculatedAt: new Date().toISOString()
+    };
+  }
+
+  /**
+   * Coverage Gap Analysis across Mumbai sectors / wards
+   */
+  getCoverageGaps() {
+    this.syncResourceStatuses();
+    const activeIncidents = this.getActiveIncidents();
+    const allResources = this.resources || [];
+
+    // Standardized Mumbai Wards definition
+    const sectors = [
+      { id: "WARD-73", name: "Ward 73 (Jogeshwari East)", lat: 19.1320, lng: 72.8480, thresholdMin: 2 },
+      { id: "WARD-72", name: "Ward 72 (Andheri West)", lat: 19.1280, lng: 72.8360, thresholdMin: 2 },
+      { id: "WARD-68", name: "Ward 68 (Versova / Yari Road)", lat: 19.1350, lng: 72.8180, thresholdMin: 1 },
+      { id: "WARD-74", name: "Ward 74 (Kurla / Saki Naka Link)", lat: 19.1020, lng: 72.8870, thresholdMin: 2 },
+      { id: "WARD-55", name: "Ward 55 (Bandra / Khar Subway)", lat: 19.0600, lng: 72.8400, thresholdMin: 2 },
+      { id: "WARD-31", name: "Ward 31 (Dadar / Hindmata Basin)", lat: 19.0180, lng: 72.8430, thresholdMin: 2 }
+    ];
+
+    const gapReports = sectors.map((sec) => {
+      // Find incidents in or near this sector (within 3km)
+      const sectorIncidents = activeIncidents.filter((inc) => {
+        const iLat = Number(inc.lat ?? inc.latitude);
+        const iLng = Number(inc.lng ?? inc.longitude);
+        if (isNaN(iLat) || isNaN(iLng)) {
+          return (inc.address || "").toLowerCase().includes(sec.name.toLowerCase().split(" ")[0]);
+        }
+        return calcHaversineDistanceKm(sec.lat, sec.lng, iLat, iLng) <= 3.2;
+      });
+
+      // Find available resources within 4km
+      const nearbyResources = allResources.filter((r) => {
+        const rLat = Number(r.lat ?? r.latitude);
+        const rLng = Number(r.lng ?? r.longitude);
+        if (isNaN(rLat) || isNaN(rLng)) return false;
+        return calcHaversineDistanceKm(sec.lat, sec.lng, rLat, rLng) <= 4.0;
+      });
+
+      const availableNearby = nearbyResources.filter((r) => {
+        const st = (r.status || "").toUpperCase();
+        return st === "AVAILABLE" || st === "READY";
+      });
+
+      const rescueAvailable = availableNearby.filter((r) => (r.category || "").toUpperCase() === "RESCUE").length;
+      const medicalAvailable = availableNearby.filter((r) => (r.category || "").toUpperCase() === "MEDICAL").length;
+      const shelterAvailable = availableNearby.filter((r) => (r.category || "").toUpperCase() === "SHELTER").length;
+
+      const incidentCount = sectorIncidents.length;
+      const hasCriticalSos = sectorIncidents.some((i) => i.isSos || i.severity >= 80);
+
+      let status = "OPTIMAL";
+      let severityTone = "green";
+      let recommendation = "Coverage is well balanced with emergency response units stationed nearby.";
+
+      if (incidentCount > 0 && availableNearby.length === 0) {
+        status = "CRITICAL_GAP";
+        severityTone = "red";
+        recommendation = `CRITICAL COVERAGE DEFICIT: ${incidentCount} active flood incident(s) in sector with ZERO available units within 4km. Immediate re-deployment required.`;
+      } else if (hasCriticalSos && rescueAvailable === 0) {
+        status = "CRITICAL_GAP";
+        severityTone = "red";
+        recommendation = `SOS DISTRESS DETECTED with NO available flood rescue units in immediate 4km perimeter. Divert nearest available patrol.`;
+      } else if (incidentCount >= 2 && availableNearby.length < sec.thresholdMin) {
+        status = "LIMITED";
+        severityTone = "orange";
+        recommendation = `ELEVATED DEMAND: ${incidentCount} incidents versus only ${availableNearby.length} available unit(s). Pre-stage backup pumps and triage kits.`;
+      } else if (availableNearby.length < 1) {
+        status = "ADEQUATE";
+        severityTone = "yellow";
+        recommendation = "Low active demand currently, but local resource reserve is thin.";
+      }
+
+      return {
+        sectorId: sec.id,
+        sectorName: sec.name,
+        coordinates: { lat: sec.lat, lng: sec.lng },
+        activeIncidentsCount: incidentCount,
+        hasCriticalSos,
+        nearbyTotalResources: nearbyResources.length,
+        nearbyAvailableCount: availableNearby.length,
+        rescueAvailable,
+        medicalAvailable,
+        shelterAvailable,
+        coverageStatus: status,
+        severityTone,
+        recommendation,
+        incidents: sectorIncidents.map((i) => ({ id: i.id, reporter: i.reporter, severity: i.severity, status: i.status, address: i.address }))
+      };
+    });
+
+    const criticalGapsCount = gapReports.filter((g) => g.coverageStatus === "CRITICAL_GAP").length;
+    const limitedGapsCount = gapReports.filter((g) => g.coverageStatus === "LIMITED").length;
+
+    return {
+      sectors: gapReports,
+      criticalGapsCount,
+      limitedGapsCount,
+      overallStatus: criticalGapsCount > 0 ? "DEFICIT_ALERT" : limitedGapsCount > 0 ? "ATTENTION_REQUIRED" : "SUFFICIENT",
+      analyzedAt: new Date().toISOString()
+    };
+  }
+
+  /**
+   * AI-Assisted Explainable Resource Recommendation for an Incident
+   */
+  getAiResourceRecommendation(incidentId) {
+    if (!incidentId) throw new Error("Incident ID is required");
+    const incident = this.incidents.find((i) => i.id === incidentId);
+    if (!incident) throw new Error(`Incident ${incidentId} not found`);
+
+    this.syncResourceStatuses();
+    const allResources = this.resources || [];
+    if (allResources.length === 0) {
+      throw new Error("No resources found in inventory. Please generate or load resources.");
+    }
+
+    const incLat = Number(incident.lat ?? incident.latitude);
+    const incLng = Number(incident.lng ?? incident.longitude);
+    const isSos = Boolean(incident.isSos || incident.type === "SOS" || incident.severity >= 85);
+    const causeCode = (incident.causeCode || "").toUpperCase();
+
+    // Determine target category priority based on incident traits
+    let targetCategory = "RESCUE";
+    if (isSos) targetCategory = "MEDICAL";
+    else if (causeCode.includes("DRAIN") || causeCode.includes("BLOCK")) targetCategory = "RESCUE";
+    else if (incident.waterLevel && typeof incident.waterLevel === "string" && incident.waterLevel.includes("knee")) targetCategory = "RESCUE";
+
+    // Score all candidates
+    const scoredCandidates = allResources.map((res) => {
+      let score = 50;
+      const reasons = [];
+      const tradeOffs = [];
+
+      const rLat = Number(res.lat ?? res.latitude);
+      const rLng = Number(res.lng ?? res.longitude);
+      const distKm = (!isNaN(incLat) && !isNaN(incLng) && !isNaN(rLat) && !isNaN(rLng))
+        ? calcHaversineDistanceKm(incLat, incLng, rLat, rLng)
+        : null;
+
+      const st = (res.status || "").toUpperCase();
+      const isAvail = st === "AVAILABLE" || st === "READY";
+      const isLimited = st === "LIMITED";
+      const isUnderMaint = st === "MAINTENANCE" || res.maintenance?.status === "Under Maintenance";
+
+      // Availability Scoring
+      if (isAvail) {
+        score += 30;
+        reasons.push("Currently available and ready for immediate dispatch");
+      } else if (isLimited) {
+        score += 10;
+        tradeOffs.push("Unit is in LIMITED status with reduced capacity");
+      } else if (isUnderMaint) {
+        score -= 40;
+        tradeOffs.push("Unit is undergoing maintenance and requires supervisor override");
+      } else {
+        score -= 25;
+        tradeOffs.push(`Unit is currently ${res.status} on another assignment`);
+      }
+
+      // Category Alignment
+      const rCat = (res.category || "").toUpperCase();
+      if (rCat === targetCategory) {
+        score += 25;
+        reasons.push(`Direct category match: ${rCat} specifically required for this incident`);
+      } else if ((targetCategory === "RESCUE" && rCat === "FIRE") || (targetCategory === "MEDICAL" && rCat === "RESCUE")) {
+        score += 10;
+        reasons.push(`Cross-functional capability: ${rCat} unit equipped for secondary tasking`);
+      }
+
+      // Proximity & ETA
+      if (distKm != null) {
+        if (distKm <= 1.5) {
+          score += 25;
+          reasons.push(`Immediate proximity: ${distKm.toFixed(1)} km away (~${Math.max(3, Math.round(distKm * 3.5))} min ETA)`);
+        } else if (distKm <= 4.0) {
+          score += 15;
+          reasons.push(`Nearby coverage: ${distKm.toFixed(1)} km away (~${Math.max(4, Math.round(distKm * 3.5))} min ETA)`);
+        } else {
+          tradeOffs.push(`Transit distance is ${distKm.toFixed(1)} km`);
+        }
+      }
+
+      // Capacity Check
+      if (res.availableQuantity != null && res.availableQuantity > 0) {
+        score += 5;
+        reasons.push(`Sufficient available quantity: ${res.availableQuantity} ${res.unit || "units"}`);
+      }
+
+      const eta = distKm != null ? `${Math.max(3, Math.round(distKm * 3.5 + 2))} min` : "8 min";
+
+      return {
+        resource: res,
+        score: Math.max(10, Math.min(99, score)),
+        distanceKm: distKm,
+        eta,
+        reasons,
+        tradeOffs
+      };
+    }).sort((a, b) => b.score - a.score);
+
+    const topCandidate = scoredCandidates[0];
+    const alternativeCandidates = scoredCandidates.slice(1, 4);
+
+    return {
+      incidentId: incident.id,
+      incidentSummary: {
+        id: incident.id,
+        reporter: incident.reporter,
+        address: incident.address,
+        severity: incident.severity,
+        type: incident.type,
+        isSos,
+        waterLevel: incident.waterLevel
+      },
+      recommended: {
+        resource: topCandidate.resource,
+        allocationScore: topCandidate.score,
+        distanceKm: topCandidate.distanceKm,
+        eta: topCandidate.eta,
+        rationale: topCandidate.reasons,
+        tradeOffs: topCandidate.tradeOffs
+      },
+      alternatives: alternativeCandidates.map((c) => ({
+        resource: c.resource,
+        allocationScore: c.score,
+        distanceKm: c.distanceKm,
+        eta: c.eta,
+        rationale: c.reasons,
+        tradeOffs: c.tradeOffs
+      })),
+      evaluatedAt: new Date().toISOString()
+    };
+  }
+
   getRegisteredShelters(userLat, userLng) {
     return [];
   }
@@ -1164,6 +1871,126 @@ class Store {
 
   getChronicBlockages() {
     return this.chronicBlockages;
+  }
+
+  getChronicBlockageById(id) {
+    return (this.chronicBlockages || []).find((b) => b.id === id);
+  }
+
+  updateChronicBlockage(id, updates) {
+    const hotspot = (this.chronicBlockages || []).find((b) => b.id === id);
+    if (!hotspot) return null;
+    Object.assign(hotspot, updates);
+    if (updates.status && (!hotspot.auditTrail || !hotspot.auditTrail.length || hotspot.auditTrail[0].action !== updates.status)) {
+      if (!hotspot.auditTrail) hotspot.auditTrail = [];
+      hotspot.auditTrail.unshift({
+        timestamp: new Date().toISOString(),
+        action: `Status: ${updates.status}`,
+        user: "Operations Control",
+        detail: updates.auditNote || `Hotspot updated to ${updates.status}`
+      });
+    }
+    this.save();
+    this.emit("hotspot:updated", hotspot);
+    return hotspot;
+  }
+
+  getWorkOrders() {
+    return this.workOrders || [];
+  }
+
+  getWorkOrderById(id) {
+    return (this.workOrders || []).find((w) => w.id === id);
+  }
+
+  createWorkOrder(orderData) {
+    const id = `WO-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newOrder = {
+      id,
+      hotspotId: orderData.hotspotId || "BLK-01",
+      hotspotName: orderData.hotspotName || "Drainage Culvert",
+      ward: orderData.ward || "Ward 72",
+      workType: orderData.workType || "Mechanical Desilting",
+      priority: orderData.priority || "High",
+      assignedTeam: orderData.assignedTeam || "Municipal Stormwater Unit",
+      assignedTeamId: orderData.assignedTeamId || "TEAM-SWD-01",
+      dueDate: orderData.dueDate || new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10),
+      status: orderData.status || "Assigned",
+      progressPercent: orderData.progressPercent || 0,
+      createdAt: new Date().toISOString(),
+      notes: orderData.notes || "Preventive maintenance work order created.",
+      completionEvidence: null
+    };
+
+    if (!this.workOrders) this.workOrders = [];
+    this.workOrders.unshift(newOrder);
+
+    // Also update the hotspot status and audit trail
+    const hotspot = (this.chronicBlockages || []).find((b) => b.id === newOrder.hotspotId);
+    if (hotspot) {
+      hotspot.status = "Work Order Created";
+      if (!hotspot.auditTrail) hotspot.auditTrail = [];
+      hotspot.auditTrail.unshift({
+        timestamp: new Date().toISOString(),
+        action: "Work Order Created",
+        user: "Municipal Drainage Desk",
+        detail: `Issued ${newOrder.id} (${newOrder.workType}) - ${newOrder.priority} Priority`
+      });
+    }
+
+    this.save();
+    this.emit("workOrder:created", newOrder);
+    return newOrder;
+  }
+
+  updateWorkOrder(id, updates) {
+    const order = (this.workOrders || []).find((w) => w.id === id);
+    if (!order) return null;
+    Object.assign(order, updates);
+    if (updates.status === "Completed") {
+      order.progressPercent = 100;
+      const hotspot = (this.chronicBlockages || []).find((b) => b.id === order.hotspotId);
+      if (hotspot) {
+        hotspot.status = "Resolved";
+        hotspot.riskScore = Math.max(15, (hotspot.riskScore || 50) - 35);
+        hotspot.riskLevel = hotspot.riskScore > 75 ? "Critical" : hotspot.riskScore > 50 ? "High" : hotspot.riskScore > 30 ? "Moderate" : "Low";
+        if (!hotspot.auditTrail) hotspot.auditTrail = [];
+        hotspot.auditTrail.unshift({
+          timestamp: new Date().toISOString(),
+          action: "Maintenance Completed",
+          user: order.assignedTeam || "Field Crew",
+          detail: `Work Order ${order.id} verified complete. Desilted & unobstructed.`
+        });
+      }
+    }
+    this.save();
+    this.emit("workOrder:updated", order);
+    return order;
+  }
+
+  getOutfallCorridors() {
+    return this.outfallCorridors || [];
+  }
+
+  updateOutfallCorridor(id, updates) {
+    const outfall = (this.outfallCorridors || []).find((o) => o.id === id);
+    if (!outfall) return null;
+    Object.assign(outfall, updates);
+    this.save();
+    return outfall;
+  }
+
+  getEvidenceClusters() {
+    return this.evidenceClusters || [];
+  }
+
+  verifyEvidence(id, status, reviewer = "Authority Reviewer") {
+    const evidence = (this.evidenceClusters || []).find((e) => e.id === id);
+    if (!evidence) return null;
+    evidence.status = status;
+    evidence.humanReviewedBy = reviewer;
+    this.save();
+    return evidence;
   }
 
   getSosAlerts() {
@@ -2575,16 +3402,150 @@ class Store {
     return inc;
   }
 
+  /**
+   * Escalate an active incident's priority and response readiness
+   */
+  escalateIncident(incidentId, { reason, priority = "Critical", severity = 95, author = "Authority Commander" } = {}) {
+    const inc = this.incidents.find((i) => i.id === incidentId);
+    if (!inc) throw new Error(`Incident ${incidentId} not found`);
+
+    inc.isEscalated = true;
+    inc.priority = priority;
+    inc.originalSeverity = inc.originalSeverity || inc.severity;
+    inc.severity = Math.max(Number(inc.severity) || 0, Number(severity) || 95);
+    inc.escalationReason = reason || "Life-safety risk requiring urgent surge allocation";
+    inc.escalatedAt = new Date().toISOString();
+    inc.escalatedBy = author;
+
+    if (!Array.isArray(inc.auditTrail)) inc.auditTrail = [];
+    inc.auditTrail.unshift({
+      event: "ESCALATION",
+      timestamp: new Date().toISOString(),
+      reason: inc.escalationReason,
+      author,
+      severity: inc.severity,
+      priority
+    });
+
+    this.save();
+    this.emit("incident:updated", { incident: inc, action: "escalated" });
+    return inc;
+  }
+
+  /**
+   * Add operational communication note to an incident dispatch log
+   */
+  addIncidentNote(incidentId, { text, author = "Operations Dispatcher" } = {}) {
+    if (!text || !text.trim()) throw new Error("Note text cannot be empty");
+    const inc = this.incidents.find((i) => i.id === incidentId);
+    if (!inc) throw new Error(`Incident ${incidentId} not found`);
+
+    if (!Array.isArray(inc.operationalNotes)) inc.operationalNotes = [];
+    const noteEntry = {
+      id: `NOTE-${Date.now()}`,
+      text: text.trim(),
+      author,
+      timestamp: new Date().toISOString()
+    };
+    inc.operationalNotes.unshift(noteEntry);
+
+    this.save();
+    this.emit("incident:updated", { incident: inc, action: "note_added", note: noteEntry });
+    return noteEntry;
+  }
+
+  /**
+   * Detect potential duplicate incidents based on proximity and cause keywords
+   */
+  getPotentialDuplicates(incidentId) {
+    const inc = this.incidents.find((i) => i.id === incidentId);
+    if (!inc) return [];
+
+    const iLat = Number(inc.lat ?? inc.latitude ?? inc.liveLocation?.latitude);
+    const iLng = Number(inc.lng ?? inc.longitude ?? inc.liveLocation?.longitude);
+
+    const candidates = this.incidents.filter((other) => {
+      if (other.id === incidentId) return false;
+      if (other.status === "Resolved" || other.status === "RESOLVED") return false;
+
+      const oLat = Number(other.lat ?? other.latitude ?? other.liveLocation?.latitude);
+      const oLng = Number(other.lng ?? other.longitude ?? other.liveLocation?.longitude);
+
+      if (!isNaN(iLat) && !isNaN(iLng) && !isNaN(oLat) && !isNaN(oLng) && iLat !== 0 && oLat !== 0) {
+        const distKm = calcHaversineDistanceKm(iLat, iLng, oLat, oLng);
+        if (distKm <= 1.2) return true;
+      }
+
+      // Keyword / Address overlap
+      const a1 = (inc.address || "").toLowerCase();
+      const a2 = (other.address || "").toLowerCase();
+      if (a1 && a2 && (a1.includes(a2) || a2.includes(a1))) return true;
+
+      return false;
+    });
+
+    return candidates.map((cand) => {
+      const oLat = Number(cand.lat ?? cand.latitude ?? cand.liveLocation?.latitude);
+      const oLng = Number(cand.lng ?? cand.longitude ?? cand.liveLocation?.longitude);
+      const distKm = (!isNaN(iLat) && !isNaN(oLat)) ? calcHaversineDistanceKm(iLat, iLng, oLat, oLng) : null;
+
+      return {
+        id: cand.id,
+        reporter: cand.reporter,
+        address: cand.address,
+        severity: cand.severity,
+        status: cand.status,
+        distanceKm: distKm != null ? Math.round(distKm * 10) / 10 : null,
+        cause: cand.cause || cand.type
+      };
+    });
+  }
+
+  /**
+   * Merge a duplicate incident into a primary active incident
+   */
+  mergeIncidents(primaryId, duplicateId, { notes, author = "Lead Dispatcher" } = {}) {
+    const primary = this.incidents.find((i) => i.id === primaryId);
+    const duplicate = this.incidents.find((i) => i.id === duplicateId);
+    if (!primary || !duplicate) throw new Error("Both primary and duplicate incidents must exist");
+
+    duplicate.status = "Resolved";
+    duplicate.resolvedReason = `Merged into primary incident ${primaryId}`;
+    duplicate.mergedInto = primaryId;
+    duplicate.resolvedAt = new Date().toISOString();
+
+    if (!Array.isArray(primary.mergedIncidentIds)) primary.mergedIncidentIds = [];
+    primary.mergedIncidentIds.push(duplicateId);
+
+    if (!Array.isArray(primary.auditTrail)) primary.auditTrail = [];
+    primary.auditTrail.unshift({
+      event: "DUPLICATE_MERGED",
+      duplicateId,
+      notes: notes || `Merged duplicate incident ${duplicateId}`,
+      author,
+      timestamp: new Date().toISOString()
+    });
+
+    this.save();
+    this.emit("incident:updated", { incident: primary, action: "duplicate_merged" });
+    this.emit("incident:updated", { incident: duplicate, action: "resolved" });
+    return { primary, duplicate };
+  }
+
   generateChronicReport() {
     return {
       reportId: `REP-MONSOON-${new Date().toISOString().slice(0, 10)}`,
       title: "Municipal Stormwater Drainage & Chronic Blockage Desilting Directives",
       wardAuthority: "Brihanmumbai Municipal Corporation · Ward 72/73 Control",
       generatedAt: new Date().toISOString(),
-      totalHotspots: this.chronicBlockages.length,
-      actionRequiredCount: this.chronicBlockages.filter((b) => b.status === "Desilting Required").length,
-      hotspots: this.chronicBlockages,
-      assignedTeams: this.resources
+      totalHotspots: (this.chronicBlockages || []).length,
+      actionRequiredCount: (this.chronicBlockages || []).filter((b) => b.status === "Desilting Required" || b.status === "Active Desilting Order").length,
+      openWorkOrders: (this.workOrders || []).filter((w) => w.status !== "Completed" && w.status !== "Cancelled").length,
+      criticalZonesCount: (this.chronicBlockages || []).filter((b) => (b.riskScore || 0) >= 70).length,
+      hotspots: this.chronicBlockages || [],
+      workOrders: this.workOrders || [],
+      outfalls: this.outfallCorridors || [],
+      assignedTeams: this.resources || []
     };
   }
 

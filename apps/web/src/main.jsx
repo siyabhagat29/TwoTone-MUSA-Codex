@@ -14,6 +14,9 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./styles.css";
 import { getAuthorityResourceCategory, getAuthorityResourceIcon } from "./resourceIconUtils.js";
+import { TeamTrackerPage } from "./components/team-tracker/TeamTrackerPage.jsx";
+import { SmartDispatchPage } from "./components/smart-dispatch/SmartDispatchPage.jsx";
+import DrainageIntelligencePage from "./components/drainage-intelligence/DrainageIntelligencePage.jsx";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
 
@@ -1584,7 +1587,7 @@ const nav = [
   ["Risk Map", "/map", MapIcon],
   ["Incidents", "/incidents", Siren],
   ["Team Tracker", "/resources", Truck],
-  ["Dispatch", "/dispatch", Send],
+  ["Smart Dispatch", "/dispatch", Send],
   ["Blockages", "/drainage", Wrench],
   ["AI Agents", "/multi-agent", BrainCircuit]
 ];
@@ -9566,9 +9569,11 @@ function App() {
             <Route
               path="/dispatch"
               element={
-                <Dispatch
+                <SmartDispatchPage
                   incidents={incidents}
                   resources={resources}
+                  userLat={userLat}
+                  userLng={userLng}
                   notify={notify}
                   onReload={loadInitialData}
                   onAutoDispatch={handleAutoDispatch}
@@ -9578,9 +9583,11 @@ function App() {
             <Route
               path="/resources"
               element={
-                <ResourcesPage
+                <TeamTrackerPage
                   resources={resources}
                   setResources={setResources}
+                  incidents={incidents}
+                  setIncidents={setIncidents}
                   userLat={userLat}
                   userLng={userLng}
                   userLocationName={userLocationName}
@@ -9592,7 +9599,7 @@ function App() {
             <Route
               path="/drainage"
               element={
-                <Drainage
+                <DrainageIntelligencePage
                   zones={zones}
                   incidents={incidents}
                   chronicBlockages={chronicBlockages}
