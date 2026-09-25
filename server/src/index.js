@@ -254,27 +254,186 @@ app.get("/api/zones", (req, res) => {
   const lng = parseFloat(req.query.lng || req.query.longitude);
   res.json(store.getZones ? store.getZones(lat, lng) : []);
 });
-app.get("/api/incidents", (_, res) => res.json(store.getIncidents()));
-app.get("/api/alerts", (_, res) => res.json(store.getAlerts()));
+app.get("/api/zones/:id", (req, res) => {
+  const zones = store.getZones ? store.getZones() : [];
+  const targetId = String(req.params.id || "").toLowerCase();
+  const zone = zones.find((z) => String(z.id || "").toLowerCase() === targetId || String(z.name || "").toLowerCase() === targetId);
+  if (!zone) return res.status(404).json({ error: "Zone not found" });
+  res.json(zone);
+});
+app.get("/api/incidents/active", (_, res) => res.json(store.getActiveIncidents ? store.getActiveIncidents() : []));
+app.get("/api/incidents", (req, res) => {
+  if (req.query.status === "active") {
+    return res.json(store.getActiveIncidents ? store.getActiveIncidents() : []);
+  }
+  res.json(store.getIncidents());
+});
+app.get("/api/incidents/:id", (req, res) => {
+  const incident = store.getIncidentById ? store.getIncidentById(req.params.id) : store.getIncidents().find((i) => i.id === req.params.id);
+  if (!incident) return res.status(404).json({ error: "Incident not found" });
+  res.json(incident);
+});
+app.get("/api/alerts", (req, res) => {
+  const lat = req.query.lat != null ? parseFloat(req.query.lat) : req.query.latitude != null ? parseFloat(req.query.latitude) : null;
+  const lng = req.query.lng != null ? parseFloat(req.query.lng) : req.query.longitude != null ? parseFloat(req.query.longitude) : null;
+  res.json(store.getAlerts(lat, lng));
+});
 app.get("/api/dispatches", (_, res) => res.json(store.getDispatches()));
 app.get("/api/resources", (req, res) => {
   const lat = parseFloat(req.query.lat || req.query.latitude);
   const lng = parseFloat(req.query.lng || req.query.longitude);
   res.json(store.getResources(lat, lng));
 });
+
+// Resource Simulation generation endpoint (Dynamic real-location emergency simulation)
+const handleSimulateResources = async (req, res) => {
+  try {
+    let lat = parseFloat(req.body?.latitude || req.body?.lat || req.query?.lat || req.query?.latitude);
+    let lng = parseFloat(req.body?.longitude || req.body?.lng || req.query?.lng || req.query?.longitude);
+    const radiusKm = parseFloat(req.body?.radius_km || req.body?.radius || req.query?.radius_km) || 6.0;
+    
+    // If incidentId provided and lat/lng not provided, resolve from incident
+    if ((isNaN(lat) || isNaN(lng)) && req.body?.incidentId) {
+      const inc = store.getIncidents().find((i) => i.id === req.body.incidentId);
+      if (inc) {
+        lat = Number(inc.lat ?? inc.latitude ?? inc.liveLocation?.latitude);
+        lng = Number(inc.lng ?? inc.longitude ?? inc.liveLocation?.longitude);
+      }
+    }
+
+    const result = await store.generateSimulation({ latitude: lat, longitude: lng, radiusKm });
+    res.json({
+      success: true,
+      message: "Simulation generated successfully.",
+      ...result
+    });
+  } catch (err) {
+    console.error("[/api/resources/simulate error]:", err.message);
+    res.status(500).json({
+      success: false,
+      error: err.message || "Unable to discover nearby facilities."
+    });
+  }
+};
+
+app.post("/api/resources/simulate", handleSimulateResources);
+app.post("/resources/simulate", handleSimulateResources);
+
+// Clear simulation endpoint
+const handleClearResources = (req, res) => {
+  try {
+    const result = store.clearSimulation();
+    res.json({
+      success: true,
+      message: "Resource simulation cleared successfully.",
+      ...result
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+app.post("/api/resources/clear", handleClearResources);
+app.delete("/api/resources/simulate", handleClearResources);
+app.delete("/api/resources", handleClearResources);
 app.get("/api/chronic-blockages", (_, res) => res.json(store.getChronicBlockages()));
+
+// Dedicated Dynamic Emergency Resources for a Specific Incident
+// GET /api/incidents/:id/nearby-resources?radius_km=5&category=all
+app.get("/api/incidents/:id/nearby-resources", async (req, res) => {
+  try {
+    const incidentId = req.params.id;
+    const incident = store.getIncidents().find((i) => i.id === incidentId);
+    if (!incident) {
+      return res.status(404).json({ success: false, error: `Incident ${incidentId} not found`, resources: [] });
+    }
+
+    const lat = Number(incident.lat ?? incident.latitude ?? incident.liveLocation?.latitude);
+    const lng = Number(incident.lng ?? incident.longitude ?? incident.liveLocation?.longitude);
+
+    if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Incident location unavailable.",
+        incident: { id: incident.id, address: incident.address },
+        resources: []
+      });
+    }
+
+    const radiusKm = parseFloat(req.query.radius_km || req.query.radius) || 5;
+    const category = req.query.category || "all";
+
+    const resources = await fetchLiveNearbyEmergencyServices(lat, lng, radiusKm, category);
+
+    // Calculate real road distance & ETA for top nearby resources
+    const resourcesWithEta = await Promise.all(
+      resources.map(async (r, index) => {
+        let etaMinutes = r.etaMinutes;
+        let routeData = null;
+        if (index < 6 && r.lat && r.lng) {
+          try {
+            const route = await calculateRoute(r.lat, r.lng, lat, lng);
+            if (route && route.success) {
+              etaMinutes = route.durationMin || Math.max(2, Math.round(route.distanceKm * 2.4 + 2));
+              routeData = {
+                distanceKm: route.distanceKm,
+                durationMin: route.durationMin,
+                isOsrm: route.isOsrm,
+                coordinates: route.coordinates
+              };
+            }
+          } catch {}
+        }
+        return {
+          ...r,
+          distance_km: r.distanceKm,
+          etaMinutes,
+          eta_minutes: etaMinutes,
+          etaText: etaMinutes != null ? `${etaMinutes} min` : "ETA unavailable",
+          routeData
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      incident: {
+        id: incident.id,
+        lat,
+        lng,
+        address: incident.address || incident.location || incident.zoneId || "Incident Site",
+        cause: incident.cause,
+        causeCode: incident.causeCode,
+        status: incident.status,
+        severity: incident.severity,
+        assignedTeam: incident.assignedTeam,
+        dispatchProgress: incident.dispatchProgress,
+        isSos: incident.isSos || incident.type === "SOS" || incident.causeCode === "SOS_EMERGENCY"
+      },
+      radiusKm,
+      count: resourcesWithEta.length,
+      resources: resourcesWithEta
+    });
+  } catch (err) {
+    console.error("[/api/incidents/:id/nearby-resources error]:", err.message);
+    res.status(500).json({ success: false, error: err.message, resources: [] });
+  }
+});
 
 // Emergency Services (Google Maps Nearby Search + 4 Categories: Hospitals & ICUs, Fire & Rescue, Police, NGOs & Tents)
 app.get("/api/emergency-services", async (req, res) => {
   try {
-    const lat = Number(req.query.lat || req.query.latitude) || 19.132;
-    const lng = Number(req.query.lng || req.query.longitude) || 72.848;
+    const lat = parseFloat(req.query.lat || req.query.latitude);
+    const lng = parseFloat(req.query.lng || req.query.longitude);
+    if (isNaN(lat) || isNaN(lng)) {
+      return res.status(400).json({ error: "lat and lng parameters are required and must be valid numbers" });
+    }
     const radius = Number(req.query.radius_km || req.query.radius) || 5;
     const category = req.query.category || "all";
     const services = await fetchLiveNearbyEmergencyServices(lat, lng, radius, category);
     res.json(services);
   } catch (err) {
-    res.json(store.getEmergencyServices(req.query.lat, req.query.lng));
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -339,15 +498,85 @@ app.get("/api/geocode/reverse", async (req, res) => {
   res.json(result);
 });
 
-// Flood Buddy (Nearby Registered Shopkeepers)
-app.get("/api/flood-buddy/nearby", (_, res) => res.json(store.getFloodBuddies()));
-app.post("/api/flood-buddy/notify", (req, res) => {
+// User Location & Profile Sync (Heartbeat & Location Sharing)
+app.post(["/api/users/location", "/api/users/heartbeat", "/api/users/profile"], (req, res) => {
   try {
-    const result = store.notifyFloodBuddy(req.body.targetShopId, req.body);
+    const user = store.upsertUser(req.body);
+    res.json({ success: true, user });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Flood Buddy: Dynamic Nearby Logged-In Users Discovery
+const handleFloodBuddyNearby = (req, res) => {
+  try {
+    const lat = req.query.latitude ?? req.query.lat ?? 19.1320;
+    const lng = req.query.longitude ?? req.query.lng ?? 72.8480;
+    const radius = req.query.radius ?? 5000;
+    const currentUserId = req.query.user_id ?? req.query.userId ?? req.headers["x-user-id"] ?? null;
+    const maxAgeMinutes = req.query.max_age_minutes ? Number(req.query.max_age_minutes) : 120;
+
+    const buddies = store.getNearbyFloodBuddies({
+      latitude: parseFloat(lat),
+      longitude: parseFloat(lng),
+      radius: parseInt(radius, 10),
+      currentUserId,
+      maxAgeMinutes
+    });
+
+    res.json({ buddies });
+  } catch (err) {
+    res.status(500).json({ error: err.message, buddies: [] });
+  }
+};
+
+app.get("/api/flood-buddies/nearby", handleFloodBuddyNearby);
+app.get("/api/flood-buddy/nearby", handleFloodBuddyNearby);
+
+// Flood Buddy: Send Real Warning Notification to Recipient
+const handleFloodBuddyNotify = (req, res) => {
+  try {
+    const recipientId = req.params.recipientId || req.body.recipient_id || req.body.recipientId || req.body.targetShopId;
+    const senderId = req.headers["x-user-id"] || req.body.sender_id || req.body.senderId || req.body.userId || "USR-ANON";
+    const senderName = req.headers["x-user-name"] || req.body.sender_name || req.body.senderName || req.body.name || "A Flood Buddy";
+    const senderRole = req.headers["x-user-role"] || req.body.sender_role || req.body.senderRole || req.body.role || "Shop Owner";
+    const alertId = req.body.alert_id || req.body.alertId || null;
+    const customMessage = req.body.message || req.body.custom_message || req.body.customMessage || null;
+
+    const result = store.sendFloodBuddyNotification({
+      recipientId,
+      senderId,
+      senderName,
+      senderRole,
+      alertId,
+      customMessage
+    });
+
+    if (result.cooldown) {
+      return res.status(429).json(result);
+    }
+
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
+};
+
+app.post("/api/flood-buddies/:recipientId/notify", handleFloodBuddyNotify);
+app.post("/api/flood-buddies/notify", handleFloodBuddyNotify);
+app.post("/api/flood-buddy/notify", handleFloodBuddyNotify);
+
+// User Notification History & Mark Read
+app.get(["/api/users/:userId/notifications", "/api/flood-buddies/notifications"], (req, res) => {
+  const userId = req.params.userId || req.query.user_id || req.query.userId || req.headers["x-user-id"];
+  const notifications = store.getUserNotifications(userId);
+  res.json({ notifications });
+});
+
+app.post("/api/users/:userId/notifications/:notifId/read", (req, res) => {
+  const result = store.markNotificationRead(req.params.userId, req.params.notifId);
+  res.json(result);
 });
 
 // Blitzortung Lightning Detection Data
@@ -355,17 +584,21 @@ app.get("/api/lightning", (_, res) => {
   res.json(store.getLightningData());
 });
 
-// SOS Emergency Rescue Trigger
-app.post("/api/sos", (req, res) => {
+// SOS Emergency Rescue Trigger (with backend 500m deduplication)
+const handleSosTrigger = async (req, res) => {
   try {
-    const result = store.triggerSos(req.body);
-    res.status(201).json(result);
+    const result = await store.triggerSos(req.body);
+    const statusCode = result.status === "created" ? 201 : 200;
+    res.status(statusCode).json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
-app.get("/api/sos", (_, res) => res.json(store.getSosAlerts()));
-app.delete("/api/sos", (_, res) => {
+};
+
+app.post("/api/sos", handleSosTrigger);
+app.post("/sos", handleSosTrigger);
+app.get(["/api/sos", "/sos"], (_, res) => res.json(store.getSosAlerts()));
+app.delete(["/api/sos", "/sos"], (_, res) => {
   try {
     const result = store.clearAllSosAlerts();
     res.json(result);
@@ -438,10 +671,13 @@ app.get("/api/weather/live", async (req, res) => {
 
 // Real OSRM Road Routing Endpoint
 app.get("/api/route", async (req, res) => {
-  const fromLat = Number(req.query.fromLat) || 19.132;
-  const fromLng = Number(req.query.fromLng) || 72.848;
-  const toLat = Number(req.query.toLat) || 19.125;
-  const toLng = Number(req.query.toLng) || 72.838;
+  const fromLat = parseFloat(req.query.fromLat || req.query.from_lat);
+  const fromLng = parseFloat(req.query.fromLng || req.query.from_lng);
+  const toLat = parseFloat(req.query.toLat || req.query.to_lat);
+  const toLng = parseFloat(req.query.toLng || req.query.to_lng);
+  if (isNaN(fromLat) || isNaN(fromLng) || isNaN(toLat) || isNaN(toLng)) {
+    return res.status(400).json({ error: "fromLat, fromLng, toLat, and toLng query parameters are required." });
+  }
   try {
     const route = await calculateRoute(fromLat, fromLng, toLat, toLng);
     res.json(route);
@@ -643,6 +879,75 @@ app.post("/api/reports", async (req, res) => {
     res.status(201).json({ ...report, agentOrchestration });
   } catch (err) {
     console.error("❌ [API /reports Error]:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update Incident Status (generic lifecycle endpoint)
+const handleStatusUpdate = (req, res) => {
+  const { status, reason, resource, meta } = req.body || {};
+  if (!status) return res.status(400).json({ error: "status is required" });
+  const inc = store.updateIncidentStatus(req.params.id, status, { reason, resource, ...meta });
+  if (!inc) return res.status(404).json({ error: "Incident not found" });
+  res.json({ success: true, incident: inc });
+};
+app.patch("/api/incidents/:id/status", handleStatusUpdate);
+app.post("/api/incidents/:id/status", handleStatusUpdate);
+
+// Allocate a dynamically discovered emergency resource to an incident
+app.post("/api/incidents/:id/allocate-resource", (req, res) => {
+  try {
+    const resourceData = req.body || {};
+    const result = store.allocateResource(req.params.id, resourceData);
+    if (!result) return res.status(404).json({ error: "Incident not found" });
+    res.json({ success: true, incident: result.incident, dispatch: result.dispatch });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Auto-Dispatch Rapid Unit using dynamic nearby Maps API resources
+app.post("/api/incidents/:id/auto-dispatch", async (req, res) => {
+  try {
+    const incidentId = req.params.id;
+    const incident = store.getIncidents().find((i) => i.id === incidentId);
+    if (!incident) return res.status(404).json({ error: "Incident not found" });
+
+    const lat = Number(incident.lat ?? incident.latitude ?? incident.liveLocation?.latitude);
+    const lng = Number(incident.lng ?? incident.longitude ?? incident.liveLocation?.longitude);
+
+    let topResource = null;
+    if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+      try {
+        const dynamicResources = await fetchLiveNearbyEmergencyServices(lat, lng, 5, "all");
+        if (dynamicResources && dynamicResources.length > 0) {
+          topResource = dynamicResources[0];
+        }
+      } catch (e) {
+        console.warn("[auto-dispatch maps discovery notice]:", e.message);
+      }
+    }
+
+    if (topResource) {
+      const alloc = store.allocateResource(incidentId, topResource);
+      store.updateIncidentStatus(incidentId, "EN_ROUTE");
+      return res.json({
+        success: true,
+        incident: alloc.incident,
+        dispatch: alloc.dispatch,
+        resource: topResource,
+        message: `Auto-dispatched ${topResource.name} (${topResource.distanceKm} km away)`
+      });
+    }
+
+    // Fallback if no nearby GPS POIs
+    const dispatch = store.addDispatch({
+      incidentId,
+      team: req.body?.team || incident.recommendedTeam || "Rapid Emergency Response Squad",
+      reason: req.body?.reason || incident.causeDescription || "High priority rapid response dispatch"
+    });
+    res.json({ success: true, dispatch, incident: store.getIncidentById(incidentId) });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

@@ -13,22 +13,38 @@ import { fetchLiveWeather, fetchFloodMetrics, reverseGeocode } from "./weatherSe
 import { triggerPagerDutySos } from "./pagerdutyService.js";
 import { sendSosSms } from "./twilioService.js";
 import { uploadPhotoToSupabase, uploadVideoToSupabase, syncIncidentToSupabase, sendAuthorityIncidentEmail } from "./supabaseService.js";
+import { fetchLiveNearbyEmergencyServices } from "./googlePlacesService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_DIR = path.join(__dirname, "../data");
 const DB_FILE = path.join(DATA_DIR, "db.json");
 
-export function calcHaversineDistanceKm(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Earth radius in km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+export const SOS_DEDUP_RADIUS_METERS = Number(process.env.SOS_DEDUP_RADIUS_METERS) || 500;
+
+export function calcExactDistanceMeters(lat1, lon1, lat2, lon2) {
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return Infinity;
+  const nLat1 = Number(lat1);
+  const nLon1 = Number(lon1);
+  const nLat2 = Number(lat2);
+  const nLon2 = Number(lon2);
+  if (isNaN(nLat1) || isNaN(nLon1) || isNaN(nLat2) || isNaN(nLon2)) return Infinity;
+
+  const R = 6371000; // Earth radius in meters
+  const dLat = ((nLat2 - nLat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+    Math.cos((nLat1 * Math.PI) / 180) * Math.cos((nLat2 * Math.PI) / 180) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Math.round(R * c * 10) / 10;
+  return R * c;
+}
+
+export function calcHaversineDistanceKm(lat1, lon1, lat2, lon2) {
+  const meters = calcExactDistanceMeters(lat1, lon1, lat2, lon2);
+  if (meters === Infinity) return null;
+  return Math.round((meters / 1000) * 10) / 10;
 }
 
 const initialZones = [
@@ -38,116 +54,8 @@ const initialZones = [
   { id: "Z-04", name: "Lake View Road", ward: "Ward 73", lat: 19.121, lng: 72.855, risk: 20, cause: "Normal Drainage", causeCode: "NORMAL_DRAINAGE", waterLevel: 0, rainfall: 0, reports: 0, trend: "stable" }
 ];
 
-const initialResources = [
-  {
-    id: "TEAM-01",
-    name: "Municipal Cleaning & Desilting Crew",
-    type: "Cleaning/Desilting",
-    station: "Ward 72 Depot (Andheri West)",
-    phone: "+91-98200-11221",
-    status: "Available",
-    currentIncidentId: null,
-    lat: 19.1305,
-    lng: 72.8465,
-    capacity: "4 Workers + Desilting Suction Unit"
-  },
-  {
-    id: "TEAM-02",
-    name: "High-Volume Dewatering Pump Unit",
-    type: "High-Capacity Dewatering",
-    station: "Suburban Pumping Station (Link Rd)",
-    phone: "+91-98200-33442",
-    status: "Available",
-    currentIncidentId: null,
-    lat: 19.1340,
-    lng: 72.8430,
-    capacity: "5,000 L/min Submersible Diesel Pump"
-  },
-  {
-    id: "TEAM-03",
-    name: "Rapid Emergency Drainage Squad",
-    type: "Rapid Intervention",
-    station: "Ward 73 Control Outpost",
-    phone: "+91-98200-55663",
-    status: "Available",
-    currentIncidentId: null,
-    lat: 19.1235,
-    lng: 72.8510,
-    capacity: "All-Terrain Intervention Truck"
-  },
-  {
-    id: "TEAM-04",
-    name: "Traffic Police & Route Diversion Crew",
-    type: "Traffic Management",
-    station: "S.V. Road Traffic Police Chowki",
-    phone: "+91-98200-77884",
-    status: "Available",
-    currentIncidentId: null,
-    lat: 19.1275,
-    lng: 72.8495,
-    capacity: "2 Tow Trucks + 8 Traffic Marshals"
-  },
-  {
-    id: "TEAM-05",
-    name: "Disaster Response & Rescue Unit",
-    type: "Rescue/Life Safety",
-    station: "Bandra Emergency Command",
-    phone: "+91-98200-99005",
-    status: "Available",
-    currentIncidentId: null,
-    lat: 19.1190,
-    lng: 72.8580,
-    capacity: "Inflatable Boats + High-Water Rescue Team"
-  },
-  {
-    id: "RES-SHL-01",
-    name: "BMC Municipal High-Ground Disaster Evacuation Center",
-    resource_type: "SHELTER",
-    type: "evacuation center",
-    agency: "BMC Municipal Disaster Management Cell",
-    station: "Ward Relief Complex",
-    phone: "1916 / 022-2684-1100",
-    status: "Available",
-    currentIncidentId: null,
-    lat: 19.1355,
-    lng: 72.8495,
-    capacity: "500 Beds + 75 Weatherproof Relief Tents",
-    is_verified: true,
-    facilities: ["Clean Potable Water", "First-Aid Triage", "Power Generator Backup", "Dry Bedding Area"]
-  },
-  {
-    id: "RES-SHL-02",
-    name: "Red Cross & Civil Defense Multi-Agency Relief Center",
-    resource_type: "SHELTER",
-    type: "relief center",
-    agency: "Indian Red Cross Society (Registered NGO)",
-    station: "Civic Relief Wing",
-    phone: "022-2266-1524 / 1800-11-2334",
-    status: "Available",
-    currentIncidentId: null,
-    lat: 19.1280,
-    lng: 72.8410,
-    capacity: "650 People (Spacious 2nd Floor Refuge)",
-    is_verified: true,
-    facilities: ["Medical Officer on Duty", "Fresh Hot Meals Kitchen", "Mobile Charging Station", "Boat Staging Base"]
-  },
-  {
-    id: "RES-SHL-03",
-    name: "Seva Foundation Community Food Bank & Humanitarian Center",
-    resource_type: "SHELTER",
-    type: "food bank",
-    agency: "Seva Community Food Foundation (Registered NGO)",
-    station: "Civic Welfare Complex",
-    phone: "1800-209-4357 / 022-2495-5110",
-    status: "Available",
-    currentIncidentId: null,
-    lat: 19.1250,
-    lng: 72.8385,
-    capacity: "1,500 Meal Packets/Day + 400 Families Aid Supplies",
-    is_verified: true,
-    facilities: ["Fresh Hot Meals", "Infant Nutrition", "RO Water", "Hygiene Kits"]
-  }
-];
+// Resources page starts empty until authority explicitly clicks "Generate Simulations"
+const initialResources = [];
 
 const initialEmergencyServices = [
   {
@@ -255,58 +163,54 @@ const initialShelters = [
   }
 ];
 
-const initialFloodBuddies = [
+const initialUsers = [
   {
-    id: "SHP-01",
-    name: "Mehta General Provisions",
-    owner: "Aarav Mehta",
-    category: "Grocery & Provisions",
-    zone: "Station Road",
-    ward: "Ward 72",
-    lat: 19.1322,
-    lng: 72.8482,
-    distanceM: 110,
-    risk: 42,
-    riskLevel: "GREEN"
+    user_id: "USR-MUM-01",
+    display_name: "Rahul",
+    role: "Shop Owner",
+    phone: "+919820011001",
+    latitude: 19.1330,
+    longitude: 72.8490,
+    last_location_update: new Date().toISOString(),
+    location_sharing_enabled: true,
+    is_online: true,
+    push_token: null
   },
   {
-    id: "SHP-02",
-    name: "Kulkarni Electronics & Hardware",
-    owner: "Pooja Kulkarni",
-    category: "Electronics",
-    zone: "Station Road",
-    ward: "Ward 72",
-    lat: 19.1318,
-    lng: 72.8475,
-    distanceM: 190,
-    risk: 42,
-    riskLevel: "GREEN"
+    user_id: "USR-MUM-02",
+    display_name: "Priya",
+    role: "Resident",
+    phone: "+919820011002",
+    latitude: 19.1365,
+    longitude: 72.8520,
+    last_location_update: new Date().toISOString(),
+    location_sharing_enabled: true,
+    is_online: true,
+    push_token: null
   },
   {
-    id: "SHP-03",
-    name: "Sai Medical & Chemist",
-    owner: "Dr. Suresh Patil",
-    category: "Pharmacy",
-    zone: "Market Lane",
-    ward: "Ward 72",
-    lat: 19.1295,
-    lng: 72.8518,
-    distanceM: 320,
-    risk: 35,
-    riskLevel: "GREEN"
+    user_id: "USR-MUM-03",
+    display_name: "Karan",
+    role: "Shop Owner",
+    phone: "+919820011003",
+    latitude: 19.1280,
+    longitude: 72.8430,
+    last_location_update: new Date().toISOString(),
+    location_sharing_enabled: true,
+    is_online: true,
+    push_token: null
   },
   {
-    id: "SHP-04",
-    name: "Jai Hind Hardware & Tools",
-    owner: "Ramesh Sharma",
-    category: "Hardware",
-    zone: "Temple Street",
-    ward: "Ward 73",
-    lat: 19.1255,
-    lng: 72.8445,
-    distanceM: 480,
-    risk: 28,
-    riskLevel: "GREEN"
+    user_id: "USR-MUM-04",
+    display_name: "Anjali",
+    role: "Resident",
+    phone: "+919820011004",
+    latitude: 19.1410,
+    longitude: 72.8560,
+    last_location_update: new Date().toISOString(),
+    location_sharing_enabled: true,
+    is_online: true,
+    push_token: null
   }
 ];
 
@@ -361,6 +265,21 @@ const initialChronicBlockages = [
   }
 ];
 
+class AsyncLock {
+  constructor() {
+    this.queue = Promise.resolve();
+  }
+  acquire() {
+    let release;
+    const p = new Promise((resolve) => {
+      release = resolve;
+    });
+    const current = this.queue.then(() => release);
+    this.queue = this.queue.then(() => p);
+    return current;
+  }
+}
+
 class Store {
   constructor() {
     this.zones = [...initialZones];
@@ -370,12 +289,15 @@ class Store {
     this.resources = [...initialResources];
     this.emergencyServices = [...initialEmergencyServices];
     this.shelters = [...initialShelters];
-    this.floodBuddies = [...initialFloodBuddies];
+    this.users = [...initialUsers];
+    this.notifications = [];
+    this.notificationCooldowns = {};
     this.chronicBlockages = [...initialChronicBlockages];
     this.sosAlerts = [];
     this.alertFeedbacks = [];
     this.userReputations = {};
     this.subscribers = new Set();
+    this.sosLock = new AsyncLock();
     this.init();
   }
 
@@ -411,6 +333,8 @@ class Store {
         this.alerts = data.alerts || [];
         this.dispatches = data.dispatches || [];
         this.resources = data.resources?.length ? data.resources : this.resources;
+        this.users = data.users?.length ? data.users : this.users;
+        this.notifications = data.notifications || [];
         this.sosAlerts = data.sosAlerts || [];
         this.alertFeedbacks = data.alertFeedbacks || [];
         this.chronicBlockages = data.chronicBlockages?.length ? data.chronicBlockages : this.chronicBlockages;
@@ -520,6 +444,8 @@ class Store {
             alerts: this.alerts,
             dispatches: this.dispatches,
             resources: this.resources,
+            users: this.users,
+            notifications: this.notifications,
             sosAlerts: this.sosAlerts,
             alertFeedbacks: this.alertFeedbacks,
             chronicBlockages: this.chronicBlockages,
@@ -536,20 +462,26 @@ class Store {
   }
 
   syncResourceStatuses() {
+    if (!this.resources || this.resources.length === 0) return;
     for (const team of this.resources) {
       const activeDispatch = this.dispatches.find(
-        (d) => (d.team === team.name || d.teamId === team.id) && d.status !== "Completed" && d.status !== "Cancelled"
+        (d) => (d.teamId === team.id || (d.team === team.name && (d.facility === team.agency || d.agency === team.agency))) &&
+               d.status !== "Completed" && d.status !== "Cancelled"
       );
       if (activeDispatch) {
-        team.status = activeDispatch.status || "En route";
+        team.status = activeDispatch.status || "EN_ROUTE";
         team.currentIncidentId = activeDispatch.incident;
         team.activeDispatchId = activeDispatch.id;
         team.eta = activeDispatch.eta;
       } else {
-        team.status = "Available";
-        team.currentIncidentId = null;
-        team.activeDispatchId = null;
-        team.eta = null;
+        if (team.currentIncidentId) {
+          team.currentIncidentId = null;
+          team.activeDispatchId = null;
+          team.eta = null;
+          if (team.status === "EN_ROUTE" || team.status === "DISPATCHED" || team.status === "ALLOCATED") {
+            team.status = "AVAILABLE";
+          }
+        }
       }
     }
   }
@@ -566,8 +498,70 @@ class Store {
     });
   }
 
-  getAlerts() {
-    return this.alerts;
+  getActiveIncidents() {
+    return this.getIncidents().filter((i) => {
+      const st = String(i.status || "").toLowerCase();
+      return st !== "resolved" && st !== "false alarm" && st !== "quarantined spam" && !i.isQuarantined;
+    });
+  }
+
+  getIncidentById(id) {
+    return this.incidents.find((i) => i.id === id) || null;
+  }
+
+  getAlerts(userLat, userLng) {
+    const hasUserCoords = userLat != null && userLng != null && !isNaN(Number(userLat)) && !isNaN(Number(userLng));
+    const uLat = hasUserCoords ? Number(userLat) : null;
+    const uLng = hasUserCoords ? Number(userLng) : null;
+
+    return (this.alerts || []).map((alert) => {
+      const aLat = alert.lat ?? alert.latitude;
+      const aLng = alert.lng ?? alert.longitude;
+      const hasAlertCoords = aLat != null && aLng != null && !isNaN(Number(aLat)) && !isNaN(Number(aLng));
+
+      let distance_km = null;
+      let distance_type = "unavailable";
+      let eta_min = null;
+      let is_nearby = false;
+
+      if (hasUserCoords && hasAlertCoords) {
+        distance_km = calcHaversineDistanceKm(uLat, uLng, Number(aLat), Number(aLng));
+        distance_type = "straight-line";
+        if (distance_km !== null) {
+          eta_min = Math.max(1, Math.round(distance_km * 3.5 + 1));
+          is_nearby = distance_km < 3.0;
+        }
+      }
+
+      const rawSource = alert.source || alert.type || (alert.isSos ? "incident" : "flood");
+      const normSource = String(rawSource).toLowerCase().includes("sos") ? "incident" : String(rawSource).toLowerCase();
+      const sourceName = alert.sourceName || (
+        normSource === "lightning" ? "Blitzortung Live Lightning Network" :
+        normSource === "rainfall" ? "Rainfall Monitoring Radar" :
+        normSource === "drainage" ? "Chronic Drainage GIS" :
+        normSource === "incident" || alert.isSos ? "Citizen SOS Dispatch" :
+        "VarshaRaksha Risk Engine"
+      );
+
+      return {
+        ...alert,
+        source: normSource,
+        sourceName,
+        type: alert.type || normSource,
+        severity: alert.severity || alert.level || "HIGH",
+        description: alert.description || alert.message || alert.title,
+        message: alert.message || alert.description || alert.title,
+        lat: hasAlertCoords ? Number(aLat) : null,
+        lng: hasAlertCoords ? Number(aLng) : null,
+        latitude: hasAlertCoords ? Number(aLat) : null,
+        longitude: hasAlertCoords ? Number(aLng) : null,
+        location_name: alert.location_name || alert.locationName || alert.area || (hasAlertCoords ? `${Number(aLat).toFixed(4)}, ${Number(aLng).toFixed(4)}` : "Location unavailable"),
+        distance_km,
+        distance_type,
+        eta_min,
+        is_nearby
+      };
+    });
   }
 
   getSosAlerts() {
@@ -689,70 +683,177 @@ class Store {
 
   getResources(userLat, userLng) {
     this.syncResourceStatuses();
+    if (!this.resources || this.resources.length === 0) return [];
     if (!userLat || !userLng) return this.resources;
     const uLat = parseFloat(userLat);
     const uLng = parseFloat(userLng);
     if (isNaN(uLat) || isNaN(uLng)) return this.resources;
 
-    // Dynamically relocate response units around the active user coordinate
-    return [
-      {
-        id: "RES-01",
-        name: "High-Volume Dewatering Pump Truck #1",
-        resource_type: "TRUCK",
-        type: "dewatering pump",
-        station: "Local Sector Waterlogging Unit",
-        phone: "022-2628-3333 / 101",
-        status: "Available",
-        currentIncidentId: null,
-        lat: Number((uLat + 0.0025).toFixed(4)),
-        lng: Number((uLng + 0.0015).toFixed(4)),
-        capacity: "15,000 L/min Submersible Pump",
-        distanceKm: calcHaversineDistanceKm(uLat, uLng, uLat + 0.0025, uLng + 0.0015)
-      },
-      {
-        id: "RES-02",
-        name: "Inflatable Zodiac Boat Rescue Squad #2",
-        resource_type: "BOAT",
-        type: "boat rescue",
-        station: "Area Flood Water Rescue Staging",
-        phone: "1077 / 022-2269-4725",
-        status: "Available",
-        currentIncidentId: null,
-        lat: Number((uLat - 0.0035).toFixed(4)),
-        lng: Number((uLng - 0.0020).toFixed(4)),
-        capacity: "6-Person Inflatable Motorized Rescue Boat",
-        distanceKm: calcHaversineDistanceKm(uLat, uLng, uLat - 0.0035, uLng - 0.0020)
-      },
-      {
-        id: "RES-03",
-        name: "Mobile Medical Trauma & Triage Van",
-        resource_type: "AMBULANCE",
-        type: "medical triage",
-        station: "Community Health Rapid Response",
-        phone: "108 / 102",
-        status: "Available",
-        currentIncidentId: null,
-        lat: Number((uLat + 0.0018).toFixed(4)),
-        lng: Number((uLng - 0.0030).toFixed(4)),
-        capacity: "Mobile ICU & Oxygen Support",
-        distanceKm: calcHaversineDistanceKm(uLat, uLng, uLat + 0.0018, uLng - 0.0030)
-      },
-      {
-        id: "RES-04",
-        name: "Heavy JCB & Silt Extraction Crew",
-        resource_type: "CREW",
-        type: "silt clearing",
-        station: "Municipal Stormwater Drainage Depot",
-        phone: "1916 / 022-2684-0103",
-        status: "Available",
-        currentIncidentId: null,
-        lat: Number((uLat - 0.0015).toFixed(4)),
-        lng: Number((uLng + 0.0040).toFixed(4)),
-        capacity: "Hydro-Vacuum & Mechanical Desilter",
-        distanceKm: calcHaversineDistanceKm(uLat, uLng, uLat - 0.0015, uLng + 0.0040)
+    return this.resources.map((r) => {
+      const lat = r.latitude ?? r.lat;
+      const lng = r.longitude ?? r.lng;
+      const dist = (lat != null && lng != null) ? calcHaversineDistanceKm(uLat, uLng, lat, lng) : null;
+      return {
+        ...r,
+        distanceKm: dist,
+        distance_km: dist
+      };
+    }).sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
+  }
+
+  /**
+   * Generate Simulated Emergency Resources Anchored to Real Nearby Places via Maps API
+   */
+  async generateSimulation({ latitude, longitude, radiusKm = 5 } = {}) {
+    const lat = Number(latitude) || 19.1320;
+    const lng = Number(longitude) || 72.8480;
+    const radius = Number(radiusKm) || 5;
+
+    // 1. Discover real places around coordinates using existing Maps API service
+    let facilities = [];
+    try {
+      facilities = await fetchLiveNearbyEmergencyServices(lat, lng, radius, "all");
+    } catch (err) {
+      console.warn("[generateSimulation] Maps discovery warning:", err.message);
+    }
+
+    if (!facilities || facilities.length === 0) {
+      facilities = this.getEmergencyServices(lat, lng);
+    }
+
+    // 2. Unique Simulation Batch ID
+    const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const simRandom = Math.floor(100 + Math.random() * 900);
+    const simulationId = `SIM-${todayStr}-${simRandom}`;
+
+    // 3. Category Resource Templates
+    const resourceTemplates = {
+      fire: [
+        { name: "Heavy Duty Fire & Water Pump Truck", category: "RESCUE", unit: "Trucks", minQty: 1, maxQty: 4, capacity: "10,000 L/min Dewatering Pump + 4000L Foam Tank", icon: "🚒", description: "Equipped with high-pressure suction hoses, submersible flood drainage pumps, and cutting gear." },
+        { name: "Inflatable Zodiac Rescue Boat Squad", category: "RESCUE", unit: "Boats", minQty: 1, maxQty: 3, capacity: "6-Person Motorized Rescue Dinghy", icon: "🚤", description: "Rapid shallow-water navigation for urban street flood rescue and casualty extraction." },
+        { name: "High-Volume Mobile Dewatering Pump", category: "RESCUE", unit: "Units", minQty: 2, maxQty: 6, capacity: "15,000 L/min Diesel High-Head Pump", icon: "🚰", description: "Portable heavy dewatering unit for submerged subways, basement parking, and culverts." }
+      ],
+      medical: [
+        { name: "Advanced Life Support (ALS) Ambulance", category: "MEDICAL", unit: "Ambulances", minQty: 1, maxQty: 6, capacity: "Mobile ICU, Ventilator & Oxygen Station", icon: "🚑", description: "Emergency patient stabilization and high-speed transit with onboard paramedic team." },
+        { name: "Emergency Hospital Triage Beds", category: "MEDICAL", unit: "Beds", minQty: 8, maxQty: 65, capacity: "Monitored Trauma & Acute Recovery Beds", icon: "🛏️", description: "Designated clean emergency admission ward equipped with emergency generator backup." },
+        { name: "Major Trauma & Suture Kits", category: "MEDICAL", unit: "Kits", minQty: 15, maxQty: 80, capacity: "Sterile Wound Dressing & Splints", icon: "🩹", description: "Field trauma kits for flood-borne debris lacerations and emergency first-aid." },
+        { name: "Medical Oxygen Cylinders", category: "MEDICAL", unit: "Cylinders", minQty: 10, maxQty: 45, capacity: "40L Medical Oxygen with Regulators", icon: "🫁", description: "Emergency respiratory support units for compromised flood victims." }
+      ],
+      ngo: [
+        { name: "Dry Relief Food Ration Packets", category: "FOOD", unit: "Packets", minQty: 30, maxQty: 350, capacity: "Nutrient-Dense Ready Meal Packs (72h Supply)", icon: "🍱", description: "Sealed waterproof packets containing biscuits, dry roasted grains, ready meals, and glucose." },
+        { name: "Community Ready-to-Eat Meal Boxes", category: "FOOD", unit: "Meals", minQty: 25, maxQty: 250, capacity: "Warm Nutritious Meal Packs", icon: "🍲", description: "Fresh community kitchen distribution boxes organized for stranded residents and shopkeepers." },
+        { name: "Emergency Drinking Water Packs", category: "WATER", unit: "Packs", minQty: 40, maxQty: 400, capacity: "1L Purified Sealed Water Bottles (Pack of 12)", icon: "💧", description: "Certified potable drinking water safe from microbial stormwater contamination." }
+      ],
+      municipal: [
+        { name: "Hydraulic Excavator / JCB Desilting Unit", category: "RESCUE", unit: "Units", minQty: 1, maxQty: 3, capacity: "0.8m³ Heavy Bucket Silt Excavator", icon: "🚜", description: "Clears collapsed culverts, construction debris, and uprooted trees blocking stormwater outfalls." },
+        { name: "Bulk Potable Water Supply Tanker", category: "WATER", unit: "Tankers", minQty: 1, maxQty: 4, capacity: "10,000 Liters Potable Water Tanker", icon: "🚚", description: "Mobile drinking water tanker deployed to areas where municipal supply lines are inundated." },
+        { name: "High-Pressure Hydro-Jet Drain Cleanser", category: "RESCUE", unit: "Vehicles", minQty: 1, maxQty: 3, capacity: "Vacuum Suction & High-Pressure Jetting", icon: "🛠️", description: "High-velocity jetting rig to dislodge chronic plastic and silt bottlenecks from underground drains." }
+      ],
+      shelter: [
+        { name: "High-Ground Evacuation Shelter Beds", category: "SHELTER", unit: "Beds", minQty: 20, maxQty: 200, capacity: "Elevated Dry Sleeping Area & Bedding", icon: "🏠", description: "Dry, elevated indoor community shelter space equipped with drinking water, power, and first-aid." },
+        { name: "Emergency Folding Cots & Mattresses", category: "SHELTER", unit: "Cots", minQty: 15, maxQty: 120, capacity: "Steel Folding Cots with Waterproof Mats", icon: "🛏️", description: "Rapid temporary bedding units deployed to municipal schools and relief pavilions." }
+      ],
+      police: [
+        { name: "Rapid Public Safety & Traffic Patrol", category: "RESCUE", unit: "Units", minQty: 2, maxQty: 8, capacity: "4x4 High-Clearance Patrol Jeeps", icon: "👮", description: "Traffic diversion, flooded underpass barricading, and public evacuation order enforcement." }
+      ]
+    };
+
+    // 4. Generate Random Mixture Across Discovered Facilities
+    const simulatedResources = [];
+    let resIndex = 1;
+    const selectedFacilities = (facilities.length > 0 ? facilities : this.getEmergencyServices(lat, lng)).slice(0, 12);
+
+    for (const fac of selectedFacilities) {
+      const catKey = (fac.category || "municipal").toLowerCase();
+      const templates = resourceTemplates[catKey] || resourceTemplates.municipal;
+
+      const numToPick = Math.random() > 0.4 ? 2 : 1;
+      const shuffledTemplates = [...templates].sort(() => 0.5 - Math.random()).slice(0, numToPick);
+
+      for (const tmpl of shuffledTemplates) {
+        const qty = Math.floor(tmpl.minQty + Math.random() * (tmpl.maxQty - tmpl.minQty + 1));
+        const statusRand = Math.random();
+        const status = statusRand < 0.80 ? "AVAILABLE" : statusRand < 0.95 ? "LIMITED" : "DEPLOYED";
+
+        const pLat = fac.lat ?? fac.latitude;
+        const pLng = fac.lng ?? fac.longitude;
+        const distKm = (pLat != null && pLng != null) ? calcHaversineDistanceKm(lat, lng, pLat, pLng) : null;
+
+        simulatedResources.push({
+          id: `RES-SIM-${resIndex.toString().padStart(3, "0")}`,
+          name: tmpl.name,
+          category: tmpl.category,
+          unit: tmpl.unit,
+          quantity: qty,
+          availableQuantity: status === "DEPLOYED" ? 0 : status === "LIMITED" ? Math.max(1, Math.floor(qty * 0.3)) : qty,
+          capacity: tmpl.capacity,
+          icon: tmpl.icon,
+          emoji: tmpl.icon,
+          description: tmpl.description,
+          agency: fac.name || fac.station || "Municipal Disaster Authority",
+          base_location: fac.station || fac.address || fac.name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+          address: fac.address || fac.station || fac.name || "Local Municipal Ward Facility",
+          latitude: pLat,
+          longitude: pLng,
+          lat: pLat,
+          lng: pLng,
+          distanceKm: distKm,
+          distance_km: distKm,
+          status,
+          phone: fac.phone || "1916 / 101",
+          simulation_id: simulationId,
+          created_at: new Date().toISOString(),
+          currentIncidentId: null,
+          eta: distKm != null ? `${Math.max(2, Math.round(distKm * 3.5 + 2))} min` : "6 min"
+        });
+        resIndex++;
       }
-    ];
+    }
+
+    this.resources = simulatedResources;
+    this.save();
+
+    const distinctFacilities = new Set(simulatedResources.map((r) => r.agency)).size;
+    const distinctCategories = new Set(simulatedResources.map((r) => r.category)).size;
+
+    this.emit("resources:updated", this.resources);
+    this.emit("simulation:generated", {
+      simulationId,
+      totalResources: simulatedResources.length,
+      facilitiesCount: distinctFacilities,
+      categoriesCount: distinctCategories,
+      resources: simulatedResources
+    });
+
+    return {
+      success: true,
+      simulationId,
+      simulation_id: simulationId,
+      count: simulatedResources.length,
+      totalResources: simulatedResources.length,
+      facilities_count: distinctFacilities,
+      facilitiesCount: distinctFacilities,
+      categories_count: distinctCategories,
+      categoriesCount: distinctCategories,
+      center: { lat, lng },
+      stats: {
+        totalResources: simulatedResources.length,
+        facilitiesCount: distinctFacilities,
+        categoriesCount: distinctCategories
+      },
+      resources: simulatedResources
+    };
+  }
+
+  /**
+   * Clear Simulated Resource Inventory
+   */
+  clearSimulation() {
+    this.resources = [];
+    this.save();
+    this.emit("resources:cleared", { success: true });
+    this.emit("resources:updated", []);
+    return { success: true, count: 0, resources: [] };
   }
 
   getRegisteredShelters(userLat, userLng) {
@@ -887,8 +988,145 @@ class Store {
     ].sort((a, b) => a.distanceKm - b.distanceKm);
   }
 
-  getFloodBuddies() {
-    return this.floodBuddies;
+  /**
+   * Upsert user profile, location, sharing status, and push token
+   */
+  upsertUser(userData = {}) {
+    const userId = userData.user_id || userData.id || userData.phone || `USR-${Date.now().toString().slice(-4)}`;
+    const displayName = userData.display_name || userData.name || "VarshaRaksha Citizen";
+    const role = userData.role || "Citizen";
+    const phone = userData.phone || null;
+    const lat = userData.latitude != null ? Number(userData.latitude) : userData.lat != null ? Number(userData.lat) : null;
+    const lng = userData.longitude != null ? Number(userData.longitude) : userData.lng != null ? Number(userData.lng) : null;
+    const locSharing = userData.location_sharing_enabled !== false;
+    const pushToken = userData.push_token || userData.pushToken || null;
+    const nowIso = new Date().toISOString();
+
+    let existing = (this.users || []).find(u => u.user_id === userId || (phone && u.phone === phone));
+    if (existing) {
+      existing.display_name = displayName;
+      existing.role = role;
+      if (phone) existing.phone = phone;
+      if (lat != null && lng != null && !isNaN(lat) && !isNaN(lng)) {
+        existing.latitude = lat;
+        existing.longitude = lng;
+        existing.last_location_update = nowIso;
+      }
+      existing.location_sharing_enabled = locSharing;
+      existing.is_online = true;
+      if (pushToken) existing.push_token = pushToken;
+      existing.updatedAt = nowIso;
+    } else {
+      existing = {
+        user_id: userId,
+        display_name: displayName,
+        role,
+        phone,
+        latitude: (lat != null && !isNaN(lat)) ? lat : 19.1320,
+        longitude: (lng != null && !isNaN(lng)) ? lng : 72.8480,
+        last_location_update: nowIso,
+        location_sharing_enabled: locSharing,
+        is_online: true,
+        push_token: pushToken,
+        createdAt: nowIso,
+        updatedAt: nowIso
+      };
+      if (!Array.isArray(this.users)) this.users = [];
+      this.users.unshift(existing);
+    }
+    this.save();
+    return existing;
+  }
+
+  /**
+   * Dynamic Nearby Flood Buddies Discovery
+   * Filters out current user, applies configurable radius, checks location sharing,
+   * calculates distance from GPS, and attaches any active flood alert near each buddy.
+   */
+  getNearbyFloodBuddies({ latitude, longitude, radius = 5000, currentUserId = null, maxAgeMinutes = 120 } = {}) {
+    const currentLat = latitude != null ? Number(latitude) : 19.1320;
+    const currentLng = longitude != null ? Number(longitude) : 72.8480;
+    const radiusMeters = Number(radius) || 5000;
+    const nowMs = Date.now();
+    const buddies = [];
+
+    for (const u of (this.users || [])) {
+      // Exclude current user from their own list
+      if (currentUserId && (u.user_id === currentUserId || u.phone === currentUserId || (u.display_name && u.display_name === currentUserId))) {
+        continue;
+      }
+
+      // Must have location sharing enabled
+      if (u.location_sharing_enabled === false) {
+        continue;
+      }
+
+      const uLat = u.latitude != null ? Number(u.latitude) : null;
+      const uLng = u.longitude != null ? Number(u.longitude) : null;
+      if (uLat == null || uLng == null || isNaN(uLat) || isNaN(uLng)) {
+        continue;
+      }
+
+      const distMeters = Math.round(calcExactDistanceMeters(currentLat, currentLng, uLat, uLng));
+      if (distMeters > radiusMeters) {
+        continue;
+      }
+
+      const lastUpdate = new Date(u.last_location_update || u.updatedAt || u.createdAt || nowMs);
+      const ageMinutes = Math.max(0, Math.round((nowMs - lastUpdate.getTime()) / 60000));
+      if (maxAgeMinutes && ageMinutes > maxAgeMinutes) {
+        continue;
+      }
+
+      // Determine active alerts affecting this buddy
+      let nearbyAlert = null;
+      let closestAlertDist = Infinity;
+      const activeAlerts = (this.alerts || []).filter(a => a.status !== "Resolved" && a.status !== "False Alarm");
+      for (const alt of activeAlerts) {
+        const aLat = alt.lat ?? alt.latitude;
+        const aLng = alt.lng ?? alt.longitude;
+        if (aLat != null && aLng != null && !isNaN(Number(aLat)) && !isNaN(Number(aLng))) {
+          const d = calcExactDistanceMeters(uLat, uLng, Number(aLat), Number(aLng));
+          if (d <= 3000 && d < closestAlertDist) {
+            closestAlertDist = d;
+            nearbyAlert = {
+              id: alt.id,
+              type: alt.type || alt.source || "FLOOD_RISK",
+              title: alt.title || "Flood Risk Warning",
+              severity: (alt.severity || alt.level || "HIGH").toUpperCase(),
+              description: alt.description || alt.message || "Heavy rainfall and water accumulation detected near area.",
+              distance_meters: Math.round(d),
+              distance_km: Math.round(d / 100) / 10
+            };
+          }
+        }
+      }
+
+      buddies.push({
+        user_id: u.user_id,
+        display_name: u.display_name || u.name || "Citizen",
+        role: u.role || "Resident",
+        distance_meters: distMeters,
+        distance_km: Math.round(distMeters / 100) / 10,
+        distanceM: distMeters, // backwards compatibility
+        name: u.display_name || u.name, // backwards compatibility
+        owner: u.display_name || u.name, // backwards compatibility
+        id: u.user_id, // backwards compatibility
+        location_updated_at: u.last_location_update || new Date(nowMs).toISOString(),
+        age_minutes: ageMinutes,
+        freshness_label: ageMinutes < 2 ? "just now" : `${ageMinutes}m ago`,
+        is_online: ageMinutes <= 15,
+        nearby_alert: nearbyAlert
+      });
+    }
+
+    // Sort by proximity: nearest first
+    buddies.sort((a, b) => a.distance_meters - b.distance_meters);
+    return buddies;
+  }
+
+  getFloodBuddies(params = {}) {
+    return this.getNearbyFloodBuddies(params);
   }
 
   getChronicBlockages() {
@@ -922,53 +1160,257 @@ class Store {
   }
 
   /**
-   * Trigger SOS Emergency Rescue Request
+   * Trigger SOS Emergency Rescue Request with Backend Geofencing and Deduplication (500m)
    */
-  triggerSos(sosData) {
-    const id = `SOS-${2000 + this.sosAlerts.length + 1}`;
-    const rescueTeam = this.resources.find((t) => t.id === "TEAM-05" || t.id === "TEAM-03") || this.resources[0];
+  async triggerSos(sosData = {}) {
+    const release = await this.sosLock.acquire();
+    try {
+      return await this._processTriggerSos(sosData);
+    } finally {
+      release();
+    }
+  }
 
-    const userPhone = sosData.userPhone || sosData.phone || "+919869001892";
-    const emergencyNumber = sosData.emergencyNumber || sosData.emergencyPhone || "9869001892";
+  async _processTriggerSos(sosData = {}) {
+    const lat = Number(sosData.latitude != null ? sosData.latitude : (sosData.lat != null ? sosData.lat : 19.132));
+    const lng = Number(sosData.longitude != null ? sosData.longitude : (sosData.lng != null ? sosData.lng : 72.848));
+    const userId = sosData.user_id || sosData.userId || (sosData.userPhone ? `USR-${sosData.userPhone.replace(/\D/g, "").slice(-4)}` : "USR-SHOPKEEPER-72");
+    const userName = sosData.userName || sosData.user_name || sosData.reporter || "Citizen";
+    const userPhone = sosData.userPhone || sosData.user_phone || sosData.phone || "+919869001892";
+    const emergencyNumber = sosData.emergencyNumber || sosData.emergency_number || sosData.emergencyPhone || "9869001892";
+    const role = sosData.role || "Shop Owner";
+    const address = sosData.address || "Station Road Commercial Market";
+    const now = new Date();
+    const formattedTime = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    const userTimestamp = sosData.timestamp || now.toISOString();
 
     // Track user submission and check false-alarm quarantine status
-    const userKey = userPhone || sosData.userName || "ANONYMOUS";
+    const userKey = userPhone || userName || "ANONYMOUS";
     const reputation = this.recordReportSubmission(userKey, {
-      userName: sosData.userName || "Local Shop Owner",
+      userName,
       userPhone
     });
     const isUserQuarantined = Boolean(reputation.isQuarantined);
 
+    // Query all ACTIVE SOS incidents eligible for deduplication
+    const activeSosIncidents = (this.incidents || []).filter((i) => {
+      if (!i) return false;
+      const isSos = Boolean(i.isSos || i.type === "SOS" || i.causeCode === "SOS_EMERGENCY" || i.status === "ACTIVE_SOS");
+      if (!isSos) return false;
+
+      const st = String(i.status || "").trim().toUpperCase();
+      const inactiveStatuses = ["RESOLVED", "FALSE_ALARM", "FALSE ALARM", "CLOSED", "COMPLETED", "QUARANTINED_SPAM", "QUARANTINED SPAM"];
+      if (inactiveStatuses.includes(st)) return false;
+      if (i.isQuarantined || i.resolvedAt != null || i.falseAlarmAt != null) return false;
+
+      return true;
+    });
+
+    // Find the nearest active SOS incident within SOS_DEDUP_RADIUS_METERS
+    let nearestIncident = null;
+    let minDistanceMeters = Infinity;
+
+    for (const activeInc of activeSosIncidents) {
+      const incLat = Number(activeInc.lat != null ? activeInc.lat : activeInc.latitude);
+      const incLng = Number(activeInc.lng != null ? activeInc.lng : activeInc.longitude);
+      if (isNaN(incLat) || isNaN(incLng)) continue;
+
+      const distMeters = calcExactDistanceMeters(lat, lng, incLat, incLng);
+      if (distMeters <= SOS_DEDUP_RADIUS_METERS && distMeters < minDistanceMeters) {
+        minDistanceMeters = distMeters;
+        nearestIncident = activeInc;
+      }
+    }
+
+    // =========================================================================
+    // CASE 1: MATCHING ACTIVE INCIDENT FOUND WITHIN 500m -> DEDUPLICATE / MERGE
+    // =========================================================================
+    if (nearestIncident) {
+      const targetInc = nearestIncident;
+
+      // Ensure targetInc.reports is initialized
+      if (!Array.isArray(targetInc.reports) || targetInc.reports.length === 0) {
+        const primaryReport = {
+          id: `RPT-${(targetInc.id || "INC-1000").replace(/\D/g, "")}-01`,
+          incident_id: targetInc.id,
+          sos_id: targetInc.sosId || `SOS-${targetInc.id}`,
+          user_id: targetInc.reporterReputation?.identifier || "USR-PRIMARY",
+          user_name: targetInc.reporter || "Primary Reporter",
+          user_phone: targetInc.userPhone || "+919869001892",
+          emergency_number: targetInc.emergencyNumber || "9869001892",
+          role: targetInc.role || "Citizen",
+          latitude: Number(targetInc.lat),
+          longitude: Number(targetInc.lng),
+          lat: Number(targetInc.lat),
+          lng: Number(targetInc.lng),
+          address: targetInc.address,
+          distance_meters: 0,
+          timestamp: targetInc.createdAt || targetInc.userTimestamp || userTimestamp,
+          created_at: targetInc.createdAt || targetInc.userTimestamp || userTimestamp
+        };
+        targetInc.reports = [primaryReport];
+        targetInc.mergedReports = [primaryReport];
+      }
+
+      // Check for rapid duplicate taps by the same user within 15 seconds
+      const existingRecentReport = targetInc.reports.find((r) => {
+        const isSameUser = (r.user_id && userId && r.user_id === userId) ||
+          (r.user_phone && userPhone && r.user_phone === userPhone) ||
+          (r.user_name && userName && r.user_name === userName);
+        if (!isSameUser) return false;
+        const timeDiffMs = Math.abs(new Date(userTimestamp).getTime() - new Date(r.timestamp || r.created_at).getTime());
+        return timeDiffMs < 15000;
+      });
+
+      let newReport = null;
+
+      if (existingRecentReport) {
+        // Just update timestamp on rapid double tap
+        existingRecentReport.timestamp = userTimestamp;
+        newReport = existingRecentReport;
+      } else {
+        // Create new SOSReport attached to this cluster
+        const reportId = `RPT-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 900 + 100)}`;
+        newReport = {
+          id: reportId,
+          incident_id: targetInc.id,
+          sos_id: targetInc.sosId || `SOS-${targetInc.id}`,
+          user_id: userId,
+          user_name: userName,
+          user_phone: userPhone,
+          emergency_number: emergencyNumber,
+          role,
+          latitude: lat,
+          longitude: lng,
+          lat,
+          lng,
+          address,
+          distance_meters: Math.round(minDistanceMeters),
+          timestamp: userTimestamp,
+          created_at: userTimestamp
+        };
+
+        targetInc.reports.push(newReport);
+        if (!Array.isArray(targetInc.mergedReports)) targetInc.mergedReports = [];
+        targetInc.mergedReports.push(newReport);
+      }
+
+      targetInc.reporter_count = targetInc.reports.length;
+      targetInc.clusterCount = targetInc.reports.length;
+      targetInc.mergedCount = targetInc.reports.length;
+      targetInc.last_reported_at = userTimestamp;
+      targetInc.updatedAt = userTimestamp;
+      targetInc.latest_report = newReport;
+
+      // Note: The incident's primary lat/lng coordinates REMAIN the original anchor location (do not drift)
+      // Update alert description to reflect aggregated cluster count
+      const matchedAlert = (this.alerts || []).find((a) => a.incidentId === targetInc.id || a.sosId === targetInc.sosId);
+      if (matchedAlert) {
+        matchedAlert.description = `🚨 Clustered SOS (${targetInc.reporter_count} reports within 500m). Latest: ${userName} (${userPhone}) at ${address}`;
+        matchedAlert.reporterCount = targetInc.reporter_count;
+        matchedAlert.reporter_count = targetInc.reporter_count;
+        matchedAlert.reports = targetInc.reports;
+        matchedAlert.updatedAt = userTimestamp;
+      }
+
+      this.save();
+
+      // Realtime event broadcast
+      const clusterEvent = {
+        type: "SOS_CLUSTER_UPDATED",
+        event: "SOS_CLUSTER_UPDATED",
+        incident_id: targetInc.id,
+        reporter_count: targetInc.reporter_count,
+        latest_report: newReport,
+        incident: targetInc,
+        distance_meters: Math.round(minDistanceMeters),
+        timestamp: userTimestamp
+      };
+      this.emit("SOS_CLUSTER_UPDATED", clusterEvent);
+      this.emit("report:merged", { incident: targetInc, report: newReport, distance_meters: Math.round(minDistanceMeters) });
+      this.emit("incident:updated", { incident: targetInc });
+
+      const nearbyUnitsForMerge = this.getEmergencyServices(lat, lng);
+      targetInc.nearbyResources = nearbyUnitsForMerge;
+      targetInc.nearbyServices = nearbyUnitsForMerge;
+
+      return {
+        status: "merged",
+        incident_id: targetInc.id,
+        sos_id: targetInc.sosId || `SOS-${targetInc.id}`,
+        distance_meters: Math.round(minDistanceMeters),
+        reporter_count: targetInc.reporter_count,
+        first_reported_at: targetInc.first_reported_at || targetInc.createdAt,
+        last_reported_at: targetInc.last_reported_at || userTimestamp,
+        message: "Your emergency report has been added to an existing nearby emergency alert.",
+        incident: targetInc,
+        nearbyResources: nearbyUnitsForMerge,
+        nearby_resources: nearbyUnitsForMerge,
+        nearbyServices: nearbyUnitsForMerge,
+        nearestResource: targetInc.nearestResource || nearbyUnitsForMerge[0],
+        success: true,
+        assignedTeam: targetInc.assignedTeam || targetInc.recommendedTeam,
+        teamPhone: targetInc.assignedTeamPhone,
+        eta: targetInc.eta || "4–6 min"
+      };
+    }
+
+    // =========================================================================
+    // CASE 2: NO ACTIVE INCIDENT WITHIN 500m -> CREATE NEW SOS INCIDENT
+    // =========================================================================
+    const id = `SOS-${2000 + (this.sosAlerts?.length || 0) + 1}`;
+
+    // Dynamically discover nearest emergency unit relative to caller's coordinates
+    const nearbyUnits = this.getEmergencyServices(lat, lng);
+    const rescueTeam = nearbyUnits[0] || (this.resources || []).find((t) => t.id === "TEAM-05" || t.id === "TEAM-03") || (this.resources || [])[0] || { name: "Municipal Flood Rescue Fleet", phone: "+91 98200 55663" };
+    const computedEta = rescueTeam.distanceKm != null
+      ? `${Math.max(2, Math.round(rescueTeam.distanceKm * 3.5 + 2))} mins`
+      : "4–6 min";
+
     const sos = {
       id,
-      userId: sosData.userId || "USR-SHOPKEEPER-72",
-      userName: sosData.userName || "Local Shop Owner",
+      userId,
+      userName,
       userPhone,
       emergencyNumber,
-      role: sosData.role || "Shop Owner",
-      lat: Number(sosData.lat) || 19.132,
-      lng: Number(sosData.lng) || 72.848,
-      address: sosData.address || "Station Road Commercial Market",
+      role,
+      lat,
+      lng,
+      address,
       emergencyStatus: "ACTIVE_SOS",
       assignedTeam: rescueTeam.name,
       assignedTeamPhone: rescueTeam.phone,
-      eta: "6–9 min",
-      timestamp: new Date().toISOString(),
+      eta: computedEta,
+      timestamp: userTimestamp,
       isQuarantined: isUserQuarantined,
       quarantineReason: isUserQuarantined ? reputation.quarantineReason : null,
       smsSuppressed: isUserQuarantined
     };
 
-    // Compute next unique incident ID for administrator incident feed
-    const maxNum = this.incidents.reduce((max, inc) => {
+    const maxNum = (this.incidents || []).reduce((max, inc) => {
       const match = (inc.id || "").match(/INC-(\d+)/);
       return match ? Math.max(max, parseInt(match[1], 10)) : max;
     }, 1000);
     const incidentId = `INC-${maxNum + 1}`;
 
-    const now = new Date();
-    const formattedTime = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-    const userTimestamp = now.toISOString();
+    const firstReport = {
+      id: `RPT-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 900 + 100)}`,
+      incident_id: incidentId,
+      sos_id: id,
+      user_id: userId,
+      user_name: userName,
+      user_phone: userPhone,
+      emergency_number: emergencyNumber,
+      role,
+      latitude: lat,
+      longitude: lng,
+      lat,
+      lng,
+      address,
+      distance_meters: 0,
+      timestamp: userTimestamp,
+      created_at: userTimestamp
+    };
 
     const sosIncident = {
       id: incidentId,
@@ -976,13 +1418,15 @@ class Store {
       type: "SOS",
       isSos: true,
       zoneId: "ZONE-01",
-      reporter: sos.userName,
-      role: sos.role,
-      userPhone: sos.userPhone,
-      emergencyNumber: sos.emergencyNumber,
+      reporter: userName,
+      role,
+      userPhone,
+      emergencyNumber,
       time: formattedTime,
       userTimestamp,
       timestamp: userTimestamp,
+      first_reported_at: userTimestamp,
+      last_reported_at: userTimestamp,
       status: "ACTIVE_SOS",
       severity: isUserQuarantined ? 50 : 95,
       isQuarantined: isUserQuarantined,
@@ -992,25 +1436,30 @@ class Store {
       cause: isUserQuarantined ? "⚠️ Flagged User SOS (Spam Risk)" : "🚨 Emergency Life-Safety SOS",
       causeCode: isUserQuarantined ? "SOS_FLAGGED_USER" : "SOS_EMERGENCY",
       causeDescription: isUserQuarantined
-        ? `Distress signal from user with ${reputation.falseAlarmCount} prior false alarms. Automated SMS suppressed to protect emergency lines. Callback required: ${sos.userPhone}.`
-        : `Immediate distress signal triggered by ${sos.userName} (${sos.role}). User Phone: ${sos.userPhone} · Emergency Contact: ${sos.emergencyNumber}`,
+        ? `Distress signal from user with ${reputation.falseAlarmCount} prior false alarms. Automated SMS suppressed to protect emergency lines. Callback required: ${userPhone}.`
+        : `Immediate distress signal triggered by ${userName} (${role}). User Phone: ${userPhone} · Emergency Contact: ${emergencyNumber}`,
       recommendedTeam: rescueTeam.name,
       recommendedTeamId: rescueTeam.id,
+      nearestResource: rescueTeam,
+      nearbyResources: nearbyUnits,
+      nearbyServices: nearbyUnits,
       routingRationale: isUserQuarantined
         ? `Quarantine active: Dispatch held pending manual phone confirmation.`
-        : `Immediate high-priority deployment of ${rescueTeam.name} to active GPS distress coordinate.`,
+        : `Immediate high-priority deployment of ${rescueTeam.name} (${rescueTeam.distanceKm != null ? `${rescueTeam.distanceKm} km away` : "nearest unit"}) to active GPS distress coordinate.`,
       waterLevel: 55,
       drainObservation: "Distress / Flooding",
       onsetSpeed: "Immediate",
       recurrence: "No",
-      lat: sos.lat,
-      lng: sos.lng,
+      lat,
+      lng,
+      latitude: lat,
+      longitude: lng,
       geohash: "te7u8",
       evidenceHash: `0xSOS${Date.now().toString(16)}`,
-      address: sos.address,
+      address,
       note: isUserQuarantined
-        ? `⚠️ QUARANTINED SOS BROADCAST: User ${sos.userName} has ${reputation.falseAlarmCount} prior false alarms. Automated SMS suppressed.`
-        : `EMERGENCY SOS BROADCAST: User ${sos.userName} triggered life-safety alarm at ${sos.address}. Contact: ${sos.userPhone}`,
+        ? `⚠️ QUARANTINED SOS BROADCAST: User ${userName} has ${reputation.falseAlarmCount} prior false alarms. Automated SMS suppressed.`
+        : `EMERGENCY SOS BROADCAST: User ${userName} triggered life-safety alarm at ${address}. Contact: ${userPhone}`,
       photo: false,
       photoUrl: null,
       video: false,
@@ -1019,9 +1468,9 @@ class Store {
       gps: true,
       liveGps: true,
       liveLocation: {
-        latitude: sos.lat,
-        longitude: sos.lng,
-        address: sos.address,
+        latitude: lat,
+        longitude: lng,
+        address,
         capturedAt: userTimestamp
       },
       cvConfidence: isUserQuarantined ? 10 : 100,
@@ -1030,10 +1479,13 @@ class Store {
       aiFloodConfidence: isUserQuarantined ? 0.10 : 1.0,
       cvModelLabel: isUserQuarantined ? "QUARANTINED_USER_SOS" : "EMERGENCY_SOS_DIRECT_DISPATCH",
       cvStatus: isUserQuarantined ? "Unverified" : "Verified",
-      mergedCount: 1,
-      mergedReports: [],
-      relatedIncidentId: null,
+      reporter_count: 1,
       clusterCount: 1,
+      mergedCount: 1,
+      reports: [firstReport],
+      mergedReports: [firstReport],
+      latest_report: firstReport,
+      relatedIncidentId: null,
       duplicateOf: null,
       createdAt: userTimestamp,
       updatedAt: userTimestamp
@@ -1043,18 +1495,19 @@ class Store {
     const sosAlertItem = {
       id: alertId,
       sosId: id,
-      incidentId: incidentId,
-      title: isUserQuarantined ? `⚠️ FLAGGED USER SOS: ${sos.userName}` : `🚨 CRITICAL SOS: ${sos.userName}`,
+      incidentId,
+      title: isUserQuarantined ? `⚠️ FLAGGED USER SOS: ${userName}` : `🚨 CRITICAL SOS: ${userName}`,
       description: isUserQuarantined
-        ? `Quarantined reporter (${reputation.falseAlarmCount} false alarms). Auto-SMS suppressed. Contact: ${sos.userPhone}`
-        : `Immediate distress signal triggered at ${sos.address}. Contact: ${sos.userPhone} (Emergency: ${sos.emergencyNumber})`,
+        ? `Quarantined reporter (${reputation.falseAlarmCount} false alarms). Auto-SMS suppressed. Contact: ${userPhone}`
+        : `Immediate distress signal triggered at ${address}. Contact: ${userPhone} (Emergency: ${emergencyNumber})`,
       severity: isUserQuarantined ? "WARNING" : "CRITICAL",
       zoneId: "ZONE-01",
-      area: sos.address,
-      userPhone: sos.userPhone,
-      emergencyNumber: sos.emergencyNumber,
-      userName: sos.userName,
-      role: sos.role,
+      area: address,
+      userPhone,
+      emergencyNumber,
+      userName,
+      role,
+      reporterCount: 1,
       isQuarantined: isUserQuarantined,
       timestamp: userTimestamp,
       type: "SOS",
@@ -1066,20 +1519,18 @@ class Store {
     this.alerts.unshift(sosAlertItem);
     this.sosAlerts.unshift(sos);
     this.save();
-    this.emit("sos:triggered", { sos, team: rescueTeam, incident: sosIncident, alert: sosAlertItem });
+    this.emit("sos:triggered", { sos, team: rescueTeam, incident: sosIncident, alert: sosAlertItem, nearbyResources: nearbyUnits });
     this.emit("report:created", { incident: sosIncident, zoneId: "ZONE-01" });
     this.emit("incident:created", { incident: sosIncident, zoneId: "ZONE-01" });
 
     // Only dispatch Twilio SMS and PagerDuty if the user is NOT quarantined
     if (!isUserQuarantined) {
-      // Asynchronously dispatch Twilio SMS alert from +1 765 563 5185 to verified test number +919869001892
       sendSosSms(sos).then((twResult) => {
         console.log(`[SOS Twilio] SMS alert dispatched for ${id}:`, twResult);
       }).catch((err) => {
         console.warn(`[SOS Twilio] SMS notice:`, err.message);
       });
 
-      // Asynchronously dispatch PagerDuty alert & phone call escalation to NGO Coordinator (9869001892)
       triggerPagerDutySos(sos).then((pdResult) => {
         console.log(`[SOS Dispatch] PagerDuty escalation triggered for ${id} (Call: 9869001892)`, pdResult);
       }).catch((err) => {
@@ -1090,8 +1541,23 @@ class Store {
     }
 
     return {
-      success: true,
+      status: "created",
+      incident_id: sosIncident.id,
+      sos_id: id,
+      reporter_count: 1,
+      distance_meters: 0,
+      first_reported_at: userTimestamp,
+      last_reported_at: userTimestamp,
+      message: isUserQuarantined
+        ? `SOS recorded. Note: User has ${reputation.falseAlarmCount} prior false alarms. Automated SMS alert suppressed to protect emergency channels. Control room will verify via voice call.`
+        : "Emergency alert sent.",
+      incident: sosIncident,
       sos,
+      nearbyResources: nearbyUnits,
+      nearby_resources: nearbyUnits,
+      nearbyServices: nearbyUnits,
+      nearestResource: rescueTeam,
+      success: true,
       isQuarantined: isUserQuarantined,
       smsSuppressed: isUserQuarantined,
       assignedTeam: isUserQuarantined ? "Verification Required (Manual Call)" : rescueTeam.name,
@@ -1101,36 +1567,131 @@ class Store {
       twilioTestRecipient: "+919869001892",
       twilioStatus: isUserQuarantined ? "SUPPRESSED_DUE_TO_QUARANTINE" : "DISPATCHED",
       pagerdutyStatus: isUserQuarantined ? "HELD_PENDING_CONFIRMATION" : "DISPATCHED_CALL_ACTIVE",
-      eta: isUserQuarantined ? "Pending Call" : "4–6 min",
-      message: isUserQuarantined
-        ? `SOS recorded. Note: User has ${reputation.falseAlarmCount} prior false alarms. Automated SMS alert suppressed to protect emergency channels. Control room will verify via voice call.`
-        : `Emergency SOS broadcasted. ${rescueTeam.name} deployed. Twilio emergency SMS dispatched to ${emergencyNumber} (testing verified: +919869001892).`
+      eta: isUserQuarantined ? "Pending Call" : computedEta
     };
   }
 
   /**
-   * Send Flood Buddy neighbor notification
+   * Send dynamic Flood Buddy warning notification
+   * Identifies sender display name, verifies recipient eligibility, validates alert relevance,
+   * enforces anti-spam cooldown, saves notification record, emits realtime event, and sends push notification.
    */
-  notifyFloodBuddy(targetShopId, senderData) {
-    const target = this.floodBuddies.find((b) => b.id === targetShopId);
-    if (!target) throw new Error("Shopkeeper not found");
+  sendFloodBuddyNotification({ recipientId, senderId, senderName, senderRole, alertId = null, customMessage = null }) {
+    if (!recipientId) throw new Error("Recipient ID is required");
 
-    const event = {
-      id: `NOTIF-${Date.now().toString().slice(-4)}`,
-      targetShopId,
-      targetShopName: target.name,
-      senderRole: senderData.role || "Shop Owner",
-      senderName: senderData.name || "Neighboring Shopkeeper",
-      message: `⚠️ Flood Warning: Neighbor ${senderData.name || "nearby shop"} reported rising waterlevels near ${target.zone}. Please elevate ground stock & check shutters.`,
-      timestamp: new Date().toISOString()
+    const recipient = (this.users || []).find(
+      u => u.user_id === recipientId || u.id === recipientId || u.phone === recipientId || u.display_name === recipientId
+    );
+    if (!recipient) {
+      throw new Error(`Recipient user not found (${recipientId})`);
+    }
+
+    if (recipient.location_sharing_enabled === false) {
+      throw new Error("Recipient has disabled location sharing");
+    }
+
+    const actualSenderName = senderName || "A Flood Buddy";
+    const actualSenderRole = senderRole || "Neighbor";
+
+    // Anti-spam / Cooldown check (3 minutes cooldown for same sender -> recipient -> alert)
+    const cooldownKey = `${senderId || 'anon'}_${recipient.user_id}_${alertId || 'gen'}`;
+    const lastSent = this.notificationCooldowns ? this.notificationCooldowns[cooldownKey] : null;
+    const now = Date.now();
+    if (lastSent && (now - lastSent) < 180000) {
+      const remainingSec = Math.ceil((180000 - (now - lastSent)) / 1000);
+      return {
+        success: false,
+        error: `You recently warned ${recipient.display_name}. Please wait ${remainingSec}s before sending another alert.`,
+        cooldown: true,
+        remainingSeconds: remainingSec
+      };
+    }
+    if (!this.notificationCooldowns) this.notificationCooldowns = {};
+    this.notificationCooldowns[cooldownKey] = now;
+
+    const alert = alertId ? (this.alerts || []).find(a => a.id === alertId) : null;
+    const title = `🚨 ${actualSenderName} warned you`;
+    let body = customMessage || (alert
+      ? `${alert.title || "High flood risk"} has been detected near your area. Please be prepared.`
+      : `Flood risk has been detected near your area. Please be prepared.`);
+
+    const notification = {
+      id: `NOTIF-${Date.now().toString().slice(-5)}`,
+      recipient_user_id: recipient.user_id,
+      recipient_name: recipient.display_name,
+      sender_user_id: senderId || "USR-ANON",
+      sender_name: actualSenderName,
+      sender_role: actualSenderRole,
+      alert_id: alertId || null,
+      type: "FLOOD_BUDDY_WARNING",
+      title,
+      body,
+      severity: alert?.severity || "HIGH",
+      created_at: new Date().toISOString(),
+      read_at: null,
+      status: "unread"
     };
 
-    this.emit("flood_buddy:notified", event);
+    if (!Array.isArray(this.notifications)) this.notifications = [];
+    this.notifications.unshift(notification);
+    if (this.notifications.length > 200) this.notifications = this.notifications.slice(0, 200);
+    this.save();
+
+    // Realtime broadcast (SSE)
+    this.emit("flood_buddy:notified", notification);
+    this.emit("notification:new", notification);
+
+    // Push notification to Expo device if push_token is registered
+    if (recipient.push_token && typeof recipient.push_token === "string" && recipient.push_token.startsWith("ExponentPushToken")) {
+      fetch("https://exp.host/--/api/v2/push/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({
+          to: recipient.push_token,
+          sound: "default",
+          title,
+          body,
+          data: { notificationId: notification.id, type: "FLOOD_BUDDY_WARNING", alertId }
+        })
+      }).catch(() => {});
+    }
+
     return {
       success: true,
-      target: target.name,
-      message: `Flood alert broadcasted to ${target.name}.`
+      notification,
+      target: recipient.display_name,
+      message: `Flood warning sent to ${recipient.display_name}.`
     };
+  }
+
+  notifyFloodBuddy(targetShopId, senderData = {}) {
+    return this.sendFloodBuddyNotification({
+      recipientId: targetShopId || senderData.targetShopId || senderData.recipientId,
+      senderId: senderData.senderId || senderData.userId || "USR-ANON",
+      senderName: senderData.name || senderData.senderName || "Neighboring Shopkeeper",
+      senderRole: senderData.role || senderData.senderRole || "Shop Owner",
+      alertId: senderData.alertId || senderData.alert_id || null,
+      customMessage: senderData.message || senderData.customMessage || null
+    });
+  }
+
+  getUserNotifications(userId) {
+    if (!userId) return [];
+    return (this.notifications || []).filter(
+      n => n.recipient_user_id === userId || n.recipient_name === userId
+    );
+  }
+
+  markNotificationRead(userId, notifId) {
+    const notif = (this.notifications || []).find(
+      n => n.id === notifId && (n.recipient_user_id === userId || n.recipient_name === userId)
+    );
+    if (notif) {
+      notif.read_at = new Date().toISOString();
+      notif.status = "read";
+      this.save();
+    }
+    return { success: true };
   }
 
   /**
@@ -1230,27 +1791,158 @@ class Store {
   }
 
   recomputeAlerts() {
-    const existingSosAlerts = (this.alerts || []).filter((a) => a.type === "SOS" || a.isSos);
+    const existingSosAlerts = (this.alerts || []).filter((a) => a.type === "SOS" || a.isSos || a.source === "incident");
     const newAlerts = [];
+
+    // 1. Zone Flood Risk Alerts
     for (const zone of this.zones) {
       if (zone.risk >= 45) {
         const isRed = zone.risk >= 75;
-        const alertId = `ALT-${zone.id.replace("Z-", "")}${Math.round(zone.risk)}`;
+        const alertId = `ALT-FLD-${zone.id.replace("Z-", "")}-${Math.round(zone.risk)}`;
         newAlerts.push({
           id: alertId,
+          type: "flood",
           source: "flood",
+          sourceName: "VarshaRaksha Risk Engine",
           zoneId: zone.id,
           zoneName: zone.name,
+          location_name: `${zone.name}, ${zone.ward || "Mumbai"}`,
+          area: zone.name,
+          lat: Number(zone.lat),
+          lng: Number(zone.lng),
+          latitude: Number(zone.lat),
+          longitude: Number(zone.lng),
           level: isRed ? "RED" : "ORANGE",
+          severity: isRed ? "CRITICAL" : "HIGH",
           title: isRed ? `Critical flood risk at ${zone.name}` : `Elevated flood risk at ${zone.name}`,
+          description: `${zone.name} is showing risk score ${zone.risk}/100. Likely cause: ${zone.cause}. Live rain: ${zone.rainfall} mm, water depth: ${zone.waterLevel} cm.`,
           message: `${zone.name} is showing risk score ${zone.risk}/100. Likely cause: ${zone.cause}. Live rain: ${zone.rainfall} mm, water depth: ${zone.waterLevel} cm.`,
+          status: isRed ? "Active Warning" : "Monitoring",
           eta: isRed ? "10–12 min" : "20 min",
           channels: isRed ? ["App", "SMS", "WhatsApp", "PagerDuty"] : ["App", "SMS"],
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         });
       }
     }
-    this.alerts = [...existingSosAlerts, ...newAlerts];
+
+    // 2. Heavy Rainfall Alerts (zones with heavy rain)
+    const highRainZones = this.zones.filter((z) => (z.rainfall || 0) >= 15);
+    for (const rz of highRainZones) {
+      const isExtreme = rz.rainfall >= 40;
+      newAlerts.push({
+        id: `ALT-RAIN-${rz.id}`,
+        type: "rainfall",
+        source: "rainfall",
+        sourceName: "Rainfall Monitoring Radar",
+        zoneId: rz.id,
+        zoneName: rz.name,
+        location_name: `${rz.name}, ${rz.ward || "Mumbai"}`,
+        area: rz.name,
+        lat: Number(rz.lat),
+        lng: Number(rz.lng),
+        latitude: Number(rz.lat),
+        longitude: Number(rz.lng),
+        level: isExtreme ? "RED" : "ORANGE",
+        severity: isExtreme ? "HIGH" : "ELEVATED",
+        title: `Heavy rainfall detected near ${rz.name}`,
+        description: `Rainfall rate at ${rz.rainfall} mm/hr. Waterlogging probability elevated on primary arterial roads.`,
+        message: `Rainfall rate at ${rz.rainfall} mm/hr. Waterlogging probability elevated on primary arterial roads.`,
+        status: "Active Radar Tracking",
+        channels: ["App", "SMS"],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    // 3. Blitzortung Live Lightning Detection Alert
+    const ltgData = this.getLightningData();
+    if (ltgData && ltgData.detected) {
+      newAlerts.push({
+        id: "ALT-LTG-01",
+        type: "lightning",
+        source: "lightning",
+        sourceName: "Blitzortung Live Lightning Network",
+        location_name: "Versova Coastal Belt, Ward 72",
+        area: "Versova Coastal Belt",
+        lat: 19.1350,
+        lng: 72.8220,
+        latitude: 19.1350,
+        longitude: 72.8220,
+        level: "ORANGE",
+        severity: "MODERATE",
+        title: "Lightning activity detected nearby",
+        description: `${ltgData.strikesLastHour || 18} lightning discharges recorded within ${ltgData.closestStrikeKm || 2.8} km (${ltgData.direction || "North-West"}). ${ltgData.advisory || "Severe electrical thunderstorm active."}`,
+        message: `${ltgData.strikesLastHour || 18} lightning discharges recorded within ${ltgData.closestStrikeKm || 2.8} km (${ltgData.direction || "North-West"}). ${ltgData.advisory || "Severe electrical thunderstorm active."}`,
+        status: "Active Advisory",
+        channels: ["App"],
+        createdAt: ltgData.timestamp || new Date().toISOString(),
+        updatedAt: ltgData.timestamp || new Date().toISOString()
+      });
+    }
+
+    // 4. Chronic Drainage Blockage Alerts
+    const severeBlockages = (this.chronicBlockages || []).filter((b) => (b.flagCount || 0) >= 4);
+    for (const blk of severeBlockages) {
+      newAlerts.push({
+        id: `ALT-DRN-${blk.id}`,
+        type: "drainage",
+        source: "drainage",
+        sourceName: "Chronic Drainage GIS",
+        location_name: `${blk.name}, ${blk.ward || "Mumbai"}`,
+        area: blk.name,
+        lat: Number(blk.lat),
+        lng: Number(blk.lng),
+        latitude: Number(blk.lat),
+        longitude: Number(blk.lng),
+        level: blk.flagCount >= 6 ? "RED" : "ORANGE",
+        severity: blk.flagCount >= 6 ? "HIGH" : "MODERATE",
+        title: `Drainage blockage at ${blk.name}`,
+        description: `${blk.primaryCause}. Severity trend: ${blk.severityTrend}. Current status: ${blk.status}.`,
+        message: `${blk.primaryCause}. Severity trend: ${blk.severityTrend}. Current status: ${blk.status}.`,
+        status: blk.status || "Desilting Required",
+        channels: ["App"],
+        createdAt: blk.lastFlaggedAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    // 5. Active SOS Emergency Alerts
+    const activeSosList = this.getSosAlerts();
+    for (const sos of activeSosList) {
+      newAlerts.push({
+        id: `ALT-SOS-${sos.id}`,
+        type: "sos",
+        source: "incident",
+        sourceName: "Citizen SOS Dispatch",
+        sosId: sos.id,
+        incidentId: sos.incidentId || sos.id,
+        location_name: sos.landmark || sos.location || `${sos.lat?.toFixed(4)}, ${sos.lng?.toFixed(4)}`,
+        area: sos.landmark || sos.location || "Citizen SOS Location",
+        lat: Number(sos.lat),
+        lng: Number(sos.lng),
+        latitude: Number(sos.lat),
+        longitude: Number(sos.lng),
+        level: "RED",
+        severity: "CRITICAL",
+        title: `SOS: ${sos.name || "Citizen"} stranded in flood water (${sos.affectedCount || 1} people)`,
+        description: `${sos.note || sos.message || "Immediate water rescue required."} Contact: ${sos.phone || "Emergency Call"}`,
+        message: `${sos.note || sos.message || "Immediate water rescue required."} Contact: ${sos.phone || "Emergency Call"}`,
+        status: sos.status || "Active SOS",
+        channels: ["App", "SMS", "WhatsApp", "PagerDuty"],
+        createdAt: sos.timestamp || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    // Deduplicate by ID
+    const alertMap = new Map();
+    for (const a of [...newAlerts, ...existingSosAlerts]) {
+      if (!alertMap.has(a.id)) {
+        alertMap.set(a.id, a);
+      }
+    }
+    this.alerts = Array.from(alertMap.values());
   }
 
   /**
@@ -1260,13 +1952,27 @@ class Store {
     const userTimestamp = reportData.userTimestamp || reportData.timestamp || new Date().toISOString();
     const formattedTime = reportData.time || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-    const lat = Number(reportData.lat) || 19.132;
-    const lng = Number(reportData.lng) || 72.848;
-    const geohash = encodeGeohash(lat, lng, 6);
+    const lat = reportData.lat != null && !isNaN(Number(reportData.lat))
+      ? Number(reportData.lat)
+      : reportData.latitude != null && !isNaN(Number(reportData.latitude))
+      ? Number(reportData.latitude)
+      : reportData.liveLocation?.latitude != null && !isNaN(Number(reportData.liveLocation.latitude))
+      ? Number(reportData.liveLocation.latitude)
+      : null;
+
+    const lng = reportData.lng != null && !isNaN(Number(reportData.lng))
+      ? Number(reportData.lng)
+      : reportData.longitude != null && !isNaN(Number(reportData.longitude))
+      ? Number(reportData.longitude)
+      : reportData.liveLocation?.longitude != null && !isNaN(Number(reportData.liveLocation.longitude))
+      ? Number(reportData.liveLocation.longitude)
+      : null;
+
+    const geohash = lat != null && lng != null ? encodeGeohash(lat, lng, 6) : "te7uc9";
     const evidenceHash = hashEvidence(`${reportData.note || ""}-${reportData.photoUrl || reportData.photo || ""}`);
 
     let zoneId = reportData.zoneId;
-    if (!zoneId) {
+    if (!zoneId && lat != null && lng != null) {
       const closest = this.findClosestZone(lat, lng);
       zoneId = closest ? closest.id : "Z-01";
     }
@@ -1384,6 +2090,9 @@ class Store {
     });
     const isUserQuarantined = Boolean(reputation.isQuarantined);
 
+    const nearbyEms = this.getEmergencyServices(lat, lng);
+    const nearestResource = nearbyEms[0] || null;
+
     // Every citizen report is created as an incident record
     const incident = {
       id,
@@ -1404,8 +2113,9 @@ class Store {
       causeDescription: isUserQuarantined
         ? `[Auto-Quarantined Spam] User has ${reputation.falseAlarmCount} prior false alarms. ${divergence.description}`
         : divergence.description,
-      recommendedTeam: autoRoute.team,
-      recommendedTeamId: autoRoute.teamId,
+      recommendedTeam: nearestResource ? nearestResource.name : autoRoute.team,
+      recommendedTeamId: nearestResource ? nearestResource.id : autoRoute.teamId,
+      nearestResource: nearestResource,
       routingRationale: isUserQuarantined ? "Quarantined report — auto-routing suspended." : autoRoute.rationale,
       waterLevel: waterCm,
       drainObservation: reportData.drainObservation || "Unsure",
@@ -1422,8 +2132,8 @@ class Store {
       video: hasVideo,
       videoUrl: publicVideoUrl || reportData.videoUrl || null,
       mediaType,
-      gps: Boolean(reportData.lat && reportData.lng),
-      liveGps: Boolean(reportData.lat && reportData.lng),
+      gps: Boolean(lat != null && lng != null),
+      liveGps: Boolean(lat != null && lng != null),
       liveLocation: {
         latitude: lat,
         longitude: lng,
@@ -1507,6 +2217,108 @@ class Store {
     zone.causeCode = div.code;
   }
 
+  updateIncidentStatus(incidentId, status, meta = {}) {
+    const inc = this.incidents.find((i) => i.id === incidentId);
+    if (!inc) return null;
+
+    const normalized = String(status).toUpperCase();
+    const now = new Date().toISOString();
+
+    if (normalized === "RESOLVED" || normalized === "RESOLVE") {
+      return this.resolveIncident(incidentId);
+    }
+    if (normalized === "FALSE_ALARM" || normalized === "FALSE ALARM") {
+      return this.markFalseAlarm(incidentId, meta.reason || "Marked False Alarm");
+    }
+    if (normalized === "VERIFIED") {
+      return this.verifyIncident(incidentId);
+    }
+
+    if (normalized === "RESOURCE_ALLOCATED" || normalized === "ALLOCATED") {
+      inc.status = "Resource Allocated";
+      inc.mitigationStatus = "Resource Allocated";
+      inc.allocatedAt = now;
+      if (meta.resource) {
+        inc.assignedResource = meta.resource;
+        inc.assignedTeam = meta.resource.name || meta.resource.team;
+      }
+    } else if (normalized === "EN_ROUTE" || normalized === "DISPATCHED") {
+      inc.status = "Dispatched";
+      inc.dispatchProgress = "en_route";
+      inc.mitigationStatus = "Resource En Route";
+      inc.dispatchedAt = now;
+      const dsp = this.dispatches.find((d) => d.incident === incidentId);
+      if (dsp) dsp.status = "En route";
+    } else if (normalized === "REACHED_SITE" || normalized === "ON_SCENE" || normalized === "REACHED") {
+      inc.status = "On Scene";
+      inc.dispatchProgress = "on_scene";
+      inc.mitigationStatus = "Squad On Scene / Operating";
+      inc.reachedAt = now;
+      const dsp = this.dispatches.find((d) => d.incident === incidentId);
+      if (dsp) dsp.status = "On scene";
+    } else if (normalized === "RECEIVED" || normalized === "NEW") {
+      inc.status = "Received";
+    } else {
+      inc.status = status;
+    }
+
+    this.save();
+    this.emit("incident:updated", { incident: inc, action: "status_updated", status: inc.status });
+    return inc;
+  }
+
+  allocateResource(incidentId, resourceData) {
+    const inc = this.incidents.find((i) => i.id === incidentId);
+    if (!inc) return null;
+
+    const now = new Date().toISOString();
+    inc.assignedResource = {
+      id: resourceData.id || `RES-${Date.now()}`,
+      name: resourceData.name || "Emergency Rapid Response Unit",
+      category: resourceData.category || "emergency",
+      lat: resourceData.lat,
+      lng: resourceData.lng,
+      address: resourceData.address,
+      distanceKm: resourceData.distanceKm ?? resourceData.distance_km,
+      etaMinutes: resourceData.etaMinutes ?? resourceData.eta_minutes,
+      etaText: resourceData.etaText || (resourceData.etaMinutes ? `${resourceData.etaMinutes} min` : "8 min")
+    };
+    inc.assignedTeam = inc.assignedResource.name;
+    inc.status = "Resource Allocated";
+    inc.mitigationStatus = "Resource Allocated";
+    inc.allocatedAt = now;
+
+    // Create or update dispatch task
+    const id = `DSP-${70 + this.dispatches.length + 1}`;
+    const dispatch = {
+      id,
+      incident: incidentId,
+      team: inc.assignedResource.name,
+      teamId: inc.assignedResource.id,
+      category: inc.assignedResource.category,
+      lat: inc.assignedResource.lat,
+      lng: inc.assignedResource.lng,
+      reason: inc.causeDescription || inc.cause || "Emergency localized flood response",
+      channel: "Live Operations Command",
+      status: "Assigned",
+      eta: inc.assignedResource.etaText,
+      createdAt: now
+    };
+    this.dispatches.unshift(dispatch);
+    inc.assignedDispatchId = id;
+
+    // Clean active alert notifications
+    this.alerts = this.alerts.filter((a) => a.incidentId !== incidentId && a.sosId !== incidentId && a.id !== incidentId);
+    this.sosAlerts = this.sosAlerts.filter((s) => s.incidentId !== incidentId && s.id !== incidentId);
+
+    this.recomputeAlerts();
+    this.syncResourceStatuses();
+    this.save();
+    this.emit("dispatch:created", { dispatch, resource: inc.assignedResource, incident: inc });
+    this.emit("incident:updated", { incident: inc, action: "resource_allocated" });
+    return { incident: inc, dispatch };
+  }
+
   verifyIncident(incidentId) {
     const inc = this.incidents.find((i) => i.id === incidentId);
     if (inc) {
@@ -1522,25 +2334,29 @@ class Store {
   }
 
   markFalseAlarm(incidentId, reason = "Flagged as False Alarm by Authority Admin") {
-    const inc = this.incidents.find((i) => i.id === incidentId);
+    const inc = this.incidents.find((i) => i.id === incidentId || i.sosId === incidentId);
     if (inc) {
       inc.status = "False Alarm";
       inc.falseAlarmReason = reason;
       inc.falseAlarmAt = new Date().toISOString();
 
       const userKey = inc.userPhone || inc.reporter || "ANONYMOUS";
-      this.recordFalseAlarmStrike(userKey, incidentId, reason);
+      this.recordFalseAlarmStrike(userKey, inc.id, reason);
 
-      const dispatch = this.dispatches.find((d) => d.incident === incidentId);
+      const dispatch = this.dispatches.find((d) => d.incident === inc.id || d.incident === incidentId);
       if (dispatch) {
         dispatch.status = "Cancelled";
       }
+
+      this.alerts = this.alerts.filter((a) => a.incidentId !== inc.id && a.sosId !== inc.sosId && a.id !== incidentId && a.incidentId !== incidentId);
+      this.sosAlerts = this.sosAlerts.filter((s) => s.id !== inc.sosId && s.id !== incidentId && s.incidentId !== inc.id && s.incidentId !== incidentId);
 
       this.updateZoneMetrics(inc.zoneId);
       this.recomputeAlerts();
       this.syncResourceStatuses();
       this.save();
       this.emit("incident:updated", { incident: inc, action: "false_alarm" });
+      this.emit("incident:resolved", { incident: inc, id: inc.id });
       return inc;
     }
     return null;
@@ -1569,8 +2385,8 @@ class Store {
     const dispatch = {
       id,
       incident: dispatchData.incidentId,
-      team: teamObj.name,
-      teamId: teamObj.id,
+      team: teamObj ? teamObj.name : targetTeamName,
+      teamId: teamObj ? teamObj.id : targetTeamId,
       reason: dispatchData.reason || incident?.causeDescription || "Severe localized flood response",
       channel: dispatchData.channel || "Twilio SMS + Operations Board Bus",
       status: "En route",
@@ -1584,7 +2400,7 @@ class Store {
     if (incident) {
       incident.status = "Dispatched";
       incident.dispatched = true;
-      incident.assignedTeam = teamObj.name;
+      incident.assignedTeam = teamObj ? teamObj.name : targetTeamName;
       incident.assignedDispatchId = id;
       incident.originalSeverity = incident.originalSeverity || incident.severity || 85;
       incident.severity = Math.max(15, Math.round(Number(incident.originalSeverity) * 0.35));
@@ -1600,10 +2416,12 @@ class Store {
     this.alerts = this.alerts.filter((a) => a.incidentId !== targetIncId && a.sosId !== targetIncId && a.id !== targetIncId);
     this.sosAlerts = this.sosAlerts.filter((s) => s.incidentId !== targetIncId && s.id !== targetIncId);
 
-    teamObj.status = "En route";
-    teamObj.currentIncidentId = dispatchData.incidentId;
-    teamObj.activeDispatchId = id;
-    teamObj.eta = dispatch.eta;
+    if (teamObj) {
+      teamObj.status = "En route";
+      teamObj.currentIncidentId = dispatchData.incidentId;
+      teamObj.activeDispatchId = id;
+      teamObj.eta = dispatch.eta;
+    }
 
     this.recomputeAlerts();
     this.syncResourceStatuses();
@@ -1620,8 +2438,8 @@ class Store {
 
     const existing = this.dispatches.find((d) => d.incident === incidentId && d.status !== "Completed" && d.status !== "Cancelled");
     if (existing) {
-      existing.team = teamObj.name;
-      existing.teamId = teamObj.id;
+      existing.team = teamObj ? teamObj.name : team;
+      existing.teamId = teamObj ? teamObj.id : null;
       existing.reason = `[ADMIN OVERRIDE] ${reason || "Reassigned by Ward Commander"}`;
       existing.isOverride = true;
       existing.status = "En route";
@@ -1630,7 +2448,7 @@ class Store {
     if (incident) {
       incident.status = "Dispatched";
       incident.dispatched = true;
-      incident.assignedTeam = teamObj.name;
+      incident.assignedTeam = teamObj ? teamObj.name : team;
       incident.originalSeverity = incident.originalSeverity || incident.severity || 85;
       incident.severity = Math.max(15, Math.round(Number(incident.originalSeverity) * 0.35));
       incident.mitigationStatus = "Resource Allocated";
@@ -1643,29 +2461,31 @@ class Store {
     this.alerts = this.alerts.filter((a) => a.incidentId !== incidentId && a.sosId !== incidentId && a.id !== incidentId);
     this.sosAlerts = this.sosAlerts.filter((s) => s.incidentId !== incidentId && s.id !== incidentId);
 
-    teamObj.status = "En route";
-    teamObj.currentIncidentId = incidentId;
+    if (teamObj) {
+      teamObj.status = "En route";
+      teamObj.currentIncidentId = incidentId;
+    }
 
     this.syncResourceStatuses();
     this.save();
-    this.emit("dispatch:overridden", { incidentId, team: teamObj.name, existing });
+    this.emit("dispatch:overridden", { incidentId, team: teamObj?.name || team, existing });
     return existing || this.addDispatch({ ...overrideData, isOverride: true });
   }
 
   resolveIncident(incidentId) {
-    const inc = this.incidents.find((i) => i.id === incidentId);
+    const inc = this.incidents.find((i) => i.id === incidentId || i.sosId === incidentId);
     if (inc) {
       inc.status = "Resolved";
       inc.dispatched = true;
       inc.originalSeverity = inc.originalSeverity || inc.severity;
       inc.severity = 0;
       inc.resolvedAt = new Date().toISOString();
-      const dispatch = this.dispatches.find((d) => d.incident === incidentId && d.status !== "Completed");
+      const dispatch = this.dispatches.find((d) => (d.incident === inc.id || d.incident === incidentId) && d.status !== "Completed");
       if (dispatch) dispatch.status = "Completed";
       if (inc.assignedTeam) {
-        const teamObj = this.resources.find((t) => t.name === inc.assignedTeam);
+        const teamObj = this.resources.find((t) => t.name === inc.assignedTeam || t.id === inc.assignedTeamId);
         if (teamObj) {
-          teamObj.status = "Available";
+          teamObj.status = "AVAILABLE";
           teamObj.currentIncidentId = null;
           teamObj.activeDispatchId = null;
         }
@@ -1674,13 +2494,15 @@ class Store {
         this.updateZoneMetrics(inc.zoneId);
       }
       // Clear and remove any alerts or SOS entries from the active notification stack
-      this.alerts = this.alerts.filter((a) => a.incidentId !== incidentId && a.sosId !== incidentId && a.id !== incidentId);
-      this.sosAlerts = this.sosAlerts.filter((s) => s.incidentId !== incidentId && s.id !== incidentId);
+      this.alerts = this.alerts.filter((a) => a.incidentId !== inc.id && a.sosId !== inc.sosId && a.id !== incidentId && a.incidentId !== incidentId);
+      this.sosAlerts = this.sosAlerts.filter((s) => s.id !== inc.sosId && s.id !== incidentId && s.incidentId !== inc.id && s.incidentId !== incidentId);
 
       this.recomputeAlerts();
       this.syncResourceStatuses();
       this.save();
       this.emit("incident:updated", { incident: inc, action: "resolved" });
+      this.emit("incident:resolved", { incident: inc, id: inc.id });
+      this.emit("sos:resolved", { incident: inc, sosId: inc.sosId });
       return inc;
     }
     return null;
@@ -1774,6 +2596,36 @@ class Store {
       this.emit("zones:synced", { zones: this.zones, timestamp: new Date().toISOString() });
     }
     return { success: true, updatedCount, zones: this.zones };
+  }
+
+  recordAlertFeedback(alertId, data = {}) {
+    const type = data.type || "RESOLVED";
+    const role = data.role || "Citizen";
+    const feedback = {
+      id: `FB-${Date.now()}`,
+      alertId,
+      type,
+      role,
+      timestamp: new Date().toISOString()
+    };
+    this.alertFeedbacks.push(feedback);
+
+    const idx = (this.alerts || []).findIndex((a) => a.id === alertId);
+    if (idx !== -1) {
+      this.alerts[idx].status = type === "RESOLVED" ? "Resolved" : "False Alarm";
+      this.alerts[idx].resolvedAt = new Date().toISOString();
+      const targetAlert = this.alerts[idx];
+      if (targetAlert?.incidentId) {
+        if (type === "RESOLVED") {
+          this.resolveIncident(targetAlert.incidentId);
+        } else if (type === "FALSE_ALARM") {
+          this.markFalseAlarm(targetAlert.incidentId, "Marked as false alarm via alert feedback");
+        }
+      }
+    }
+    this.save();
+    this.emit("alert:feedback", { alertId, type, feedback });
+    return { success: true, alertId, type, feedback };
   }
 
   findClosestZone(lat, lng) {

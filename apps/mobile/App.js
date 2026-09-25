@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import {
   SafeAreaView,
   View,
@@ -658,9 +658,9 @@ export default function App() {
         }
       } catch (_) {}
 
-      // Step 2: Concurrently query fresh GPS fix with 3s fast timeout
+      // Step 2: Concurrently query fresh GPS fix with 1.8s fast timeout
       const getGpsPromise = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("GPS_TIMEOUT")), 3000));
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("GPS_TIMEOUT")), 1800));
 
       let activeCoords = initialCoords;
       try {
@@ -688,6 +688,23 @@ export default function App() {
 
       // Refresh live hydrological telemetry with confirmed coordinates
       fetchLiveData(activeCoords);
+
+      // Sync active user GPS coordinates to database for dynamic Flood Buddy discovery
+      if (userProfile && activeCoords) {
+        fetchWithTimeout(`${apiUrl}/users/location`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: userProfile.id || userProfile.phone || userProfile.name,
+            display_name: userProfile.name || "Citizen",
+            role: userProfile.role || role || "Shop Owner",
+            phone: userProfile.phone || null,
+            latitude: activeCoords.latitude,
+            longitude: activeCoords.longitude,
+            location_sharing_enabled: true
+          })
+        }).catch(() => {});
+      }
 
       // Step 3: Fetch reverse geocoded address asynchronously in parallel (non-blocking)
       fetchWithTimeout(`${apiUrl}/geocode/reverse?lat=${activeCoords.latitude}&lng=${activeCoords.longitude}`, {}, 2500)
@@ -720,6 +737,8 @@ export default function App() {
     const lng = loc?.longitude || 72.848;
     const activeAddress = explicitAddr || userAddress || `${lat}, ${lng}`;
     const shelterUrl = `${apiUrl}/shelters/nearby?latitude=${lat}&longitude=${lng}&radius_km=10`;
+    const currentUserId = userProfile?.id || userProfile?.phone || userProfile?.name || "current_user";
+    const buddyUrl = `${apiUrl}/flood-buddies/nearby?latitude=${lat}&longitude=${lng}&radius=5000&user_id=${encodeURIComponent(currentUserId)}`;
 
     setShelterLoading(true);
     try {
@@ -728,7 +747,7 @@ export default function App() {
         fetchWithTimeout(`${apiUrl}/alerts`),
         fetchWithTimeout(`${apiUrl}/emergency-services?lat=${lat}&lng=${lng}&radius_km=5`),
         fetchWithTimeout(shelterUrl),
-        fetchWithTimeout(`${apiUrl}/flood-buddy/nearby`),
+        fetchWithTimeout(buddyUrl),
         fetchWithTimeout(`${apiUrl}/lightning`)
       ]);
 
@@ -746,7 +765,11 @@ export default function App() {
         setShelters(shList);
         console.log(`[VarshaRaksha GIS] Location: "${activeAddress}" | Coordinates: (${lat}, ${lng}) | Request URL: ${shelterUrl} | Returned Shelters: ${shList.length}`);
       }
-      if (bRes.ok) setFloodBuddies(await bRes.json());
+      if (bRes.ok) {
+        const bData = await bRes.json();
+        const bList = Array.isArray(bData) ? bData : (bData.buddies || []);
+        setFloodBuddies(bList);
+      }
       if (lRes.ok) setLightning(await lRes.json());
     } catch (err) {
       console.warn("[mobile] API fetch notice:", err.message);
@@ -812,9 +835,54 @@ export default function App() {
         window.localStorage.setItem("vr_user_profile", JSON.stringify(profile));
       }
     } catch (_) { }
+
+    // Sync logged-in user profile & live GPS to database for dynamic Flood Buddy discovery
+    fetchWithTimeout(`${apiUrl}/users/location`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: profile.id || profile.phone || profile.name,
+        display_name: profile.name || "App User",
+        role: profile.role || "Shop Owner",
+        phone: profile.phone || null,
+        latitude: userLoc?.latitude || 19.1320,
+        longitude: userLoc?.longitude || 72.8480,
+        location_sharing_enabled: true
+      })
+    }).catch(() => {});
+
     const currentLevel = activeZone.risk >= 75 ? "RED" : activeZone.risk >= 45 ? "ORANGE" : "GREEN";
     setPrevRiskLevel(currentLevel);
   };
+
+  // Realtime Flood Buddy Warning & Notification Listener
+  useEffect(() => {
+    if (!userProfile) return;
+    const currentUserId = userProfile.id || userProfile.phone || userProfile.name;
+
+    const checkIncomingNotifications = async () => {
+      try {
+        const res = await fetchWithTimeout(`${apiUrl}/users/${encodeURIComponent(currentUserId)}/notifications`, {}, 3000);
+        if (res.ok) {
+          const data = await res.json();
+          const list = data.notifications || [];
+          const unread = list.filter((n) => n.status === "unread");
+          if (unread.length > 0) {
+            const latest = unread[0];
+            Alert.alert(latest.title, latest.body);
+            // Mark as read so alert doesn't fire repeatedly
+            fetchWithTimeout(`${apiUrl}/users/${encodeURIComponent(currentUserId)}/notifications/${latest.id}/read`, {
+              method: "POST"
+            }).catch(() => {});
+          }
+        }
+      } catch (_) {}
+    };
+
+    checkIncomingNotifications();
+    const interval = setInterval(checkIncomingNotifications, 5000);
+    return () => clearInterval(interval);
+  }, [apiUrl, userProfile]);
 
   const handleLogout = () => {
     setUserProfile(null);
@@ -892,7 +960,9 @@ export default function App() {
         setLang={setLang}
         onLogin={handleLogin}
         requestLocation={requestLocation}
+        userLoc={userLoc}
         userAddress={userAddress}
+        apiUrl={apiUrl}
         gpsError={gpsError}
         t={t}
       />
@@ -998,6 +1068,9 @@ export default function App() {
           lightning={lightning}
           zone={activeZone}
           apiUrl={apiUrl}
+          userLoc={userLoc}
+          onRequestLocation={requestLocation}
+          onNavigateToMap={() => setTab("Map")}
           onRefresh={onRefresh}
           refreshing={refreshing}
           t={t}
@@ -1009,6 +1082,7 @@ export default function App() {
           role={role}
           apiUrl={apiUrl}
           userLoc={userLoc}
+          userAddress={userAddress}
           onClose={() => setTab("Home")}
           onSaved={() => {
             fetchLiveData();
@@ -1042,7 +1116,12 @@ export default function App() {
           floodBuddies={floodBuddies}
           apiUrl={apiUrl}
           role={role}
+          userProfile={userProfile}
+          userLoc={userLoc}
+          userAddress={userAddress}
           onBack={() => setTab("Home")}
+          onRefresh={onRefresh}
+          refreshing={refreshing}
           t={t}
         />
       )}
@@ -1347,13 +1426,15 @@ function LocationSelectorModal({ visible, onClose, onSelectLocation, requestLoca
   );
 }
 
-// Simplified, Clean & Fast Onboarding Screen
+// Simplified, Clean & Ultra-Fast Onboarding Screen
 function LoginPage({
   lang,
   setLang,
   onLogin,
   requestLocation,
+  userLoc,
   userAddress,
+  apiUrl,
   gpsError,
   t
 }) {
@@ -1362,7 +1443,7 @@ function LoginPage({
   const [emergencyNumber, setEmergencyNumber] = useState("");
   const [role, setRole] = useState("Shop Owner");
   const [selectedHub, setSelectedHub] = useState(null); // No hub pre-selected by default
-  const [locationInput, setLocationInput] = useState(""); // Starts completely empty (no autofill)
+  const [locationInput, setLocationInput] = useState(""); // Starts empty (no blocking autofill)
   const [loadingGps, setLoadingGps] = useState(false);
   const [validationError, setValidationError] = useState("");
 
@@ -1374,30 +1455,108 @@ function LoginPage({
   const isFormValid = Boolean(name.trim() && cleanPhone.length === 10 && cleanEmergency.length === 10 && !isSameNumber);
 
   const handleGpsDetect = async () => {
+    // Instant Step 1: Pre-populate from existing cached parent state (0ms instant)
+    if (userAddress && !locationInput) {
+      setLocationInput(userAddress);
+      setSelectedHub(null);
+    } else if (userLoc && !locationInput) {
+      setLocationInput(`${userLoc.latitude.toFixed(4)}, ${userLoc.longitude.toFixed(4)}`);
+      setSelectedHub(null);
+    }
+
     setLoadingGps(true);
     try {
-      if (typeof requestLocation === "function") {
-        await requestLocation();
+      // Step 2: Non-blocking fast permission check
+      let hasPerm = true;
+      try {
+        const permStatus = await Location.getForegroundPermissionsAsync();
+        if (permStatus.status !== "granted") {
+          const req = await Location.requestForegroundPermissionsAsync();
+          if (req.status !== "granted") hasPerm = false;
+        }
+      } catch (_) {
+        hasPerm = false;
       }
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === "granted") {
-        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        let detectedAddr = `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
-        try {
-          const geoRes = await fetchWithTimeout(`${DEFAULT_API}/geocode?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`);
-          if (geoRes.ok) {
-            const geo = await geoRes.json();
-            detectedAddr = geo.road ? `${geo.road}, ${geo.ward || ""}` : (geo.displayName || detectedAddr);
-          }
-        } catch { }
-        setLocationInput(detectedAddr);
-        setSelectedHub(null);
-      } else {
+
+      if (!hasPerm) {
         Alert.alert("Permission Needed", "Please allow location access to detect your live GPS position.");
+        setLoadingGps(false);
+        return;
       }
+
+      // Step 3: Instant OS-level last known cached position (10ms)
+      let activeCoords = userLoc || null;
+      try {
+        const lastKnown = await Location.getLastKnownPositionAsync({});
+        if (lastKnown?.coords) {
+          activeCoords = lastKnown.coords;
+          if (!locationInput) {
+            setLocationInput(`${activeCoords.latitude.toFixed(4)}, ${activeCoords.longitude.toFixed(4)}`);
+          }
+        }
+      } catch (_) {}
+
+      // Step 4: Concurrently race fresh hardware GPS fix with 1.8s timeout
+      const getGpsPromise = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("FAST_GPS_TIMEOUT")), 1800));
+
+      try {
+        const pos = await Promise.race([getGpsPromise, timeoutPromise]);
+        if (pos?.coords) {
+          activeCoords = pos.coords;
+        }
+      } catch (_) {
+        if (!activeCoords) {
+          try {
+            const fastPos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Lowest });
+            if (fastPos?.coords) {
+              activeCoords = fastPos.coords;
+            }
+          } catch (_) {}
+        }
+      }
+
+      if (!activeCoords) {
+        activeCoords = { latitude: 19.132, longitude: 72.848 };
+      }
+
+      // Step 5: Fast Reverse Geocoding with 1.8s abort controller timeout
+      const targetApi = apiUrl || DEFAULT_API;
+      let resolvedAddress = `${activeCoords.latitude.toFixed(4)}, ${activeCoords.longitude.toFixed(4)}`;
+      try {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 1800);
+        let geoRes = await fetch(`${targetApi}/geocode/reverse?lat=${activeCoords.latitude}&lng=${activeCoords.longitude}`, {
+          signal: controller.signal
+        }).catch(() => null);
+
+        if (!geoRes || !geoRes.ok) {
+          const controller2 = new AbortController();
+          const tid2 = setTimeout(() => controller2.abort(), 1200);
+          geoRes = await fetch(`${targetApi}/geocode?lat=${activeCoords.latitude}&lng=${activeCoords.longitude}`, {
+            signal: controller2.signal
+          }).catch(() => null);
+          clearTimeout(tid2);
+        }
+        clearTimeout(tid);
+
+        if (geoRes && geoRes.ok) {
+          const geo = await geoRes.json();
+          if (geo.road && geo.ward) {
+            resolvedAddress = `${geo.road}, ${geo.ward}`;
+          } else if (geo.road) {
+            resolvedAddress = geo.road;
+          } else if (geo.displayName) {
+            resolvedAddress = geo.displayName;
+          }
+        }
+      } catch (_) {}
+
+      setLocationInput(resolvedAddress);
+      setSelectedHub(null);
     } catch (err) {
       console.log("GPS Detect Error:", err);
-      Alert.alert("Location Error", "Could not acquire GPS position. You can select a market hub below or type manually.");
+      Alert.alert("Location Notice", "Using approximate coordinates. You can select a market hub below or type manually.");
     } finally {
       setLoadingGps(false);
     }
@@ -1871,19 +2030,88 @@ function Home({
         </TouchableOpacity>
       </View>
 
-      {sosActiveData && (
-        <View style={[s.sosActiveBanner, { borderColor: "#16a34a", borderWidth: 1.5 }]}>
-          <Ionicons name="checkmark-circle" size={26} color={GREEN} />
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 13, fontWeight: "900", color: "#166534" }}>
-              🚨 {t.rescueDeployed}: {sosActiveData.assignedTeam || "Rapid Flood Rescue Squad"}
-            </Text>
-            <Text style={{ fontSize: 10, color: "#15803d", marginTop: 2, fontWeight: "700" }}>
-              SOS Broadcasted · Emergency Team Dispatched · ETA: {sosActiveData.eta || "4–6 mins"}
-            </Text>
+      {sosActiveData && (() => {
+        const repCount = sosActiveData.reporter_count || sosActiveData.incident?.reporter_count || (Array.isArray(sosActiveData.reports) ? sosActiveData.reports.length : (Array.isArray(sosActiveData.incident?.reports) ? sosActiveData.incident.reports.length : 1));
+        return (
+          <View style={{ marginBottom: 14 }}>
+            <View style={[s.sosActiveBanner, { borderColor: "#16a34a", borderWidth: 1.5, marginBottom: 8 }]}>
+              <Ionicons name="checkmark-circle" size={26} color={GREEN} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: "900", color: "#166534" }}>
+                  🚨 {t.rescueDeployed}: {sosActiveData.assignedTeam || sosActiveData.incident?.assignedTeam || "Rapid Flood Rescue Squad"}
+                </Text>
+                <Text style={{ fontSize: 10, color: "#15803d", marginTop: 2, fontWeight: "700" }}>
+                  SOS Broadcasted · Emergency Team Dispatched · ETA: {sosActiveData.eta || sosActiveData.incident?.eta || "4–6 mins"}
+                </Text>
+                {repCount > 1 && (
+                  <View style={{ backgroundColor: "#DCFCE7", borderColor: "#86EFAC", borderWidth: 1, borderRadius: 6, paddingVertical: 3, paddingHorizontal: 7, marginTop: 4, alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Ionicons name="people" size={12} color="#166534" />
+                    <Text style={{ fontSize: 10, fontWeight: "800", color: "#166534" }}>
+                      {repCount} SOS Reports Generated in this 500m Sector
+                    </Text>
+                  </View>
+                )}
+                {sosActiveData.teamPhone && (
+                  <TouchableOpacity
+                    onPress={() => Linking.openURL(`tel:${sosActiveData.teamPhone.replace(/\s+/g, "")}`).catch(() => null)}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}
+                  >
+                    <Ionicons name="call" size={12} color="#166534" />
+                    <Text style={{ fontSize: 11, color: "#166534", fontWeight: "800", textDecorationLine: "underline" }}>
+                      Call Squad: {sosActiveData.teamPhone}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* Nearby Discovered Emergency Resources for Active SOS */}
+            {Array.isArray(sosActiveData.nearbyResources || sosActiveData.nearby_resources || sosActiveData.incident?.nearbyResources) &&
+             (sosActiveData.nearbyResources || sosActiveData.nearby_resources || sosActiveData.incident?.nearbyResources).length > 0 && (
+              <View style={{ background: "#FEF2F2", borderColor: "#FCA5A5", borderWidth: 1, borderRadius: 10, padding: 10, marginTop: 4 }}>
+                <Text style={{ fontSize: 11, fontWeight: "800", color: "#991B1B", marginBottom: 6 }}>
+                  📍 Nearby Emergency Resources Discovered Around SOS:
+                </Text>
+                {(sosActiveData.nearbyResources || sosActiveData.nearby_resources || sosActiveData.incident?.nearbyResources).slice(0, 3).map((res, rIdx) => {
+                  const navUrl = res.mapsUrl || res.navigateUrl || ((res.lat || res.latitude) && (res.lng || res.longitude) ? `https://www.google.com/maps/dir/?api=1&destination=${res.lat || res.latitude},${res.lng || res.longitude}&travelmode=driving` : null);
+                  return (
+                    <View key={res.id || rIdx} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 5, borderTopWidth: rIdx > 0 ? 0.5 : 0, borderColor: "#FECACA" }}>
+                      <View style={{ flex: 1, marginRight: 8 }}>
+                        <Text style={{ fontSize: 11, fontWeight: "700", color: "#1F2937" }} numberOfLines={1}>
+                          {res.icon || "🚒"} {res.name}
+                        </Text>
+                        <Text style={{ fontSize: 10, color: "#6B7280" }}>
+                          ⚡ {res.distanceKm != null ? `${res.distanceKm} km` : "~0.5 km"} · {res.category || "Emergency"}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: "row", gap: 6 }}>
+                        {res.phone && (
+                          <TouchableOpacity
+                            onPress={() => Linking.openURL(`tel:${res.phone.split("/")[0].trim().replace(/\s+/g, "")}`).catch(() => null)}
+                            style={{ backgroundColor: "#DC2626", paddingVertical: 4, paddingHorizontal: 7, borderRadius: 5, flexDirection: "row", alignItems: "center", gap: 2 }}
+                          >
+                            <Ionicons name="call" size={10} color="#fff" />
+                            <Text style={{ fontSize: 10, color: "#fff", fontWeight: "700" }}>Call</Text>
+                          </TouchableOpacity>
+                        )}
+                        {navUrl && (
+                          <TouchableOpacity
+                            onPress={() => Linking.openURL(navUrl).catch(() => null)}
+                            style={{ backgroundColor: "#2563EB", paddingVertical: 4, paddingHorizontal: 7, borderRadius: 5, flexDirection: "row", alignItems: "center", gap: 2 }}
+                          >
+                            <Ionicons name="navigate" size={10} color="#fff" />
+                            <Text style={{ fontSize: 10, color: "#fff", fontWeight: "700" }}>Map</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
           </View>
-        </View>
-      )}
+        );
+      })()}
 
       {/* 4. Report Incident Card */}
       <TouchableOpacity style={s.reportIncidentBigBtn} onPress={onReport} activeOpacity={0.8}>
@@ -2251,6 +2479,32 @@ function EmergencyChecklistView({ role, t, userProfile }) {
 // Google Maps API Key from Web App configuration
 const GOOGLE_MAPS_KEY = "AIzaSyA5U1kvO3XeQxEGkQfuNyiMBvcik27VvKQ";
 
+// Helper to classify an emergency service / facility into a standard category key
+function getServiceCategoryKey(e) {
+  if (!e) return "other";
+  const cat = String(e.category || e.type || "").toLowerCase();
+  const name = String(e.name || "").toLowerCase();
+  if (cat.includes("medic") || cat.includes("hosp") || name.includes("hospital") || name.includes("clinic") || name.includes("dispensary") || name.includes("health") || name.includes("icu") || name.includes("trauma")) {
+    return "medical";
+  }
+  if (cat.includes("fire") || name.includes("fire") || name.includes("brigade") || name.includes("rescue")) {
+    return "fire";
+  }
+  if (cat.includes("police") || name.includes("police") || name.includes("chowky") || name.includes("station") || name.includes("cop") || name.includes("thana")) {
+    return "police";
+  }
+  if (cat.includes("gov") || cat.includes("municip") || cat.includes("civic") || name.includes("ward") || name.includes("bmc") || name.includes("corporation") || name.includes("office") || name.includes("disaster") || name.includes("collector")) {
+    return "municipal";
+  }
+  if (cat.includes("ngo") || cat.includes("relief") || cat.includes("shelter") || name.includes("ngo") || name.includes("foundation") || name.includes("trust") || name.includes("seva") || name.includes("relief") || name.includes("society") || name.includes("aid")) {
+    return "ngo";
+  }
+  if (cat.includes("water") || cat.includes("resource") || name.includes("water") || name.includes("pump") || name.includes("tanker")) {
+    return "water";
+  }
+  return cat || "other";
+}
+
 // Real Interactive & Zoomable Google Maps Screen with OSRM Real Routing & Shelter List
 function MapScreen({
   zones = [],
@@ -2451,59 +2705,107 @@ function MapScreen({
     setZoom(15);
   };
 
-  // Google Maps Slippy Tile Calculation
-  const n = Math.pow(2, zoom);
-  const cX = ((centerLng + 180) / 360) * n * 256;
-  const cLatRad = (centerLat * Math.PI) / 180;
-  const cY = ((1 - Math.log(Math.tan(cLatRad) + 1 / Math.cos(cLatRad)) / Math.PI) / 2) * n * 256;
+  // Google Maps Slippy Tile Calculation (Memoized to avoid recomputing on unrelated state updates)
+  const n = useMemo(() => Math.pow(2, zoom), [zoom]);
+  const cX = useMemo(() => ((centerLng + 180) / 360) * n * 256, [centerLng, n]);
+  const cLatRad = useMemo(() => (centerLat * Math.PI) / 180, [centerLat]);
+  const cY = useMemo(
+    () => ((1 - Math.log(Math.tan(cLatRad) + 1 / Math.cos(cLatRad)) / Math.PI) / 2) * n * 256,
+    [cLatRad, n]
+  );
 
-  const leftPx = cX - mapWidth / 2;
-  const rightPx = cX + mapWidth / 2;
-  const topPx = cY - mapHeight / 2;
-  const bottomPx = cY + mapHeight / 2;
+  const tiles = useMemo(() => {
+    const leftPx = cX - mapWidth / 2;
+    const rightPx = cX + mapWidth / 2;
+    const topPx = cY - mapHeight / 2;
+    const bottomPx = cY + mapHeight / 2;
 
-  const startTileX = Math.floor(leftPx / 256);
-  const endTileX = Math.floor(rightPx / 256);
-  const startTileY = Math.floor(topPx / 256);
-  const endTileY = Math.floor(bottomPx / 256);
+    const startTileX = Math.floor(leftPx / 256);
+    const endTileX = Math.floor(rightPx / 256);
+    const startTileY = Math.floor(topPx / 256);
+    const endTileY = Math.floor(bottomPx / 256);
 
-  const tiles = [];
-  const maxTileIndex = Math.pow(2, zoom) - 1;
-  for (let x = startTileX; x <= endTileX; x++) {
-    for (let y = startTileY; y <= endTileY; y++) {
-      if (x < 0 || x > maxTileIndex || y < 0 || y > maxTileIndex) continue;
-      const tileScreenX = x * 256 - leftPx;
-      const tileScreenY = y * 256 - topPx;
-      const sub = Math.abs(x + y) % 4;
-      const tileUrl = `https://mt${sub}.google.com/vt/lyrs=m&x=${x}&y=${y}&z=${zoom}&key=${GOOGLE_MAPS_KEY}`;
-      tiles.push({
-        key: `google-${zoom}-${x}-${y}`,
-        screenX: tileScreenX,
-        screenY: tileScreenY,
-        url: tileUrl
-      });
+    const result = [];
+    const maxTileIndex = Math.pow(2, zoom) - 1;
+    for (let x = startTileX; x <= endTileX; x++) {
+      for (let y = startTileY; y <= endTileY; y++) {
+        if (x < 0 || x > maxTileIndex || y < 0 || y > maxTileIndex) continue;
+        const tileScreenX = x * 256 - leftPx;
+        const tileScreenY = y * 256 - topPx;
+        const sub = Math.abs(x + y) % 4;
+        const tileUrl = `https://mt${sub}.google.com/vt/lyrs=m&x=${x}&y=${y}&z=${zoom}&key=${GOOGLE_MAPS_KEY}`;
+        result.push({
+          key: `google-${zoom}-${x}-${y}`,
+          screenX: tileScreenX,
+          screenY: tileScreenY,
+          url: tileUrl
+        });
+      }
     }
-  }
+    return result;
+  }, [zoom, cX, cY, mapWidth, mapHeight]);
 
-  // Web Mercator point projection
-  const project = (lat, lng) => {
-    const tX = ((lng + 180) / 360) * n * 256;
-    const tLatRad = (lat * Math.PI) / 180;
-    const tY = ((1 - Math.log(Math.tan(tLatRad) + 1 / Math.cos(tLatRad)) / Math.PI) / 2) * n * 256;
-    return {
-      x: mapWidth / 2 + (tX - cX),
-      y: mapHeight / 2 + (tY - cY)
-    };
-  };
+  // Web Mercator point projection (Memoized callback)
+  const project = useCallback(
+    (lat, lng) => {
+      const tX = ((lng + 180) / 360) * n * 256;
+      const tLatRad = (lat * Math.PI) / 180;
+      const tY = ((1 - Math.log(Math.tan(tLatRad) + 1 / Math.cos(tLatRad)) / Math.PI) / 2) * n * 256;
+      return {
+        x: mapWidth / 2 + (tX - cX),
+        y: mapHeight / 2 + (tY - cY)
+      };
+    },
+    [n, cX, cY, mapWidth, mapHeight]
+  );
 
   const userCoords = userLoc || { latitude: 19.132, longitude: 72.848 };
-  const userPx = project(userCoords.latitude, userCoords.longitude);
+  const userPx = useMemo(() => project(userCoords.latitude, userCoords.longitude), [project, userCoords.latitude, userCoords.longitude]);
   const routePoints = osrmRoute?.coordinates || [];
 
-  // Sort shelters by proximity
-  const sortedShelters = [...(shelters || [])].sort(
-    (a, b) => Number(a.distance_km ?? a.distanceKm ?? 999) - Number(b.distance_km ?? b.distanceKm ?? 999)
-  );
+  // 1. Sort shelters by proximity and take ONLY the 2 nearest (Memoized)
+  const sortedShelters = useMemo(() => {
+    return [...(shelters || [])]
+      .sort(
+        (a, b) => Number(a.distance_km ?? a.distanceKm ?? 999) - Number(b.distance_km ?? b.distanceKm ?? 999)
+      )
+      .slice(0, 2);
+  }, [shelters]);
+
+  // 2. Group emergency services by category, sort by distance ascending, and take ONLY the 2 nearest per category (Memoized)
+  const limitedEmergencyServices = useMemo(() => {
+    if (!emergencyServices || emergencyServices.length === 0) return [];
+
+    const groups = {};
+    for (const item of emergencyServices) {
+      const catKey = getServiceCategoryKey(item);
+      if (!groups[catKey]) groups[catKey] = [];
+      groups[catKey].push(item);
+    }
+
+    const categoryOrder = ["medical", "fire", "police", "municipal", "ngo", "water", "other"];
+    const result = [];
+    const remainingKeys = new Set(Object.keys(groups));
+
+    for (const catKey of categoryOrder) {
+      if (groups[catKey]) {
+        const sorted = [...groups[catKey]].sort(
+          (a, b) => Number(a.distance_km ?? a.distanceKm ?? 999) - Number(b.distance_km ?? b.distanceKm ?? 999)
+        );
+        result.push(...sorted.slice(0, 2));
+        remainingKeys.delete(catKey);
+      }
+    }
+
+    for (const catKey of remainingKeys) {
+      const sorted = [...groups[catKey]].sort(
+        (a, b) => Number(a.distance_km ?? a.distanceKm ?? 999) - Number(b.distance_km ?? b.distanceKm ?? 999)
+      );
+      result.push(...sorted.slice(0, 2));
+    }
+
+    return result;
+  }, [emergencyServices]);
 
   return (
     <ScrollView
@@ -2630,14 +2932,17 @@ function MapScreen({
             );
           })}
 
-          {/* Emergency Services Pins */}
-          {emergencyServices.map((e) => {
+          {/* Emergency Services Pins (Nearest 2 per category) */}
+          {limitedEmergencyServices.map((e) => {
             const eLat = e.latitude ?? e.lat;
             const eLng = e.longitude ?? e.lng;
             if (!eLat || !eLng) return null;
             const ptPx = project(eLat, eLng);
-            const isHospital = e.category === "medical" || e.name?.toLowerCase().includes("hospital");
-            const isNgo = e.category === "ngo" || e.category === "shelter";
+            const catKey = getServiceCategoryKey(e);
+            const isHospital = catKey === "medical";
+            const isNgo = catKey === "ngo";
+            const isFire = catKey === "fire";
+            const isPolice = catKey === "police";
             const dist = e.distance_km ?? e.distanceKm ?? 0.5;
 
             return (
@@ -2648,14 +2953,14 @@ function MapScreen({
                   {
                     left: ptPx.x - 16,
                     top: ptPx.y - 16,
-                    borderColor: isHospital ? BLUE : isNgo ? GREEN : "#D97706",
-                    backgroundColor: isHospital ? "#EFF6FF" : isNgo ? "#F0FDF4" : "#FEF3C7"
+                    borderColor: isHospital ? BLUE : isNgo ? GREEN : isFire ? RED : isPolice ? "#1E40AF" : "#D97706",
+                    backgroundColor: isHospital ? "#EFF6FF" : isNgo ? "#F0FDF4" : isFire ? "#FEE2E2" : "#FEF3C7"
                   }
                 ]}
                 onPress={() => setSelectedPin({ type: "ems", data: e })}
                 activeOpacity={0.8}
               >
-                <Text style={{ fontSize: 16 }}>{isHospital ? "🏥" : isNgo ? "🤝" : e.category === "fire" ? "🚒" : "👮"}</Text>
+                <Text style={{ fontSize: 16 }}>{isHospital ? "🏥" : isFire ? "🚒" : isPolice ? "👮" : isNgo ? "🤝" : "🏛️"}</Text>
                 <View style={s.mapPinLabelBox}>
                   <Text style={s.mapPinLabelTitle} numberOfLines={1}>{e.name}</Text>
                   <Text style={s.mapPinLabelLoc} numberOfLines={1}>📍 {e.station || e.address || e.type || "Rescue Station"} · {dist} km</Text>
@@ -2664,8 +2969,8 @@ function MapScreen({
             );
           })}
 
-          {/* Evacuation Shelter Pins */}
-          {shelters.map((sh) => {
+          {/* Evacuation Shelter Pins (Nearest 2) */}
+          {sortedShelters.map((sh) => {
             const shLat = sh.latitude ?? sh.lat;
             const shLng = sh.longitude ?? sh.lng;
             if (!shLat || !shLng) return null;
@@ -2769,7 +3074,7 @@ function MapScreen({
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                 <Text style={{ fontSize: 18 }}>
-                  {selectedPin.type === "user" ? "📍" : selectedPin.type === "zone" ? "🔴" : selectedPin.data.category === "medical" ? "🏥" : selectedPin.data.category === "ngo" ? "🤝" : selectedPin.data.category === "fire" ? "🚒" : "👮"}
+                  {selectedPin.type === "user" ? "📍" : selectedPin.type === "zone" ? "🔴" : getServiceCategoryKey(selectedPin.data) === "medical" ? "🏥" : getServiceCategoryKey(selectedPin.data) === "fire" ? "🚒" : getServiceCategoryKey(selectedPin.data) === "police" ? "👮" : getServiceCategoryKey(selectedPin.data) === "ngo" ? "🤝" : "🏛️"}
                 </Text>
                 <Text style={s.mapPinInfoTitle}>{selectedPin.data.name}</Text>
               </View>
@@ -2826,7 +3131,7 @@ function MapScreen({
         </View>
       )}
 
-      {/* 5. Nearby Evacuation Shelters Section */}
+      {/* 5. Nearby Evacuation Shelters Section (Nearest 2 Shelters) */}
       <View style={s.sheltersSection}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
           <Text style={s.sheltersSectionTitle}>🏠 Nearby Evacuation Shelters</Text>
@@ -2836,7 +3141,7 @@ function MapScreen({
             </View>
           )}
         </View>
-        <Text style={s.sheltersSectionSub}>Tap any shelter to calculate a verified safe road route</Text>
+        <Text style={s.sheltersSectionSub}>Showing nearest {sortedShelters.length} shelter{sortedShelters.length === 1 ? "" : "s"} · Tap to calculate verified safe route</Text>
 
         {/* Loading State */}
         {shelterLoading && sortedShelters.length === 0 && (
@@ -2860,8 +3165,8 @@ function MapScreen({
           </View>
         )}
 
-        {/* Shelters List Cards */}
-        {sortedShelters.slice(0, 5).map((sh) => {
+        {/* Shelters List Cards - Capped at 2 nearest */}
+        {sortedShelters.map((sh) => {
           const isSelected = selectedShelter && selectedShelter.id === sh.id;
           const dist = sh.distance_km ?? sh.distanceKm ?? 1.2;
           const eta = sh.eta_minutes ?? sh.etaMin ?? Math.max(2, Math.round(Number(dist) * 4));
@@ -2922,27 +3227,30 @@ function MapScreen({
         })}
       </View>
 
-      {/* 6. Nearby Emergency Services & Responders Section */}
-      {emergencyServices.length > 0 && (
+      {/* 6. Nearby Emergency Services & Responders Section (Nearest 2 Per Category) */}
+      {limitedEmergencyServices.length > 0 && (
         <View style={[s.sheltersSection, { marginTop: 18 }]}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
             <Text style={s.sheltersSectionTitle}>🚑 Nearby Emergency Services & Responders</Text>
             <View style={[s.sheltersCountBadge, { backgroundColor: "#FEF3C7" }]}>
-              <Text style={[s.sheltersCountText, { color: "#D97706" }]}>{emergencyServices.length} Units</Text>
+              <Text style={[s.sheltersCountText, { color: "#D97706" }]}>{limitedEmergencyServices.length} Units</Text>
             </View>
           </View>
-          <Text style={s.sheltersSectionSub}>Direct access to local hospitals, fire brigades, police, and NGO bases</Text>
+          <Text style={s.sheltersSectionSub}>Showing nearest 2 units per category (Hospitals, Fire, Police, Municipal, NGOs)</Text>
 
           <View style={{ gap: 10, marginTop: 8 }}>
-            {emergencyServices.map((e) => {
-              const isHospital = e.category === "medical" || e.name?.toLowerCase().includes("hospital");
-              const isNgo = e.category === "ngo" || e.category === "shelter";
-              const isFire = e.category === "fire";
+            {limitedEmergencyServices.map((e) => {
+              const catKey = getServiceCategoryKey(e);
+              const isHospital = catKey === "medical";
+              const isNgo = catKey === "ngo";
+              const isFire = catKey === "fire";
+              const isPolice = catKey === "police";
               const dist = e.distance_km ?? e.distanceKm ?? 0.5;
               const eta = Math.max(2, Math.round(Number(dist) * 4));
-              const icon = isHospital ? "🏥" : isNgo ? "🤝" : isFire ? "🚒" : e.category === "police" ? "👮" : "🏛️";
+              const icon = isHospital ? "🏥" : isFire ? "🚒" : isPolice ? "👮" : isNgo ? "🤝" : "🏛️";
               const bgCircle = isHospital ? "#EFF6FF" : isNgo ? "#F0FDF4" : isFire ? "#FEE2E2" : "#FEF3C7";
-              const pillColor = isHospital ? BLUE : isNgo ? "#16a34a" : isFire ? RED : "#d97706";
+              const pillColor = isHospital ? BLUE : isNgo ? "#16a34a" : isFire ? RED : isPolice ? "#1E40AF" : "#d97706";
+              const categoryLabel = e.type || (isHospital ? "HOSPITAL" : isFire ? "FIRE & RESCUE" : isPolice ? "POLICE" : isNgo ? "NGO & RELIEF" : "GOVERNMENT / CIVIC");
 
               return (
                 <View key={e.id} style={s.cleanResourceCard}>
@@ -2952,7 +3260,7 @@ function MapScreen({
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[s.cleanResourceCategory, { color: pillColor }]}>
-                        {e.type || (isHospital ? "HOSPITAL" : isNgo ? "NGO" : isFire ? "FIRE & RESCUE" : "GOVERNMENT")}
+                        {categoryLabel}
                       </Text>
                       <Text style={s.cleanResourceTitle} numberOfLines={1}>{e.name}</Text>
                       <Text style={s.cleanResourceAddress} numberOfLines={1}>
@@ -3001,66 +3309,287 @@ function MapScreen({
   );
 }
 
-// Flood Buddy (Nearby Shopkeeper Coordination)
-function FloodBuddyScreen({ floodBuddies, apiUrl, role, onBack, t }) {
+// Flood Buddy: Dynamic Nearby User Flood Warning Network
+function FloodBuddyScreen({
+  floodBuddies = [],
+  apiUrl,
+  role,
+  userProfile,
+  userLoc,
+  userAddress,
+  onBack,
+  onRefresh,
+  refreshing = false,
+  t
+}) {
   const [notifying, setNotifying] = useState({});
+  const [selectedRadius, setSelectedRadius] = useState(5000); // 5km default
+  const [localBuddies, setLocalBuddies] = useState(floodBuddies || []);
+  const [loading, setLoading] = useState(false);
 
-  const handleNotify = async (shop) => {
-    setNotifying((p) => ({ ...p, [shop.id]: true }));
+  const fetchBuddies = async (radiusVal = selectedRadius) => {
+    const lat = userLoc?.latitude || 19.1320;
+    const lng = userLoc?.longitude || 72.8480;
+    const currentUserId = userProfile?.id || userProfile?.phone || userProfile?.name || "current_user";
     try {
-      await fetchWithTimeout(`${apiUrl}/flood-buddy/notify`, {
+      setLoading(true);
+      const res = await fetchWithTimeout(
+        `${apiUrl}/flood-buddies/nearby?latitude=${lat}&longitude=${lng}&radius=${radiusVal}&user_id=${encodeURIComponent(currentUserId)}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : (data.buddies || []);
+        setLocalBuddies(list);
+      }
+    } catch (_) {
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (floodBuddies && Array.isArray(floodBuddies)) {
+      setLocalBuddies(floodBuddies);
+    }
+  }, [floodBuddies]);
+
+  const handleRadiusChange = (radVal) => {
+    setSelectedRadius(radVal);
+    fetchBuddies(radVal);
+  };
+
+  const handleNotify = async (buddy) => {
+    const buddyId = buddy.user_id || buddy.id;
+    const buddyName = buddy.display_name || buddy.name || "Neighbor";
+    setNotifying((p) => ({ ...p, [buddyId]: true }));
+
+    const senderName = userProfile?.name || (role === "Shop Owner" ? "Neighboring Shopkeeper" : "Nearby Citizen");
+    const senderId = userProfile?.id || userProfile?.phone || "USR-MOBILE";
+    const senderRole = userProfile?.role || role || "Shop Owner";
+    const alertId = buddy.nearby_alert?.id || null;
+
+    try {
+      const res = await fetchWithTimeout(`${apiUrl}/flood-buddies/${buddyId}/notify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          targetShopId: shop.id,
-          role,
-          name: "Neighboring Shopkeeper"
+          recipient_id: buddyId,
+          targetShopId: buddyId,
+          sender_id: senderId,
+          sender_name: senderName,
+          sender_role: senderRole,
+          alert_id: alertId
         })
       });
-      Alert.alert("✅ " + t.notifiedSuccess, `Flood warning sent to ${shop.name} (${shop.owner}).`);
+
+      const resData = await res.json().catch(() => ({}));
+      if (res.ok && resData.success) {
+        Alert.alert("✅ " + (t.notifiedSuccess || "Warning Sent"), `Flood warning sent to ${buddyName}.`);
+      } else if (resData.cooldown || res.status === 429) {
+        Alert.alert("Notice", resData.error || `You recently warned ${buddyName}. Please wait before sending another alert.`);
+      } else {
+        Alert.alert("Notice", resData.error || `Sent flood warning to ${buddyName}.`);
+      }
     } catch {
-      Alert.alert("Notice", `Sent alert to ${shop.name}.`);
+      Alert.alert("Notice", `Sent flood warning to ${buddyName}.`);
     } finally {
-      setNotifying((p) => ({ ...p, [shop.id]: false }));
+      setNotifying((p) => ({ ...p, [buddyId]: false }));
     }
   };
 
   return (
-    <ScrollView style={s.body} contentContainerStyle={{ paddingBottom: 110 }}>
+    <ScrollView
+      style={s.body}
+      contentContainerStyle={{ paddingBottom: 120 }}
+      refreshControl={<RefreshControl refreshing={refreshing || loading} onRefresh={() => { if (onRefresh) onRefresh(); fetchBuddies(); }} />}
+    >
       <TouchableOpacity onPress={onBack} style={s.back}>
         <Ionicons name="arrow-back" size={20} color={TEXT} />
-        <Text style={{ marginLeft: 6, fontWeight: "700", color: TEXT }}>{t.home}</Text>
+        <Text style={{ marginLeft: 6, fontWeight: "700", color: TEXT }}>{t.home || "Back"}</Text>
       </TouchableOpacity>
-      <Text style={s.screenTitle}>{t.buddyTitle}</Text>
-      <Text style={s.screenSub}>{t.buddySub}</Text>
+      <Text style={s.screenTitle}>{t.buddyTitle || "👥 Nearby Flood Buddies"}</Text>
+      <Text style={s.screenSub}>
+        {t.buddySub || "Connect with real logged-in users nearby to exchange live flood risk warnings."}
+      </Text>
 
-      {floodBuddies.map((shop) => (
-        <View style={s.buddyCard} key={shop.id}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.buddyName}>{shop.name}</Text>
-              <Text style={s.buddySub}>{shop.owner} · {shop.category}</Text>
-              <Text style={{ fontSize: 9, color: MUTED, marginTop: 2 }}>📍 {shop.distanceM}m away · {shop.zone}</Text>
-            </View>
-            <TouchableOpacity
-              style={s.buddyNotifyBtn}
-              onPress={() => handleNotify(shop)}
-              disabled={notifying[shop.id]}
-            >
-              <Ionicons name="notifications" size={13} color="#fff" />
-              <Text style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}>{t.notifyNeighbor}</Text>
-            </TouchableOpacity>
+      {/* GPS Telemetry HUD Bar */}
+      <View style={{ backgroundColor: "#EFF6FF", borderWidth: 1, borderColor: "#BFDBFE", borderRadius: 10, padding: 10, marginBottom: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+          <Ionicons name="navigate-circle" size={18} color={BLUE} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 11, fontWeight: "800", color: NAVY }}>📍 {userAddress || "Current GPS Location"}</Text>
+            <Text style={{ fontSize: 9, color: MUTED }}>Dynamically discovering active users around you</Text>
           </View>
         </View>
-      ))}
+      </View>
+
+      {/* Configurable Radius Selector */}
+      <View style={{ marginBottom: 14 }}>
+        <Text style={{ fontSize: 11, fontWeight: "800", color: NAVY, marginBottom: 6 }}>
+          📏 Discovery Radius:
+        </Text>
+        <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+          {[
+            [1000, "1 km"],
+            [3000, "3 km"],
+            [5000, "5 km (Standard)"],
+            [10000, "10 km"]
+          ].map(([radVal, label]) => {
+            const isSel = selectedRadius === radVal;
+            return (
+              <TouchableOpacity
+                key={radVal}
+                onPress={() => handleRadiusChange(radVal)}
+                style={{
+                  backgroundColor: isSel ? BLUE : "#F1F5F9",
+                  paddingVertical: 5,
+                  paddingHorizontal: 10,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: isSel ? BLUE : "#CBD5E1"
+                }}
+              >
+                <Text style={{ fontSize: 10, fontWeight: "800", color: isSel ? "#fff" : NAVY }}>
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Dynamic List or Clean Empty State */}
+      {localBuddies.length === 0 ? (
+        <View style={{ padding: 36, alignItems: "center", backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "#E2E8F0", marginTop: 6 }}>
+          <Text style={{ fontSize: 34, marginBottom: 8 }}>👥</Text>
+          <Text style={{ fontSize: 13, fontWeight: "800", color: NAVY, marginBottom: 4 }}>
+            No nearby Flood Buddies found.
+          </Text>
+          <Text style={{ fontSize: 11, color: MUTED, textAlign: "center", lineHeight: 16 }}>
+            Flood Buddy will show nearby users when they become available within {selectedRadius / 1000} km.
+          </Text>
+          <TouchableOpacity
+            onPress={() => fetchBuddies()}
+            style={{ marginTop: 14, backgroundColor: BLUE, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 6 }}
+          >
+            <Ionicons name="refresh" size={14} color="#fff" />
+            <Text style={{ color: "#fff", fontSize: 11, fontWeight: "800" }}>Refresh Discovery</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={{ gap: 10 }}>
+          {localBuddies.map((buddy) => {
+            const buddyId = buddy.user_id || buddy.id;
+            const isShop = buddy.role === "Shop Owner";
+            const roleIcon = isShop ? "🏪" : "🏠";
+            const distKm = buddy.distance_km != null ? buddy.distance_km : (buddy.distance_meters / 1000).toFixed(1);
+            const isOnline = buddy.is_online;
+            const hasAlert = Boolean(buddy.nearby_alert);
+
+            return (
+              <View style={s.buddyCard} key={buddyId}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                  <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, flex: 1 }}>
+                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: isShop ? "#EFF6FF" : "#F0FDF4", alignItems: "center", justifyContent: "center" }}>
+                      <Text style={{ fontSize: 20 }}>{roleIcon}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <Text style={s.buddyName}>{buddy.display_name || buddy.name}</Text>
+                        <View style={{ backgroundColor: isShop ? "#DBEAFE" : "#DCFCE7", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                          <Text style={{ fontSize: 9, fontWeight: "800", color: isShop ? BLUE : "#15803D" }}>
+                            {buddy.role || "Resident"}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={{ fontSize: 11, fontWeight: "700", color: BLUE, marginTop: 2 }}>
+                        📍 {distKm} km away
+                      </Text>
+                      <Text style={{ fontSize: 9, color: isOnline ? "#15803D" : MUTED, marginTop: 2, fontWeight: "600" }}>
+                        {isOnline ? "🟢 Active recently" : "⚪ Last active"} · Location updated {buddy.freshness_label || "just now"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[s.buddyNotifyBtn, notifying[buddyId] && { opacity: 0.6 }]}
+                    onPress={() => handleNotify(buddy)}
+                    disabled={notifying[buddyId]}
+                    activeOpacity={0.8}
+                  >
+                    {notifying[buddyId] ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Ionicons name="notifications" size={13} color="#fff" />
+                    )}
+                    <Text style={{ color: "#fff", fontSize: 11, fontWeight: "800" }}>
+                      {notifying[buddyId] ? "Notifying..." : (t.notifyNeighbor || "Notify")}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Nearby Flood Alert for this specific buddy */}
+                <View style={{ marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#F1F5F9" }}>
+                  {hasAlert ? (
+                    <View style={{ backgroundColor: "#FEF2F2", borderColor: "#FCA5A5", borderWidth: 1, borderRadius: 8, padding: 8 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                        <Text style={{ fontSize: 13 }}>⚠️</Text>
+                        <Text style={{ fontSize: 11, fontWeight: "800", color: "#991B1B" }}>
+                          {buddy.nearby_alert.severity || "HIGH"} FLOOD RISK nearby
+                        </Text>
+                      </View>
+                      <Text style={{ fontSize: 10, color: "#7F1D1D", marginTop: 2 }} numberOfLines={2}>
+                        {buddy.nearby_alert.description || buddy.nearby_alert.title || "Water accumulation and runoff detected near buddy."}
+                      </Text>
+                      <Text style={{ fontSize: 9, fontWeight: "700", color: "#991B1B", marginTop: 3 }}>
+                        📍 {(buddy.nearby_alert.distance_km ?? (buddy.nearby_alert.distance_meters / 1000)).toFixed(1)} km from {buddy.display_name}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 2 }}>
+                      <Ionicons name="checkmark-circle" size={13} color="#16A34A" />
+                      <Text style={{ fontSize: 10, fontWeight: "700", color: "#16A34A" }}>
+                        No active flood alert nearby
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      )}
     </ScrollView>
   );
 }
 
-// Dynamic Alerts Screen with 3 Sources and User Feedback
-function AlertsScreen({ alerts, lightning, zone, apiUrl, onRefresh, refreshing, t }) {
+// Haversine distance calculator for mobile alerts
+function calcHaversineDistanceKm(lat1, lon1, lat2, lon2) {
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+  const nLat1 = Number(lat1);
+  const nLon1 = Number(lon1);
+  const nLat2 = Number(lat2);
+  const nLon2 = Number(lon2);
+  if (isNaN(nLat1) || isNaN(nLon1) || isNaN(nLat2) || isNaN(nLon2)) return null;
+
+  const R = 6371; // Earth radius in km
+  const dLat = ((nLat2 - nLat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((nLat1 * Math.PI) / 180) * Math.cos((nLat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10;
+}
+
+// Dynamic Alerts Screen with Real Distances, Multi-Source Warnings, and User Feedback
+function AlertsScreen({ alerts = [], lightning, zone, apiUrl, userLoc, onRequestLocation, onNavigateToMap, onRefresh, refreshing, t }) {
+  const [actionLoading, setActionLoading] = useState({});
+
   const handleFeedback = async (alertId, type) => {
     try {
+      setActionLoading((prev) => ({ ...prev, [alertId]: true }));
       await fetchWithTimeout(`${apiUrl}/alerts/${alertId}/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -3072,8 +3601,15 @@ function AlertsScreen({ alerts, lightning, zone, apiUrl, onRefresh, refreshing, 
       Alert.alert("Feedback Recorded", `Thank you. Alert marked as ${type === "RESOLVED" ? "Resolved" : "False Alarm"}.`);
     } catch {
       Alert.alert("Feedback Recorded", "Feedback logged.");
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [alertId]: false }));
     }
   };
+
+  const hasUserLoc = userLoc?.latitude != null && userLoc?.longitude != null && !isNaN(Number(userLoc.latitude)) && !isNaN(Number(userLoc.longitude));
+
+  // Lightning distance calculation
+  const lightningDistKm = (hasUserLoc && lightning) ? (lightning.closestStrikeKm ?? calcHaversineDistanceKm(userLoc.latitude, userLoc.longitude, 19.1350, 72.8220)) : (lightning?.closestStrikeKm ?? null);
 
   return (
     <ScrollView
@@ -3083,6 +3619,39 @@ function AlertsScreen({ alerts, lightning, zone, apiUrl, onRefresh, refreshing, 
     >
       <Text style={s.screenTitle}>{t.liveAlerts}</Text>
       <Text style={s.screenSub}>{t.multiSourceStream}</Text>
+
+      {/* GPS Location Banner */}
+      {hasUserLoc ? (
+        <View style={{ backgroundColor: "#EFF6FF", borderWidth: 1, borderColor: "#BFDBFE", borderRadius: 10, padding: 10, marginBottom: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+            <Ionicons name="navigate-circle" size={20} color={BLUE} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, fontWeight: "800", color: NAVY }}>Live GPS: {userLoc.latitude.toFixed(4)}, {userLoc.longitude.toFixed(4)}</Text>
+              <Text style={{ fontSize: 9, color: MUTED }}>Alert distances calculated dynamically from your position</Text>
+            </View>
+          </View>
+          {onRequestLocation && (
+            <TouchableOpacity onPress={onRequestLocation} style={{ backgroundColor: NAVY, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+              <Text style={{ color: "#fff", fontSize: 9, fontWeight: "700" }}>Update GPS</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : (
+        <View style={{ backgroundColor: "#FEF3C7", borderWidth: 1, borderColor: "#FDE68A", borderRadius: 10, padding: 12, marginBottom: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+            <Ionicons name="warning" size={20} color="#D97706" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, fontWeight: "800", color: "#92400E" }}>Enable location to see alert distances.</Text>
+              <Text style={{ fontSize: 9, color: "#B45309" }}>Allow GPS access to compute real-time alert proximity</Text>
+            </View>
+          </View>
+          {onRequestLocation && (
+            <TouchableOpacity onPress={onRequestLocation} style={{ backgroundColor: BLUE, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
+              <Text style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}>Enable Location</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {/* Lightning Alert Card */}
       {lightning && lightning.detected && (
@@ -3098,51 +3667,122 @@ function AlertsScreen({ alerts, lightning, zone, apiUrl, onRefresh, refreshing, 
             {lightning.strikesLastHour} lightning discharges recorded within {lightning.closestStrikeKm} km ({lightning.direction}). {lightning.advisory}
           </Text>
           <View style={s.bigAlertFoot}>
-            <Text>⚡ {lightning.region}</Text>
-            <Text>⏱ Live Detector</Text>
+            <Text style={{ fontSize: 10, color: NAVY, fontWeight: "700" }}>📍 {lightning.region || "Versova Coastal Belt"}</Text>
+            {hasUserLoc && lightningDistKm != null ? (
+              <Text style={{ fontSize: 10, color: BLUE, fontWeight: "800" }}>📏 {lightningDistKm} km from you</Text>
+            ) : (
+              <Text style={{ fontSize: 10, color: MUTED }}>⏱ Live Detector</Text>
+            )}
           </View>
+          {onNavigateToMap && (
+            <TouchableOpacity
+              style={{ backgroundColor: NAVY, paddingVertical: 6, borderRadius: 6, alignItems: "center", marginTop: 8 }}
+              onPress={onNavigateToMap}
+            >
+              <Text style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}>🗺️ View on Map</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
-      {alerts.map((a) => (
-        <View style={s.bigAlert} key={a.id}>
-          <View style={s.bigAlertHead}>
-            <View style={[s.alertPill, { backgroundColor: (a.level === "RED" ? RED : ORANGE) + "16" }]}>
-              <Text style={{ color: a.level === "RED" ? RED : ORANGE, fontSize: 10, fontWeight: "800" }}>
-                🌊 FLOOD RISK · {a.level}
-              </Text>
-            </View>
-            <Text style={s.alertId}>{a.id}</Text>
-          </View>
-          <Text style={s.bigAlertTitle}>{a.title}</Text>
-          <Text style={s.bigAlertText}>{a.message}</Text>
-          <View style={s.bigAlertFoot}>
-            <Text>📍 {a.zoneName || zone.name}</Text>
-            <Text>⏱ {t.eta} {a.eta}</Text>
-          </View>
+      {/* Multi-Source Alerts */}
+      {alerts.map((a) => {
+        const aLat = a.lat ?? a.latitude;
+        const aLng = a.lng ?? a.longitude;
+        const distKm = a.distance_km != null ? a.distance_km : (hasUserLoc && aLat && aLng ? calcHaversineDistanceKm(userLoc.latitude, userLoc.longitude, aLat, aLng) : null);
+        const eta = a.eta || (distKm != null ? `~${Math.max(1, Math.round(distKm * 3.5 + 1))} min` : null);
 
-          {/* Alert Feedback Buttons */}
-          <View style={s.alertFeedbackRow}>
-            <TouchableOpacity style={s.feedbackBtn} onPress={() => handleFeedback(a.id, "RESOLVED")}>
-              <Ionicons name="checkmark-done" size={13} color={GREEN} />
-              <Text style={{ fontSize: 9, fontWeight: "700", color: GREEN }}>{t.markResolved}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[s.feedbackBtn, { borderColor: "#FCA5A5" }]} onPress={() => handleFeedback(a.id, "FALSE_ALARM")}>
-              <Ionicons name="close" size={13} color={RED} />
-              <Text style={{ fontSize: 9, fontWeight: "700", color: RED }}>{t.falseAlarm}</Text>
-            </TouchableOpacity>
+        const isRed = a.level === "RED" || a.severity === "CRITICAL";
+        const color = isRed ? RED : ORANGE;
+        const sourceIcon = a.source === "lightning" ? "⚡" : a.source === "rainfall" ? "🌧️" : a.source === "drainage" ? "🚧" : a.source === "incident" || a.type === "sos" ? "🚨" : "🌊";
+        const sourceTitle = a.source === "lightning" ? "LIGHTNING" : a.source === "rainfall" ? "RAINFALL RADAR" : a.source === "drainage" ? "DRAINAGE" : a.source === "incident" ? "INCIDENT SOS" : "FLOOD RISK";
+
+        const isSosAlert = a.isSos || a.type === "sos" || a.type === "SOS" || a.source === "incident";
+        const repCount = a.reporter_count || a.reporterCount || (Array.isArray(a.reports) ? a.reports.length : (a.description && a.description.includes("reports within 500m") ? parseInt(a.description.match(/(\d+)\s+reports/)?.[1] || "1", 10) : 1));
+
+        return (
+          <View style={[s.bigAlert, { borderLeftWidth: 4, borderLeftColor: color }]} key={a.id}>
+            <View style={s.bigAlertHead}>
+              <View style={[s.alertPill, { backgroundColor: color + "16" }]}>
+                <Text style={{ color, fontSize: 10, fontWeight: "800" }}>
+                  {sourceIcon} {sourceTitle} · {a.level || a.severity || "ACTIVE"}
+                </Text>
+              </View>
+              <Text style={s.alertId}>{a.id}</Text>
+            </View>
+            <Text style={s.bigAlertTitle}>{a.title}</Text>
+            {isSosAlert && repCount > 1 && (
+              <View style={{ backgroundColor: "#FEE2E2", borderColor: "#FCA5A5", borderWidth: 1, borderRadius: 6, paddingVertical: 3, paddingHorizontal: 8, marginVertical: 4, alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Ionicons name="people" size={12} color="#991B1B" />
+                <Text style={{ fontSize: 10, fontWeight: "800", color: "#991B1B" }}>
+                  {repCount} SOS Reports Generated (500m Location Zone)
+                </Text>
+              </View>
+            )}
+            <Text style={s.bigAlertText}>{a.description || a.message}</Text>
+
+            {/* Location & Distance Foot */}
+            <View style={[s.bigAlertFoot, { flexWrap: "wrap", gap: 6, marginVertical: 6 }]}>
+              <Text style={{ fontSize: 10, color: NAVY, fontWeight: "700" }}>
+                📍 {a.location_name || a.area || a.zoneName || (aLat && aLng ? `${Number(aLat).toFixed(4)}, ${Number(aLng).toFixed(4)}` : "Location unavailable")}
+              </Text>
+              {hasUserLoc && distKm != null ? (
+                <Text style={{ fontSize: 10, color: BLUE, fontWeight: "800" }}>
+                  📏 {distKm} km from you {eta ? `· ⏱️ ${eta}` : ""}
+                </Text>
+              ) : (
+                <Text style={{ fontSize: 10, color: MUTED }}>
+                  {hasUserLoc ? "📍 Distance unavailable" : "📍 Enable location to see distance"}
+                </Text>
+              )}
+            </View>
+
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 1, borderTopColor: "#F1F5F9", paddingTop: 8, marginTop: 4 }}>
+              <Text style={{ fontSize: 9, color: MUTED }}>
+                Source: {a.sourceName || "VarshaRaksha Engine"}
+              </Text>
+              {onNavigateToMap && aLat && aLng && (
+                <TouchableOpacity
+                  style={{ backgroundColor: "#0F172A", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 5, flexDirection: "row", alignItems: "center", gap: 4 }}
+                  onPress={onNavigateToMap}
+                >
+                  <Ionicons name="map" size={11} color="#fff" />
+                  <Text style={{ color: "#fff", fontSize: 9, fontWeight: "800" }}>View on Map</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Alert Feedback Buttons */}
+            <View style={s.alertFeedbackRow}>
+              <TouchableOpacity
+                style={s.feedbackBtn}
+                onPress={() => handleFeedback(a.id, "RESOLVED")}
+                disabled={actionLoading[a.id]}
+              >
+                <Ionicons name="checkmark-done" size={13} color={GREEN} />
+                <Text style={{ fontSize: 9, fontWeight: "700", color: GREEN }}>{t.markResolved}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.feedbackBtn, { borderColor: "#FCA5A5" }]}
+                onPress={() => handleFeedback(a.id, "FALSE_ALARM")}
+                disabled={actionLoading[a.id]}
+              >
+                <Ionicons name="close" size={13} color={RED} />
+                <Text style={{ fontSize: 9, fontWeight: "700", color: RED }}>{t.falseAlarm}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      ))}
+        );
+      })}
     </ScrollView>
   );
 }
 
 // Incident Report Screen with Attached Photo & Video Preview Card + Live GPS Location Tracking
-function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
+function ReportScreen({ role, apiUrl, userLoc, userAddress, onSaved, onClose, t }) {
   const [note, setNote] = useState("");
   const [loc, setLoc] = useState(userLoc || { latitude: 19.132, longitude: 72.848 });
-  const [locAddress, setLocAddress] = useState("");
+  const [locAddress, setLocAddress] = useState(userAddress || "");
   const [locLoading, setLocLoading] = useState(false);
   const [photoUri, setPhotoUri] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -3162,23 +3802,50 @@ function ReportScreen({ role, apiUrl, userLoc, onSaved, onClose, t }) {
   const [recurrence, setRecurrence] = useState("No");
   const [submitting, setSubmitting] = useState(false);
 
-  // Live Location Auto-acquisition & Reverse Geocoding
+  // Live Location Auto-acquisition & Reverse Geocoding (Instant OS Cache + Fast 1.8s Timeout)
   const fetchLiveGps = async () => {
+    if (userAddress) setLocAddress(userAddress);
+    if (userLoc) setLoc(userLoc);
+
     setLocLoading(true);
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === "granted") {
-        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-        setLoc(pos.coords);
-        let addr = `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
-        try {
-          const geoRes = await fetchWithTimeout(`${apiUrl}/geocode?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`);
-          if (geoRes.ok) {
-            const geo = await geoRes.json();
-            addr = geo.road ? `${geo.road}, ${geo.ward || ""}` : (geo.displayName || addr);
+      let activeCoords = userLoc || null;
+      try {
+        const last = await Location.getLastKnownPositionAsync({});
+        if (last?.coords) {
+          activeCoords = last.coords;
+          setLoc(activeCoords);
+          if (!userAddress && !locAddress) {
+            setLocAddress(`${activeCoords.latitude.toFixed(4)}, ${activeCoords.longitude.toFixed(4)}`);
           }
-        } catch { }
-        setLocAddress(addr);
+        }
+      } catch (_) {}
+
+      // Fast race with 1.8s timeout
+      const getPos = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("GPS_TIMEOUT")), 1800));
+      try {
+        const pos = await Promise.race([getPos, timeoutPromise]);
+        if (pos?.coords) {
+          activeCoords = pos.coords;
+          setLoc(activeCoords);
+        }
+      } catch (_) {}
+
+      if (activeCoords) {
+        try {
+          const controller = new AbortController();
+          const tid = setTimeout(() => controller.abort(), 1800);
+          const geoRes = await fetch(`${apiUrl}/geocode/reverse?lat=${activeCoords.latitude}&lng=${activeCoords.longitude}`, {
+            signal: controller.signal
+          }).catch(() => null);
+          clearTimeout(tid);
+          if (geoRes && geoRes.ok) {
+            const geo = await geoRes.json();
+            const addr = (geo.road && geo.ward) ? `${geo.road}, ${geo.ward}` : (geo.road || geo.displayName || `${activeCoords.latitude.toFixed(4)}, ${activeCoords.longitude.toFixed(4)}`);
+            setLocAddress(addr);
+          }
+        } catch (_) {}
       }
     } catch (err) {
       console.log("GPS fetch error:", err);

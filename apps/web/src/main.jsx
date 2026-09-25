@@ -1,17 +1,19 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Routes, Route, NavLink, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   Activity, AlertTriangle, Bell, BrainCircuit, ChevronRight, CloudRain,
   Database, FileText, Gauge, Home, Layers3, Map, Menu, Radio, Route as RouteIcon,
   Settings, ShieldCheck, Siren, Users, Wrench, X, Zap, Send, RefreshCw, CheckCircle2,
   Droplets, ShieldAlert, Sparkles, Truck, Sliders, ChevronDown, ChevronUp, Download, Eye, AlertCircle,
   Search, MapPin, Compass, Loader2, WifiOff, Navigation, AlertOctagon, Video,
-  Play, Check, Copy, RotateCcw, Info
+  Play, Check, Copy, RotateCcw, Info, ArrowLeft, Clock, Award, Shield,
+  Trash2, ExternalLink, Filter, Building2, Flame, HeartPulse, Utensils, Droplet, Tent
 } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./styles.css";
+import { getAuthorityResourceCategory, getAuthorityResourceIcon } from "./resourceIconUtils.js";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
 
@@ -97,6 +99,185 @@ function playSosEmergencyChime() {
   } catch (_) {}
 }
 
+// Module-level icon cache to avoid recreating DOM elements and L.divIcon instances
+const LEAFLET_ICON_CACHE = new Map();
+
+function getCachedDivIcon(key, options) {
+  if (LEAFLET_ICON_CACHE.has(key)) {
+    return LEAFLET_ICON_CACHE.get(key);
+  }
+  const icon = L.divIcon(options);
+  LEAFLET_ICON_CACHE.set(key, icon);
+  return icon;
+}
+
+
+
+function getIncidentPopupHtml(inc) {
+  const statusUpper = String(inc.status || "").toUpperCase();
+  const isResolved = statusUpper === "RESOLVED" || inc.status === "Resolved";
+  const isFalseAlarm = statusUpper === "FALSE_ALARM" || inc.status === "False Alarm";
+  const isReached = statusUpper === "ON SCENE" || statusUpper === "ON_SCENE" || statusUpper === "REACHED_SITE" || inc.dispatchProgress === "on_scene";
+  const isEnRoute = statusUpper === "DISPATCHED" || statusUpper === "EN_ROUTE" || inc.dispatchProgress === "en_route";
+  const isAllocated = statusUpper === "RESOURCE ALLOCATED" || statusUpper === "RESOURCE_ALLOCATED" || statusUpper === "ALLOCATED" || Boolean(inc.assignedResource);
+  const isVerified = statusUpper === "VERIFIED";
+  const isSos = Boolean(inc.isSos || inc.type === "SOS" || inc.causeCode === "SOS_EMERGENCY");
+
+  const statusBadgeClass = isResolved
+    ? "background:#dcfce7;color:#166534;border:1px solid #86efac;"
+    : isFalseAlarm
+    ? "background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;"
+    : isReached
+    ? "background:#ecfdf5;color:#047857;border:1px solid #6ee7b7;"
+    : isEnRoute
+    ? "background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd;"
+    : isAllocated
+    ? "background:#f0f9ff;color:#0369a1;border:1px solid #7dd3fc;"
+    : isVerified
+    ? "background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;"
+    : "background:#fef2f2;color:#b91c1c;border:1px solid #fca5a5;";
+
+  const repCount = inc.reporter_count || (inc.reports && inc.reports.length) || 1;
+
+  return `
+    <div style="min-width: 220px; font-family: sans-serif;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <b style="font-size:13px; color:#0f172a;">${inc.id}</b>
+        <span style="font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px; ${statusBadgeClass}">
+          ${inc.status || (isSos ? "ACTIVE SOS" : "RECEIVED")}
+        </span>
+      </div>
+      ${isSos ? `<div style="background:#ef4444;color:#fff;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:800;margin-bottom:6px;display:inline-block;">🚨 ACTIVE SOS · ${repCount} ${repCount === 1 ? 'Person Reported' : 'Reports within 500m'}</div>` : ''}
+      <div style="font-size:12px; font-weight:700; color:#1e293b; margin-bottom:2px;">
+        ${inc.reporter || "Citizen"} <span style="font-size:10px; font-weight:normal; color:#64748b;">(${inc.role || "Citizen"})</span>
+      </div>
+      <div style="font-size:11px; color:#475569; margin:2px 0;">📍 ${inc.address || "Live Area"}</div>
+      <div style="font-size:10px; color:#64748b; margin-bottom:4px;">
+        Cause: <b>${inc.cause || "Severe Flooding"}</b> · Severity: <b>${inc.severity || (isSos ? 95 : 50)}/100</b>
+      </div>
+      ${isSos && inc.nearestResource ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:4px 6px;margin:4px 0 6px 0;font-size:10px;color:#1e40af;"><b>⚡ Nearest Unit:</b> ${inc.nearestResource.name} (${inc.nearestResource.distanceKm != null ? `${inc.nearestResource.distanceKm} km` : "nearby"})</div>` : inc.assignedTeam ? `<div style="font-size:10px; color:#0284c7; font-weight:700; margin-bottom:6px;">🚒 Assigned: ${inc.assignedTeam}</div>` : ''}
+      <div style="display:flex; flex-direction:column; gap:5px; margin-top:8px;">
+        <button
+          onclick="window.__openIncidentDetail('${inc.id}')"
+          style="background:linear-gradient(135deg, #2563eb, #1d4ed8); color:#fff; border:none; border-radius:6px; padding:6px 10px; font-size:11px; font-weight:700; cursor:pointer; width:100%; display:flex; align-items:center; justify-content:center; gap:4px; box-shadow:0 2px 6px rgba(37,99,235,0.35);"
+        >
+          ⚡ Manage Incident & Allocate Resources &rarr;
+        </button>
+        <div style="display:flex; gap:4px;">
+          <button
+            onclick="window.__resolveIncident('${inc.id}')"
+            style="background:#16a34a; color:#fff; border:none; border-radius:6px; padding:5px 8px; font-size:10px; font-weight:700; cursor:pointer; flex:1; display:flex; align-items:center; justify-content:center; gap:3px; box-shadow:0 2px 4px rgba(22,163,74,0.25);"
+            title="Mark incident as resolved and remove from active map"
+          >
+            ✓ Mark Resolved
+          </button>
+          <button
+            onclick="window.__falseAlarmIncident('${inc.id}')"
+            style="background:#475569; color:#fff; border:none; border-radius:6px; padding:5px 8px; font-size:10px; font-weight:700; cursor:pointer; flex:1; display:flex; align-items:center; justify-content:center; gap:3px;"
+            title="Mark as false alarm and dismiss"
+          >
+            ✕ False Alarm
+          </button>
+        </div>
+        <a
+          href="https://www.google.com/maps/dir/?api=1&destination=${inc.lat},${inc.lng}&travelmode=driving"
+          target="_blank"
+          rel="noreferrer"
+          style="background:#f8fafc; color:#334155; border:1px solid #cbd5e1; padding:4px 8px; border-radius:6px; font-size:10px; font-weight:600; text-decoration:none; text-align:center;"
+        >
+          Track on Google Maps ↗
+        </a>
+      </div>
+    </div>
+  `;
+}
+
+function getShelterPopupHtml(sh, isSelected, isVerified) {
+  return `
+    <div style="min-width:220px;">
+      <span style="background:${isVerified ? "#dcfce7" : "#e0f2fe"};color:${isVerified ? "#15803d" : "#0369a1"};font-size:9px;font-weight:bold;padding:2px 6px;border-radius:4px;display:inline-block;margin-bottom:4px;">
+        ${isVerified ? "✓ VERIFIED SHELTER" : `DISCOVERED (${sh.provider?.toUpperCase() || "OSM"})`}
+      </span>
+      <div style="font-weight:bold;font-size:13px;color:#0f172a;">${sh.name}</div>
+      <div style="font-size:10px;color:#64748b;margin:2px 0;">🏷️ ${sh.type || sh.shelterType || "Relief Center"}</div>
+      ${sh.agency ? `<div style="font-size:10px;color:#2563eb;font-weight:600;">🤝 ${sh.agency}</div>` : ""}
+      <div style="font-size:10px;color:#475569;margin:3px 0;">📍 ${sh.address || ""}</div>
+      <div style="font-size:10px;background:#f8fafc;padding:4px 6px;border-radius:4px;margin:4px 0;">
+        <b>${sh.distance_km ?? sh.distanceKm ?? 1.2} km</b> away · <b>${sh.eta_minutes ?? sh.etaMin ?? 5} min ETA</b>
+      </div>
+      ${sh.capacity ? `<div style="font-size:10px;color:#16a34a;font-weight:600;">Capacity: ${sh.capacity}</div>` : ""}
+      ${sh.phone ? `<div style="font-size:10px;color:#334155;margin-top:2px;">📞 ${sh.phone}</div>` : ""}
+      <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px;">
+        <button
+          onclick="window.__selectShelterRoute('${sh.id}')"
+          style="background:linear-gradient(135deg, #2563eb, #1d4ed8);color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;box-shadow:0 2px 6px rgba(37,99,235,0.3);"
+        >
+          🗺️ Show Safest Evacuation Route
+        </button>
+        ${sh.maps_url || (sh.lat && sh.lng) ? `
+          <a
+            href="${sh.maps_url || `https://www.google.com/maps/dir/?api=1&destination=${sh.lat},${sh.lng}&travelmode=driving`}"
+            target="_blank"
+            rel="noreferrer"
+            style="font-size:10px;color:#2563eb;text-align:center;text-decoration:none;margin-top:4px;font-weight:600;"
+          >
+            External Google Maps &rarr;
+          </a>
+        ` : ""}
+      </div>
+    </div>
+  `;
+}
+
+function getTeamPopupHtml(team, isEnRoute, isOnScene, catUpper) {
+  const catInfo = getAuthorityResourceCategory(team);
+  return `
+    <div style="min-width: 220px; font-family: sans-serif;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px;">
+        <span class="map-badge ${isEnRoute ? "orange" : isOnScene ? "blue" : "green"}">${(team.status || "AVAILABLE").toUpperCase()}</span>
+        ${team.eta ? `<span style="font-size:10px;font-weight:700;color:#f59e0b;">⏱️ ${team.eta}</span>` : ""}
+      </div>
+      <div style="font-size:13px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+        <span style="font-size:16px;">${catInfo.icon}</span> <span>${team.name}</span>
+      </div>
+      <div style="font-size:11px;color:#64748b;margin:2px 0;">📍 ${team.base_location || team.address || team.station || "Facility"}</div>
+      <div style="font-size:11px;margin:3px 0;color:#334155;">
+        Category: <b style="color:${catInfo.color};">${catInfo.label}</b>
+        ${team.quantity ? ` · Qty: <b>${team.quantity} ${team.unit || ""}</b>` : team.capacity ? ` · Cap: <b>${team.capacity}</b>` : ""}
+      </div>
+      ${team.agency ? `<div style="font-size:10px;color:#2563eb;font-weight:600;margin-top:2px;">🏛️ ${team.agency}</div>` : ""}
+      ${team.currentIncidentId ? `<div style="font-size:10px;color:#2563eb;font-weight:700;margin-top:4px;">🎯 Assigned: ${team.currentIncidentId}</div>` : ""}
+    </div>
+  `;
+}
+
+function getZonePopupHtml(z, level, zoneIncidentsCount = 0) {
+  const riskLevelText = z.risk >= 75 ? "🔴 CRITICAL RISK" : z.risk >= 45 ? "🟠 ELEVATED RISK" : "🟢 NORMAL";
+  const riskColor = z.risk >= 75 ? "#dc2626" : z.risk >= 45 ? "#ea580c" : "#16a34a";
+  return `
+    <div style="min-width: 220px; font-family: sans-serif; padding: 2px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <span class="map-badge ${level}">RISK SCORE: ${z.risk}/100</span>
+        <span style="font-size:10px;font-weight:700;color:${riskColor};">${riskLevelText}</span>
+      </div>
+      <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:2px;">${z.name}</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:6px;">📍 ${z.ward || "Civic Zone"} · ID: <b>${z.id || "Z-01"}</b></div>
+      <div style="background:#f8fafc;padding:6px 8px;border-radius:6px;border:1px solid #e2e8f0;margin-bottom:8px;">
+        <div style="font-size:11px;color:#334155;margin:2px 0;">🌧️ Rainfall: <b>${z.rainfall || 0} mm/hr</b></div>
+        <div style="font-size:11px;color:#334155;margin:2px 0;">🌊 Water Depth: <b>${z.waterLevel ? `${z.waterLevel} cm` : "Normal"}</b></div>
+        <div style="font-size:11px;color:#334155;margin:2px 0;">⚠️ Diagnosis: <b>${z.cause || "Normal Drainage"}</b></div>
+        <div style="font-size:11px;color:#334155;margin:2px 0;">🚨 Active Incidents: <b style="color:${zoneIncidentsCount > 0 ? "#dc2626" : "#16a34a"};">${zoneIncidentsCount}</b></div>
+      </div>
+      <button
+        onclick="window.__openZoneDetails('${z.id || z.name}')"
+        style="width:100%;background:linear-gradient(135deg, #2563eb, #1d4ed8);color:#fff;border:none;padding:7px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 2px 6px rgba(37,99,235,0.3);transition:all 0.2s ease;"
+      >
+        🗺️ Open Zone Details &rarr;
+      </button>
+    </div>
+  `;
+}
+
 // Leaflet Map Component with Google Maps API tiles, Rainfall Radar Overlay, Drainage GIS Layer, Live Team Pins, and Safest Route Highlighting
 function LeafletMap({
   zones = [],
@@ -104,6 +285,7 @@ function LeafletMap({
   resources = [],
   shelters = [],
   selectedShelter = null,
+  selectedZoneId = null,
   activeRoute = null,
   center = [19.132, 72.848],
   userLocation = [19.132, 72.848],
@@ -111,9 +293,14 @@ function LeafletMap({
   zoom = 14,
   height = "380px",
   onSelectShelter,
+  onSelectZone,
+  onNavigateZone,
   onClearRoute,
   onVerify,
-  onFalseAlarm
+  onResolve,
+  onFalseAlarm,
+  onNavigateIncident,
+  showHistoricalIncidents = false
 }) {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
@@ -129,13 +316,23 @@ function LeafletMap({
     user: null
   });
 
+  // Dedicated refs to maintain persistent objects and avoid recreating DOM elements/markers on state churn
+  const userMarkerRef = useRef(null);
+  const incidentMarkersRef = useRef(new Map()); // id -> { marker, hash }
+  const teamMarkersRef = useRef(new Map()); // id -> { marker, line, hash }
+  const shelterMarkersRef = useRef(new Map()); // id -> { marker, hash }
+  const zoneMarkersRef = useRef(new Map()); // id -> { marker, hash }
+  const rainCirclesRef = useRef(new Map()); // id -> { circle, hash }
+  const drainPolylinesRef = useRef([]);
+  const routeLinesRef = useRef({ casing: null, core: null, hash: null });
+
   const [mapStyle, setMapStyle] = useState("google-roadmap");
   const [showRainfall, setShowRainfall] = useState(true);
   const [showDrainage, setShowDrainage] = useState(true);
   const [showTeams, setShowTeams] = useState(true);
   const [showShelters, setShowShelters] = useState(true);
 
-  // Global window hook so popup buttons can select a shelter route
+  // Global window hooks for popup interactive actions & navigation
   useEffect(() => {
     window.__selectShelterRoute = (shId) => {
       const sh = shelters.find((s) => s.id === shId);
@@ -143,12 +340,57 @@ function LeafletMap({
         onSelectShelter(sh);
       }
     };
+    window.__openIncidentDetail = (incId) => {
+      if (onNavigateIncident) {
+        onNavigateIncident(incId);
+      }
+    };
+    window.__openZoneDetails = (zoneId) => {
+      if (onNavigateZone) {
+        onNavigateZone(zoneId);
+      } else if (onSelectZone) {
+        const target = String(zoneId).toLowerCase();
+        const found = zones.find((z) => String(z.id || "").toLowerCase() === target || String(z.name || "").toLowerCase() === target);
+        if (found) onSelectZone(found);
+      }
+    };
+    window.__resolveIncident = async (incId) => {
+      if (mapInstance.current) {
+        mapInstance.current.closePopup();
+      }
+      if (typeof onResolve === "function") {
+        onResolve(incId);
+      } else {
+        try {
+          await apiFetch(`/incidents/${incId}/resolve`, { method: "POST" });
+        } catch (err) {
+          console.error("Resolve error:", err);
+        }
+      }
+    };
+    window.__falseAlarmIncident = async (incId) => {
+      if (mapInstance.current) {
+        mapInstance.current.closePopup();
+      }
+      if (typeof onFalseAlarm === "function") {
+        onFalseAlarm(incId);
+      } else {
+        try {
+          await apiFetch(`/incidents/${incId}/false-alarm`, { method: "POST" });
+        } catch (err) {
+          console.error("False alarm error:", err);
+        }
+      }
+    };
     return () => {
       delete window.__selectShelterRoute;
+      delete window.__openIncidentDetail;
+      delete window.__resolveIncident;
+      delete window.__falseAlarmIncident;
     };
-  }, [shelters, onSelectShelter]);
+  }, [shelters, onSelectShelter, onNavigateIncident, onResolve, onFalseAlarm]);
 
-  // Initialize Map
+  // 1. Initialize Leaflet Map (Mounted once, persists across updates)
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -174,9 +416,17 @@ function LeafletMap({
 
       mapInstance.current = map;
     }
+
+    return () => {
+      // Clean up map instance only when component actually unmounts
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+      }
+    };
   }, []);
 
-  // Update Base Tile Layer when mapStyle changes
+  // 2. Update Base Tile Layer when mapStyle changes
   useEffect(() => {
     if (!mapInstance.current) return;
     const cfg = MAP_LAYERS[mapStyle] || MAP_LAYERS["google-roadmap"];
@@ -187,7 +437,7 @@ function LeafletMap({
     tileLayerRef.current.bringToBack();
   }, [mapStyle]);
 
-  // Auto-resize Leaflet canvas on container width changes
+  // 3. Auto-resize Leaflet canvas on container width changes
   useEffect(() => {
     if (!mapRef.current) return;
     const observer = new ResizeObserver(() => {
@@ -200,7 +450,7 @@ function LeafletMap({
   const prevCenterRef = useRef(null);
   const prevRouteRef = useRef(null);
 
-  // Animate pan/zoom ONLY when the target center coordinates actually change (prevents auto zoom-out resets on background data/SSE polling)
+  // 4. Animate pan/zoom ONLY when center coordinates meaningfully change (preserves user view during background sync)
   useEffect(() => {
     if (!mapInstance.current || !center || center.length !== 2 || center[0] == null || center[1] == null || activeRoute) return;
     const prev = prevCenterRef.current;
@@ -211,52 +461,69 @@ function LeafletMap({
     }
   }, [center?.[0], center?.[1], activeRoute, zoom]);
 
-  // Update Map Layers
+  // 5. USER / SHOP LOCATION PIN LAYER (In-place update: does not destroy marker on GPS updates)
   useEffect(() => {
-    if (!mapInstance.current) return;
-    const {
-      zones: zoneLayer,
-      incidents: incLayer,
-      rainfall: rainLayer,
-      drainage: drainLayer,
-      teams: teamLayer,
-      shelters: shelterLayer,
-      route: routeLayer,
-      user: userLayer
-    } = layersRef.current;
+    const userLayer = layersRef.current.user;
+    if (!userLayer) return;
 
-    // Clear all layers
-    zoneLayer.clearLayers();
-    incLayer.clearLayers();
-    rainLayer.clearLayers();
-    drainLayer.clearLayers();
-    teamLayer.clearLayers();
-    if (shelterLayer) shelterLayer.clearLayers();
-    if (routeLayer) routeLayer.clearLayers();
-    if (userLayer) userLayer.clearLayers();
-
-    // 0. USER / SHOP LOCATION PIN
-    if (userLayer && userLocation && userLocation.length === 2 && userLocation[0] && userLocation[1]) {
-      const userIcon = L.divIcon({
+    if (userLocation && userLocation.length === 2 && userLocation[0] && userLocation[1]) {
+      const userIcon = getCachedDivIcon("user-location-marker", {
         className: "custom-user-marker",
         html: `<div style="background:#2563eb;color:#fff;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:18px;border:3px solid #fff;box-shadow:0 0 0 6px rgba(37,99,235,0.3), 0 3px 10px rgba(0,0,0,0.4);" title="${userLocationName || "Your Active Location"}">🏪</div>`,
         iconSize: [34, 34],
         iconAnchor: [17, 17]
       });
-      const userMarker = L.marker(userLocation, { icon: userIcon });
-      userMarker.bindPopup(`<b>🏪 Your Active Location</b><br/>${userLocationName || "Active Location"}<br/><small style="color:#64748b;">Coordinates: ${userLocation[0].toFixed(4)}, ${userLocation[1].toFixed(4)}</small>`);
-      userMarker.addTo(userLayer);
+
+      const popupHtml = `<b>🏪 Your Active Location</b><br/>${userLocationName || "Active Location"}<br/><small style="color:#64748b;">Coordinates: ${userLocation[0].toFixed(4)}, ${userLocation[1].toFixed(4)}</small>`;
+
+      if (!userMarkerRef.current) {
+        const marker = L.marker(userLocation, { icon: userIcon, zIndexOffset: 900 });
+        marker.bindPopup(popupHtml);
+        marker.addTo(userLayer);
+        userMarkerRef.current = marker;
+      } else {
+        userMarkerRef.current.setLatLng(userLocation);
+        userMarkerRef.current.setPopupContent(popupHtml);
+      }
+    } else if (userMarkerRef.current) {
+      userLayer.removeLayer(userMarkerRef.current);
+      userMarkerRef.current = null;
+    }
+  }, [userLocation?.[0], userLocation?.[1], userLocationName]);
+
+  // 6. RAINFALL RADAR OVERLAY LAYER (In-place updates)
+  useEffect(() => {
+    const rainLayer = layersRef.current.rainfall;
+    if (!rainLayer) return;
+
+    if (!showRainfall) {
+      rainLayer.clearLayers();
+      rainCirclesRef.current.clear();
+      return;
     }
 
-    // 1. RAINFALL RADAR OVERLAY LAYER
-    if (showRainfall) {
-      zones.forEach((z) => {
-        if (!z.lat || !z.lng) return;
-        const rainMm = z.rainfall || 0;
-        const radius = Math.max(250, Math.min(650, 200 + rainMm * 20));
-        const color = rainMm > 15 ? "#1d4ed8" : rainMm > 5 ? "#3b82f6" : "#60a5fa";
-        const fillOpacity = Math.min(0.45, Math.max(0.15, rainMm * 0.04));
+    const currentZoneIds = new Set();
+    zones.forEach((z) => {
+      if (!z.lat || !z.lng) return;
+      const zoneId = z.id || z.name;
+      currentZoneIds.add(zoneId);
 
+      const rainMm = z.rainfall || 0;
+      const radius = Math.max(250, Math.min(650, 200 + rainMm * 20));
+      const color = rainMm > 15 ? "#1d4ed8" : rainMm > 5 ? "#3b82f6" : "#60a5fa";
+      const fillOpacity = Math.min(0.45, Math.max(0.15, rainMm * 0.04));
+      const hash = `${z.lat}_${z.lng}_${rainMm}`;
+
+      const existing = rainCirclesRef.current.get(zoneId);
+      if (existing) {
+        if (existing.hash !== hash) {
+          existing.circle.setLatLng([z.lat, z.lng]);
+          existing.circle.setRadius(radius);
+          existing.circle.setStyle({ color, fillColor: color, fillOpacity });
+          existing.circle.setTooltipContent(`🌧️ <b>${z.name} Rain Radar</b><br/>Live precipitation: <b>${rainMm} mm</b>`);
+          existing.hash = hash;
+        }
+      } else {
         const circle = L.circle([z.lat, z.lng], {
           radius,
           color,
@@ -267,10 +534,27 @@ function LeafletMap({
         });
         circle.bindTooltip(`🌧️ <b>${z.name} Rain Radar</b><br/>Live precipitation: <b>${rainMm} mm</b>`, { sticky: true });
         circle.addTo(rainLayer);
-      });
-    }
+        rainCirclesRef.current.set(zoneId, { circle, hash });
+      }
+    });
 
-    // 2. DRAINAGE NETWORK GIS LAYER
+    // Remove deleted zones
+    for (const [id, item] of rainCirclesRef.current.entries()) {
+      if (!currentZoneIds.has(id)) {
+        rainLayer.removeLayer(item.circle);
+        rainCirclesRef.current.delete(id);
+      }
+    }
+  }, [zones, showRainfall]);
+
+  // 7. DRAINAGE NETWORK GIS LAYER (Static / low-frequency update)
+  useEffect(() => {
+    const drainLayer = layersRef.current.drainage;
+    if (!drainLayer) return;
+
+    drainLayer.clearLayers();
+    drainPolylinesRef.current = [];
+
     if (showDrainage) {
       const uL = userLocation && userLocation[0] ? userLocation : [19.132, 72.848];
       const drainageChannels = [
@@ -287,241 +571,494 @@ function LeafletMap({
         });
         line.bindTooltip("🌊 <b>Arterial Stormwater Channel</b><br/>Gravity flow outfall corridor", { sticky: true });
         line.addTo(drainLayer);
+        drainPolylinesRef.current.push(line);
       });
     }
+  }, [showDrainage, userLocation?.[0], userLocation?.[1]]);
 
-    // 3. WARD RISK ZONE PINS
+  // 8. WARD RISK ZONE PINS & INTERACTIVE BOUNDARY POLYGONS LAYER
+  useEffect(() => {
+    const zoneLayer = layersRef.current.zones;
+    if (!zoneLayer) return;
+
+    const currentZoneIds = new Set();
     zones.forEach((z) => {
       if (!z.lat || !z.lng) return;
+      const zoneId = z.id || z.name;
+      currentZoneIds.add(zoneId);
+
       const level = z.risk >= 75 ? "red" : z.risk >= 45 ? "orange" : "green";
-      const icon = L.divIcon({
-        className: "custom-zone-marker-container",
-        html: `<div class="custom-zone-marker ${level}" style="width:38px;height:38px;">${z.risk}</div>`,
-        iconSize: [38, 38],
-        iconAnchor: [19, 19]
-      });
+      const isSelected = selectedZoneId === zoneId || selectedZoneId === z.id;
+      const hash = `${z.lat}_${z.lng}_${z.risk}_${level}_${z.rainfall || 0}_${z.cause || ""}_${isSelected ? "sel" : "norm"}`;
 
-      const marker = L.marker([z.lat, z.lng], { icon });
-      marker.bindPopup(`
-        <div>
-          <span class="map-badge ${level}">RISK SCORE: ${z.risk}/100</span>
-          <b>${z.name}</b>
-          <div style="font-size:10px;color:#64748b;margin-bottom:4px;">${z.ward || "Civic Zone"}</div>
-          <div style="font-size:11px;margin:2px 0;">Rainfall: <b>${z.rainfall || 0} mm</b></div>
-          <div style="font-size:11px;margin:2px 0;">Diagnosis: <b>${z.cause || "Normal Drainage"}</b></div>
-        </div>
-      `);
-      marker.addTo(zoneLayer);
-    });
+      const zoneIncidentsCount = incidents.filter((inc) => inc.zoneId === z.id || inc.zoneId === z.name).length;
 
-    // 4. CITIZEN INCIDENT REPORTS & CRITICAL SOS EMERGENCY PINS
-    incidents.forEach((inc) => {
-      if (!inc.lat || !inc.lng) return;
-      const isSos = Boolean(inc.isSos || inc.type === "SOS" || inc.status === "ACTIVE_SOS" || inc.causeCode === "SOS_EMERGENCY");
-      const isCritical = inc.waterLevel >= 40 || inc.severity >= 70;
-      const markerColor = isCritical ? "#ef4444" : "#f97316";
-
-      let icon;
-      if (isSos) {
-        icon = L.divIcon({
-          className: "custom-sos-marker-container",
+      const existing = zoneMarkersRef.current.get(zoneId);
+      if (existing) {
+        if (existing.hash !== hash) {
+          existing.marker.setLatLng([z.lat, z.lng]);
+          const icon = getCachedDivIcon(`zone-${level}-${z.risk}-${isSelected ? "sel" : "norm"}`, {
+            className: `custom-zone-marker-container ${isSelected ? "selected-zone" : ""}`,
+            html: `
+              <div style="position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+                ${isSelected ? '<div style="position:absolute;inset:-6px;border-radius:50%;background:rgba(37,99,235,0.4);animation:pulse-ring 2s infinite ease-in-out;"></div>' : ""}
+                <div class="custom-zone-marker ${level}" style="width:${isSelected ? "44px" : "38px"};height:${isSelected ? "44px" : "38px"};border:${isSelected ? "3px solid #2563eb" : "2px solid #fff"};box-shadow:0 3px 10px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-weight:900;">
+                  ${z.risk}
+                </div>
+              </div>
+            `,
+            iconSize: [isSelected ? 44 : 38, isSelected ? 44 : 38],
+            iconAnchor: [isSelected ? 22 : 19, isSelected ? 22 : 19]
+          });
+          existing.marker.setIcon(icon);
+          existing.marker.setPopupContent(getZonePopupHtml(z, level, zoneIncidentsCount));
+          
+          if (existing.polygon) {
+            existing.polygon.setLatLng([z.lat, z.lng]);
+            existing.polygon.setStyle({
+              color: isSelected ? "#2563eb" : (level === "red" ? "#ef4444" : level === "orange" ? "#f59e0b" : "#10b981"),
+              fillColor: level === "red" ? "#ef4444" : level === "orange" ? "#f59e0b" : "#10b981",
+              weight: isSelected ? 4 : 2,
+              fillOpacity: isSelected ? 0.35 : 0.18
+            });
+          }
+          existing.hash = hash;
+        }
+      } else {
+        const icon = getCachedDivIcon(`zone-${level}-${z.risk}-${isSelected ? "sel" : "norm"}`, {
+          className: `custom-zone-marker-container ${isSelected ? "selected-zone" : ""}`,
           html: `
-            <div class="custom-sos-marker-wrapper">
-              <div class="custom-sos-marker-pulse"></div>
-              <div class="custom-sos-marker" title="🚨 ACTIVE SOS DISTRESS: ${inc.reporter || "Citizen"}">🚨</div>
+            <div style="position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+              ${isSelected ? '<div style="position:absolute;inset:-6px;border-radius:50%;background:rgba(37,99,235,0.4);animation:pulse-ring 2s infinite ease-in-out;"></div>' : ""}
+              <div class="custom-zone-marker ${level}" style="width:${isSelected ? "44px" : "38px"};height:${isSelected ? "44px" : "38px"};border:${isSelected ? "3px solid #2563eb" : "2px solid #fff"};box-shadow:0 3px 10px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-weight:900;">
+                ${z.risk}
+              </div>
             </div>
           `,
+          iconSize: [isSelected ? 44 : 38, isSelected ? 44 : 38],
+          iconAnchor: [isSelected ? 22 : 19, isSelected ? 22 : 19]
+        });
+
+        // 1. Interactive Zone Marker Pin
+        const marker = L.marker([z.lat, z.lng], { icon, zIndexOffset: isSelected ? 800 : 200 });
+        marker.bindPopup(getZonePopupHtml(z, level, zoneIncidentsCount));
+        marker.on("click", () => {
+          if (onSelectZone) onSelectZone(z);
+        });
+        marker.addTo(zoneLayer);
+
+        // 2. Interactive Zone Perimeter Polygon / Circle
+        const polyColor = level === "red" ? "#ef4444" : level === "orange" ? "#f59e0b" : "#10b981";
+        const polygon = L.circle([z.lat, z.lng], {
+          radius: 450,
+          color: isSelected ? "#2563eb" : polyColor,
+          fillColor: polyColor,
+          fillOpacity: isSelected ? 0.35 : 0.18,
+          weight: isSelected ? 4 : 2,
+          dashArray: isSelected ? undefined : "6, 4",
+          interactive: true
+        });
+
+        polygon.bindTooltip(`📍 <b>${z.name}</b> (${z.ward || "Zone"})<br/>Risk Score: <b>${z.risk}/100</b> · Click to view details`, { sticky: true });
+
+        polygon.on("mouseover", () => {
+          polygon.setStyle({ weight: 3.5, fillOpacity: 0.3 });
+        });
+        polygon.on("mouseout", () => {
+          polygon.setStyle({
+            weight: isSelected ? 4 : 2,
+            fillOpacity: isSelected ? 0.35 : 0.18,
+            color: isSelected ? "#2563eb" : polyColor
+          });
+        });
+        polygon.on("click", () => {
+          if (onSelectZone) onSelectZone(z);
+          marker.openPopup();
+        });
+        polygon.addTo(zoneLayer);
+
+        zoneMarkersRef.current.set(zoneId, { marker, polygon, hash });
+      }
+    });
+
+    for (const [id, item] of zoneMarkersRef.current.entries()) {
+      if (!currentZoneIds.has(id)) {
+        zoneLayer.removeLayer(item.marker);
+        if (item.polygon) zoneLayer.removeLayer(item.polygon);
+        zoneMarkersRef.current.delete(id);
+      }
+    }
+  }, [zones, selectedZoneId, incidents]);
+
+  // 9. CITIZEN INCIDENT REPORTS & CRITICAL SOS EMERGENCY PINS (High Performance In-Place Diffing)
+  useEffect(() => {
+    const incLayer = layersRef.current.incidents;
+    if (!incLayer) return;
+
+    const currentActiveIds = new Set();
+
+    incidents.forEach((inc) => {
+      if (!inc.lat || !inc.lng) return;
+
+      const statusUpper = String(inc.status || "").toUpperCase();
+      const isResolved = statusUpper === "RESOLVED" || inc.status === "Resolved";
+      const isFalseAlarm = statusUpper === "FALSE_ALARM" || inc.status === "False Alarm";
+      const isQuarantined = inc.isQuarantined || inc.status === "Quarantined Spam";
+
+      // Filter out resolved / false alarms from active map unless historical view is requested
+      if ((isResolved || isFalseAlarm || isQuarantined) && !showHistoricalIncidents) {
+        return;
+      }
+
+      currentActiveIds.add(inc.id);
+
+      const isReached = statusUpper === "ON SCENE" || statusUpper === "ON_SCENE" || statusUpper === "REACHED_SITE" || inc.dispatchProgress === "on_scene";
+      const isEnRoute = statusUpper === "DISPATCHED" || statusUpper === "EN_ROUTE" || inc.dispatchProgress === "en_route";
+      const isAllocated = statusUpper === "RESOURCE ALLOCATED" || statusUpper === "RESOURCE_ALLOCATED" || statusUpper === "ALLOCATED" || Boolean(inc.assignedResource);
+      const isVerified = statusUpper === "VERIFIED";
+      const isSos = Boolean(inc.isSos || inc.type === "SOS" || inc.causeCode === "SOS_EMERGENCY");
+      const isCritical = inc.waterLevel >= 40 || inc.severity >= 70;
+      const repCount = inc.reporter_count || (inc.reports && inc.reports.length) || 1;
+
+      // Icon determination with cache key
+      let icon;
+      let iconKey;
+      if (isResolved) {
+        iconKey = "inc-resolved";
+        icon = getCachedDivIcon(iconKey, {
+          className: "custom-resolved-marker",
+          html: `<div style="background:#16a34a;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.25);" title="RESOLVED: ${inc.id}">✓</div>`,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14]
+        });
+      } else if (isFalseAlarm) {
+        iconKey = "inc-falsealarm";
+        icon = getCachedDivIcon(iconKey, {
+          className: "custom-falsealarm-marker",
+          html: `<div style="background:#64748b;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:2px solid #fff;" title="FALSE ALARM: ${inc.id}">✕</div>`,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13]
+        });
+      } else if (isReached) {
+        iconKey = "inc-reached";
+        icon = getCachedDivIcon(iconKey, {
+          className: "custom-reached-marker",
+          html: `<div style="position:relative;display:flex;align-items:center;justify-content:center;"><div style="position:absolute;inset:-6px;border-radius:50%;background:rgba(16,185,129,0.4);animation:pulse-ring 2s infinite ease-in-out;"></div><div style="background:#10b981;color:#fff;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2.5px solid #fff;box-shadow:0 4px 12px rgba(16,185,129,0.4);" title="ON SCENE">📍</div></div>`,
+          iconSize: [34, 34],
+          iconAnchor: [17, 17]
+        });
+      } else if (isEnRoute) {
+        iconKey = "inc-enroute";
+        icon = getCachedDivIcon(iconKey, {
+          className: "custom-enroute-marker",
+          html: `<div style="position:relative;display:flex;align-items:center;justify-content:center;"><div style="position:absolute;inset:-6px;border-radius:50%;background:rgba(59,130,246,0.4);animation:pulse-ring 1.8s infinite ease-in-out;"></div><div style="background:#2563eb;color:#fff;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:2.5px solid #fff;box-shadow:0 4px 12px rgba(37,99,235,0.4);" title="EN ROUTE">🚑</div></div>`,
+          iconSize: [34, 34],
+          iconAnchor: [17, 17]
+        });
+      } else if (isAllocated) {
+        iconKey = "inc-allocated";
+        icon = getCachedDivIcon(iconKey, {
+          className: "custom-allocated-marker",
+          html: `<div style="background:#0284c7;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;border:2px solid #fff;box-shadow:0 3px 10px rgba(2,132,199,0.4);" title="RESOURCE ALLOCATED">🔵</div>`,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16]
+        });
+      } else if (isVerified) {
+        iconKey = "inc-verified";
+        icon = getCachedDivIcon(iconKey, {
+          className: "custom-verified-marker",
+          html: `<div style="background:#ea580c;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;border:2px solid #fff;box-shadow:0 3px 10px rgba(234,88,12,0.4);" title="VERIFIED">✓</div>`,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16]
+        });
+      } else if (isSos) {
+        iconKey = `inc-sos-${repCount}`;
+        const countBadge = repCount > 1
+          ? `<div style="position:absolute;top:-6px;right:-10px;background:#b91c1c;color:#fff;border-radius:12px;padding:2px 7px;font-size:10px;font-weight:900;border:1.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);white-space:nowrap;letter-spacing:0.3px;">${repCount} Reports</div>`
+          : "";
+        icon = getCachedDivIcon(iconKey, {
+          className: "custom-sos-marker-container",
+          html: `<div class="custom-sos-marker-wrapper" style="position:relative;"><div class="custom-sos-marker-pulse"></div><div class="custom-sos-marker" title="🚨 ACTIVE SOS DISTRESS (${repCount} reports)">🚨</div>${countBadge}</div>`,
           iconSize: [48, 48],
           iconAnchor: [24, 24]
         });
       } else {
-        icon = L.divIcon({
+        const markerColor = isCritical ? "#ef4444" : "#f97316";
+        iconKey = `inc-std-${isCritical ? "crit" : "warn"}`;
+        icon = getCachedDivIcon(iconKey, {
           className: "custom-incident-marker-container",
-          html: `<div class="custom-incident-marker" style="background:${markerColor};" title="${inc.reporter || "Citizen Report"}">⚠️</div>`,
+          html: `<div class="custom-incident-marker" style="background:${markerColor};" title="Citizen Report">⚠️</div>`,
           iconSize: [28, 28],
           iconAnchor: [14, 14]
         });
       }
 
-      const marker = L.marker([inc.lat, inc.lng], { icon, zIndexOffset: isSos ? 1000 : 0 });
-      if (isSos) {
-        marker.bindPopup(`
-          <div style="min-width: 210px;">
-            <div style="background:#ef4444;color:#fff;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:800;margin-bottom:6px;display:inline-block;letter-spacing:0.5px;">
-              🚨 ACTIVE LIFE-SAFETY SOS
-            </div>
-            <div style="font-size:13px;font-weight:800;color:#0f172a;">${inc.reporter} (${inc.role || "Citizen"})</div>
-            <div style="font-size:11px;color:#475569;margin:3px 0;">📍 ${inc.address || "Live Area"}</div>
-            <div style="font-size:10px;color:#94a3b8;margin-bottom:8px;">⏱️ ${inc.time || "Immediate"} · Severity 95</div>
-            <div style="display:flex;gap:6px;">
-              <a href="https://www.google.com/maps/dir/?api=1&destination=${inc.lat},${inc.lng}&travelmode=driving" target="_blank" rel="noreferrer" style="background:#1d4ed8;color:#fff;padding:4px 9px;border-radius:6px;font-size:10px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:3px;">
-                Track on Maps ↗
-              </a>
-            </div>
-          </div>
-        `);
+      const zIndex = isSos ? 1000 : isEnRoute || isReached ? 800 : 200;
+      const hash = `${inc.lat}_${inc.lng}_${iconKey}_${inc.status}_${repCount}_${inc.assignedTeam || ""}_${inc.nearestResource?.id || ""}`;
+
+      const existing = incidentMarkersRef.current.get(inc.id);
+      if (existing) {
+        if (existing.hash !== hash) {
+          existing.marker.setLatLng([inc.lat, inc.lng]);
+          existing.marker.setIcon(icon);
+          existing.marker.setZIndexOffset(zIndex);
+          existing.marker.setPopupContent(getIncidentPopupHtml(inc));
+          existing.hash = hash;
+        }
       } else {
-        marker.bindPopup(`
-          <div>
-            <b>${inc.reporter} (${inc.role || "Citizen"})</b>
-            <div style="font-size:10px;color:#64748b;">${inc.address || "Street location"}</div>
-            <div style="font-size:10px;margin:4px 0;">Cause: <b>${inc.cause || "Flood Overload"}</b></div>
-          </div>
-        `);
+        const marker = L.marker([inc.lat, inc.lng], { icon, zIndexOffset: zIndex });
+        marker.bindPopup(getIncidentPopupHtml(inc));
+        marker.addTo(incLayer);
+        incidentMarkersRef.current.set(inc.id, { marker, hash });
       }
-      marker.addTo(incLayer);
     });
 
-    // 5. LIVE RESOURCE TEAM PINS & ACTIVE DISPATCH TRACKING
-    if (showTeams) {
-      resources.forEach((team) => {
-        if (!team.lat || !team.lng) return;
-        const isEnRoute = team.status === "En route" || team.status === "Dispatched";
-        const isOnScene = team.status === "On scene" || team.status === "Reached";
-        const teamIcon = L.divIcon({
-          className: "custom-team-marker-container",
-          html: `
-            <div style="position:relative;display:flex;align-items:center;justify-content:center;">
-              ${isEnRoute ? '<div style="position:absolute;inset:-6px;border-radius:50%;background:rgba(245,158,11,0.4);animation:pulse-ring 2s infinite ease-in-out;"></div>' : isOnScene ? '<div style="position:absolute;inset:-6px;border-radius:50%;background:rgba(16,185,129,0.4);animation:pulse-ring 2s infinite ease-in-out;"></div>' : ''}
-              <div class="custom-team-marker" style="background:${isEnRoute ? "#f59e0b" : isOnScene ? "#10b981" : "#0f172a"};box-shadow:0 3px 10px rgba(0,0,0,0.35);" title="${team.name}">
-                ${team.type?.includes("Boat") || team.name?.includes("Boat") ? "🚤" : team.type?.includes("Medical") || team.name?.includes("Medical") ? "🚑" : "🚒"}
-              </div>
-            </div>
-          `,
-          iconSize: [32, 32],
-          iconAnchor: [16, 16]
-        });
+    // Remove resolved/cancelled/deleted incident markers immediately
+    for (const [id, item] of incidentMarkersRef.current.entries()) {
+      if (!currentActiveIds.has(id)) {
+        incLayer.removeLayer(item.marker);
+        incidentMarkersRef.current.delete(id);
+      }
+    }
+  }, [incidents, showHistoricalIncidents]);
 
-        const marker = L.marker([team.lat, team.lng], { icon: teamIcon });
-        marker.bindPopup(`
-          <div style="min-width: 200px;">
-            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-              <span class="map-badge ${isEnRoute ? "orange" : isOnScene ? "green" : "green"}">${team.status.toUpperCase()}</span>
-              ${team.eta ? `<span style="font-size:10px;font-weight:700;color:#f59e0b;">⏱️ ${team.eta}</span>` : ""}
+  // 10. LIVE RESOURCE TEAM PINS & ACTIVE DISPATCH TRACKING (In-Place Diffing)
+  useEffect(() => {
+    const teamLayer = layersRef.current.teams;
+    if (!teamLayer) return;
+
+    if (!showTeams) {
+      teamLayer.clearLayers();
+      teamMarkersRef.current.clear();
+      return;
+    }
+
+    const currentTeamIds = new Set();
+
+    resources.forEach((team) => {
+      const tLat = team.latitude ?? team.lat;
+      const tLng = team.longitude ?? team.lng;
+      if (!tLat || !tLng) return;
+
+      const teamId = team.id || team._id || team.name;
+      currentTeamIds.add(teamId);
+
+      const statusUpper = (team.status || "AVAILABLE").toUpperCase();
+      const isEnRoute = statusUpper === "EN_ROUTE" || statusUpper === "EN ROUTE" || statusUpper === "DISPATCHED";
+      const isOnScene = statusUpper === "ON SCENE" || statusUpper === "REACHED" || statusUpper === "DEPLOYED";
+      const catInfo = getAuthorityResourceCategory(team);
+      const emoji = team.emoji || team.icon || catInfo.icon;
+      const catUpper = catInfo.category;
+
+      const iconKey = `team-${isEnRoute ? "enroute" : isOnScene ? "onscene" : "avail"}-${emoji}`;
+      const icon = getCachedDivIcon(iconKey, {
+        className: "custom-team-marker-container",
+        html: `
+          <div style="position:relative;display:flex;align-items:center;justify-content:center;">
+            ${isEnRoute ? '<div style="position:absolute;inset:-6px;border-radius:50%;background:rgba(245,158,11,0.4);animation:pulse-ring 2s infinite ease-in-out;"></div>' : isOnScene ? '<div style="position:absolute;inset:-6px;border-radius:50%;background:rgba(16,185,129,0.4);animation:pulse-ring 2s infinite ease-in-out;"></div>' : ''}
+            <div class="custom-team-marker" style="background:${isEnRoute ? "#f59e0b" : isOnScene ? "#2563eb" : "#0f172a"};box-shadow:0 3px 10px rgba(0,0,0,0.35);font-size:16px;display:flex;align-items:center;justify-content:center;border:2px solid ${catInfo.color};" title="${team.name} (${catInfo.label})">
+              ${emoji}
             </div>
-            <b>${team.name}</b>
-            <div style="font-size:10px;color:#64748b;margin:2px 0;">📍 ${team.station}</div>
-            <div style="font-size:10px;margin:2px 0;">Type: <b>${team.type}</b></div>
-            ${team.currentIncidentId ? `<div style="font-size:10px;color:#2563eb;font-weight:700;margin-top:4px;">🎯 Assigned: ${team.currentIncidentId}</div>` : ""}
           </div>
-        `);
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+
+      const hash = `${tLat}_${tLng}_${statusUpper}_${team.currentIncidentId || ""}_${team.eta || ""}`;
+      const existing = teamMarkersRef.current.get(teamId);
+
+      // Connecting dispatch polyline calculation
+      let targetInc = null;
+      if (team.currentIncidentId && isEnRoute) {
+        targetInc = incidents.find((i) => i.id === team.currentIncidentId);
+      }
+
+      if (existing) {
+        if (existing.hash !== hash) {
+          existing.marker.setLatLng([tLat, tLng]);
+          existing.marker.setIcon(icon);
+          existing.marker.setPopupContent(getTeamPopupHtml(team, isEnRoute, isOnScene, catUpper));
+          existing.hash = hash;
+        }
+
+        // Manage dispatch line
+        if (targetInc && targetInc.lat && targetInc.lng) {
+          const dist = calcDistanceKm(tLat, tLng, targetInc.lat, targetInc.lng);
+          if (dist != null && dist < 12) {
+            if (existing.line) {
+              existing.line.setLatLngs([[tLat, tLng], [targetInc.lat, targetInc.lng]]);
+              existing.line.setStyle({ color: isOnScene ? "#10b981" : "#f59e0b", dashArray: isOnScene ? undefined : "6, 6" });
+            } else {
+              const line = L.polyline([[tLat, tLng], [targetInc.lat, targetInc.lng]], {
+                color: isOnScene ? "#10b981" : "#f59e0b",
+                weight: 3,
+                opacity: 0.85,
+                dashArray: isOnScene ? undefined : "6, 6"
+              });
+              line.bindTooltip(`🚒 <b>${team.name}</b> &rarr; <b>${targetInc.id}</b> (${isOnScene ? "Reached Site" : `En Route · ETA ~${team.eta || "5 min"}`})`, { sticky: true });
+              line.addTo(teamLayer);
+              existing.line = line;
+            }
+          } else if (existing.line) {
+            teamLayer.removeLayer(existing.line);
+            existing.line = null;
+          }
+        } else if (existing.line) {
+          teamLayer.removeLayer(existing.line);
+          existing.line = null;
+        }
+      } else {
+        const marker = L.marker([tLat, tLng], { icon });
+        marker.bindPopup(getTeamPopupHtml(team, isEnRoute, isOnScene, catUpper));
         marker.addTo(teamLayer);
 
-        // Draw connecting dispatch route polyline if assigned to an active incident
-        if (team.currentIncidentId) {
-          const targetInc = incidents.find((i) => i.id === team.currentIncidentId);
-          if (targetInc && targetInc.lat && targetInc.lng) {
-            const dispatchLine = L.polyline(
-              [[team.lat, team.lng], [targetInc.lat, targetInc.lng]],
-              {
-                color: isOnScene ? "#10b981" : "#f59e0b",
-                weight: 4,
-                opacity: 0.9,
-                dashArray: isOnScene ? undefined : "7, 7"
-              }
-            );
-            dispatchLine.bindTooltip(
-              `🚒 <b>${team.name}</b> &rarr; <b>${targetInc.id}</b> (${isOnScene ? "Reached Site / Operating" : "En Route · ETA ~5 min"})`,
-              { sticky: true }
-            );
-            dispatchLine.addTo(teamLayer);
+        let line = null;
+        if (targetInc && targetInc.lat && targetInc.lng) {
+          const dist = calcDistanceKm(tLat, tLng, targetInc.lat, targetInc.lng);
+          if (dist != null && dist < 12) {
+            line = L.polyline([[tLat, tLng], [targetInc.lat, targetInc.lng]], {
+              color: isOnScene ? "#10b981" : "#f59e0b",
+              weight: 3,
+              opacity: 0.85,
+              dashArray: isOnScene ? undefined : "6, 6"
+            });
+            line.bindTooltip(`🚒 <b>${team.name}</b> &rarr; <b>${targetInc.id}</b>`, { sticky: true });
+            line.addTo(teamLayer);
           }
         }
-      });
+
+        teamMarkersRef.current.set(teamId, { marker, line, hash });
+      }
+    });
+
+    for (const [id, item] of teamMarkersRef.current.entries()) {
+      if (!currentTeamIds.has(id)) {
+        teamLayer.removeLayer(item.marker);
+        if (item.line) teamLayer.removeLayer(item.line);
+        teamMarkersRef.current.delete(id);
+      }
+    }
+  }, [resources, showTeams, incidents]);
+
+  // 11. LIVE EVACUATION SHELTER PINS (In-Place Diffing)
+  useEffect(() => {
+    const shelterLayer = layersRef.current.shelters;
+    if (!shelterLayer) return;
+
+    if (!showShelters) {
+      shelterLayer.clearLayers();
+      shelterMarkersRef.current.clear();
+      return;
     }
 
-    // 6. LIVE EVACUATION SHELTER PINS
-    if (showShelters && shelterLayer) {
-      shelters.forEach((sh) => {
-        const sLat = sh.latitude ?? sh.lat;
-        const sLng = sh.longitude ?? sh.lng;
-        if (!sLat || !sLng) return;
-        const isSelected = selectedShelter && selectedShelter.id === sh.id;
-        const isVerified = Boolean(sh.is_verified || sh.isVerified);
-        const shelterIcon = L.divIcon({
-          className: "custom-shelter-marker-container",
-          html: `<div style="background:${isSelected ? "#e11d48" : isVerified ? "#16a34a" : "#0284c7"};color:#fff;border-radius:50%;width:${isSelected ? "36px" : "30px"};height:${isSelected ? "36px" : "30px"};display:flex;align-items:center;justify-content:center;font-size:${isSelected ? "18px" : "15px"};border:${isSelected ? "3px solid #ffe4e6" : "2px solid #fff"};box-shadow:0 3px 12px ${isSelected ? "rgba(225,29,72,0.6)" : "rgba(0,0,0,0.35)"};" title="${sh.name}">🏕️</div>`,
-          iconSize: [isSelected ? 36 : 30, isSelected ? 36 : 30],
-          iconAnchor: [isSelected ? 18 : 15, isSelected ? 18 : 15]
-        });
+    const currentShelterIds = new Set();
 
+    shelters.forEach((sh) => {
+      const sLat = sh.latitude ?? sh.lat;
+      const sLng = sh.longitude ?? sh.lng;
+      if (!sLat || !sLng) return;
+
+      const shelterId = sh.id || sh.name;
+      currentShelterIds.add(shelterId);
+
+      const isSelected = selectedShelter && selectedShelter.id === sh.id;
+      const isVerified = Boolean(sh.is_verified || sh.isVerified);
+      const iconKey = `shelter-${isSelected ? "sel" : isVerified ? "ver" : "disc"}`;
+
+      const shelterIcon = getCachedDivIcon(iconKey, {
+        className: "custom-shelter-marker-container",
+        html: `<div style="background:${isSelected ? "#e11d48" : isVerified ? "#16a34a" : "#0284c7"};color:#fff;border-radius:50%;width:${isSelected ? "36px" : "30px"};height:${isSelected ? "36px" : "30px"};display:flex;align-items:center;justify-content:center;font-size:${isSelected ? "18px" : "15px"};border:${isSelected ? "3px solid #ffe4e6" : "2px solid #fff"};box-shadow:0 3px 12px ${isSelected ? "rgba(225,29,72,0.6)" : "rgba(0,0,0,0.35)"};" title="${sh.name}">🏕️</div>`,
+        iconSize: [isSelected ? 36 : 30, isSelected ? 36 : 30],
+        iconAnchor: [isSelected ? 18 : 15, isSelected ? 18 : 15]
+      });
+
+      const hash = `${sLat}_${sLng}_${isSelected}_${isVerified}_${sh.distance_km ?? sh.distanceKm}`;
+      const existing = shelterMarkersRef.current.get(shelterId);
+
+      if (existing) {
+        if (existing.hash !== hash) {
+          existing.marker.setLatLng([sLat, sLng]);
+          existing.marker.setIcon(shelterIcon);
+          existing.marker.setPopupContent(getShelterPopupHtml(sh, isSelected, isVerified));
+          existing.hash = hash;
+        }
+      } else {
         const marker = L.marker([sLat, sLng], { icon: shelterIcon });
-        marker.bindPopup(`
-          <div style="min-width:220px;">
-            <span style="background:${isVerified ? "#dcfce7" : "#e0f2fe"};color:${isVerified ? "#15803d" : "#0369a1"};font-size:9px;font-weight:bold;padding:2px 6px;border-radius:4px;display:inline-block;margin-bottom:4px;">
-              ${isVerified ? "✓ VERIFIED SHELTER" : `DISCOVERED (${sh.provider?.toUpperCase() || "OSM"})`}
-            </span>
-            <div style="font-weight:bold;font-size:13px;color:#0f172a;">${sh.name}</div>
-            <div style="font-size:10px;color:#64748b;margin:2px 0;">🏷️ ${sh.type || sh.shelterType || "Relief Center"}</div>
-            ${sh.agency ? `<div style="font-size:10px;color:#2563eb;font-weight:600;">🤝 ${sh.agency}</div>` : ""}
-            <div style="font-size:10px;color:#475569;margin:3px 0;">📍 ${sh.address || ""}</div>
-            <div style="font-size:10px;background:#f8fafc;padding:4px 6px;border-radius:4px;margin:4px 0;">
-              <b>${sh.distance_km ?? sh.distanceKm} km</b> away · <b>${sh.eta_minutes ?? sh.etaMin ?? 5} min ETA</b>
-            </div>
-            ${sh.capacity ? `<div style="font-size:10px;color:#16a34a;font-weight:600;">Capacity: ${sh.capacity}</div>` : ""}
-            ${sh.phone ? `<div style="font-size:10px;color:#334155;margin-top:2px;">📞 ${sh.phone}</div>` : ""}
-            <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px;">
-              <button
-                onclick="window.__selectShelterRoute('${sh.id}')"
-                style="background:linear-gradient(135deg, #2563eb, #1d4ed8);color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;box-shadow:0 2px 6px rgba(37,99,235,0.3);"
-              >
-                🗺️ Show Safest Evacuation Route
-              </button>
-              ${sh.maps_url || (sh.lat && sh.lng) ? `
-                <a
-                  href="${sh.maps_url || `https://www.google.com/maps/dir/?api=1&destination=${sh.lat},${sh.lng}&travelmode=driving`}"
-                  target="_blank"
-                  rel="noreferrer"
-                  style="font-size:10px;color:#2563eb;text-align:center;text-decoration:none;margin-top:4px;font-weight:600;"
-                >
-                  External Google Maps &rarr;
-                </a>
-              ` : ""}
-            </div>
-          </div>
-        `);
+        marker.bindPopup(getShelterPopupHtml(sh, isSelected, isVerified));
         marker.addTo(shelterLayer);
-      });
+        shelterMarkersRef.current.set(shelterId, { marker, hash });
+      }
+    });
+
+    for (const [id, item] of shelterMarkersRef.current.entries()) {
+      if (!currentShelterIds.has(id)) {
+        shelterLayer.removeLayer(item.marker);
+        shelterMarkersRef.current.delete(id);
+      }
     }
+  }, [shelters, showShelters, selectedShelter?.id]);
 
-    // 7. SAFEST OSRM EVACUATION ROUTE POLYLINE
-    if (routeLayer && activeRoute && activeRoute.coordinates && activeRoute.coordinates.length > 0) {
+  // 12. SAFEST OSRM EVACUATION ROUTE POLYLINE (In-place update)
+  useEffect(() => {
+    const routeLayer = layersRef.current.route;
+    if (!routeLayer) return;
+
+    if (activeRoute && activeRoute.coordinates && activeRoute.coordinates.length > 0) {
       const latLngs = activeRoute.coordinates.map((c) => [c.lat, c.lng]);
+      const routeHash = `${activeRoute.distanceKm}_${activeRoute.durationMin}_${latLngs.length}_${latLngs[0]?.[0]}`;
 
-      // Glowing Casing Polyline
-      const casingLine = L.polyline(latLngs, {
-        color: "#1e3a8a",
-        weight: 8,
-        opacity: 0.85
-      });
-      casingLine.addTo(routeLayer);
+      if (routeLinesRef.current.casing && routeLinesRef.current.core) {
+        if (routeLinesRef.current.hash !== routeHash) {
+          routeLinesRef.current.casing.setLatLngs(latLngs);
+          routeLinesRef.current.core.setLatLngs(latLngs);
+          routeLinesRef.current.core.setTooltipContent(`🛣️ <b>Safest Evacuation Route</b><br/>Distance: <b>${activeRoute.distanceKm} km</b> · Safe ETA: <b>~${activeRoute.durationMin} min</b>`);
+          routeLinesRef.current.hash = routeHash;
+        }
+      } else {
+        routeLayer.clearLayers();
 
-      // Core Vibrant Polyline
-      const coreLine = L.polyline(latLngs, {
-        color: "#38bdf8",
-        weight: 5,
-        opacity: 1,
-        dashArray: "10, 6"
-      });
-      coreLine.bindTooltip(`🛣️ <b>Safest Evacuation Route</b><br/>Distance: <b>${activeRoute.distanceKm} km</b> · Safe ETA: <b>~${activeRoute.durationMin} min</b>`, { sticky: true });
-      coreLine.addTo(routeLayer);
+        // Glowing Casing Polyline
+        const casingLine = L.polyline(latLngs, {
+          color: "#1e3a8a",
+          weight: 8,
+          opacity: 0.85
+        });
+        casingLine.addTo(routeLayer);
 
-      // Fit bounds only once when a new route is activated
+        // Core Vibrant Polyline
+        const coreLine = L.polyline(latLngs, {
+          color: "#38bdf8",
+          weight: 5,
+          opacity: 1,
+          dashArray: "10, 6"
+        });
+        coreLine.bindTooltip(`🛣️ <b>Safest Evacuation Route</b><br/>Distance: <b>${activeRoute.distanceKm} km</b> · Safe ETA: <b>~${activeRoute.durationMin} min</b>`, { sticky: true });
+        coreLine.addTo(routeLayer);
+
+        routeLinesRef.current = { casing: casingLine, core: coreLine, hash: routeHash };
+      }
+
+      // Smoothly fit bounds only once when a new route is activated
       if (prevRouteRef.current !== activeRoute) {
         prevRouteRef.current = activeRoute;
         try {
-          const bounds = coreLine.getBounds();
-          if (bounds.isValid()) {
-            mapInstance.current.fitBounds(bounds, { padding: [50, 50], animate: true });
+          if (routeLinesRef.current.core) {
+            const bounds = routeLinesRef.current.core.getBounds();
+            if (bounds.isValid()) {
+              mapInstance.current.fitBounds(bounds, { padding: [50, 50], animate: true });
+            }
           }
         } catch {
           // bounds fit notice
         }
       }
     } else {
+      routeLayer.clearLayers();
+      routeLinesRef.current = { casing: null, core: null, hash: null };
       prevRouteRef.current = null;
     }
-  }, [zones, incidents, resources, shelters, selectedShelter, activeRoute, showRainfall, showDrainage, showTeams, showShelters]);
+  }, [activeRoute]);
 
   return (
     <div className="map-container-relative" style={{ height, position: "relative" }}>
@@ -632,10 +1169,10 @@ function LeafletMap({
           <button
             className={`layer-toggle-chip ${showTeams ? "active" : ""}`}
             onClick={() => setShowTeams(!showTeams)}
-            title="Toggle Municipal Response Squads"
+            title="Toggle Municipal Resources & Response Squads"
           >
             <Truck size={12} />
-            <span>Teams</span>
+            <span>Resources</span>
             <span className={`toggle-status-dot ${showTeams ? "on" : "off"}`} />
           </button>
           <button
@@ -980,6 +1517,7 @@ export function LocationSearchBar({
 
 const nav = [
   ["Overview", "/", Home],
+  ["Live Alerts", "/alerts", Bell],
   ["Live Risk Map", "/map", Map],
   ["Incident Feed", "/incidents", Siren],
   ["Team Tracker", "/resources", Truck],
@@ -1068,8 +1606,9 @@ function Topbar({ onMenu, alertCount, onRefresh, onToggleNotifications, hasActiv
 }
 
 // Slide-down interactive Notifications Drawer / Modal with live SOS emergencies
-function NotificationsDrawer({ isOpen, onClose, alerts = [], incidents = [], onAutoDispatch, onClearAlerts }) {
+function NotificationsDrawer({ isOpen, onClose, alerts = [], incidents = [], onAutoDispatch, onClearAlerts, userLat, userLng }) {
   if (!isOpen) return null;
+  const navigate = useNavigate();
 
   // Active unmitigated SOS alerts (removed from queue once resources are dispatched or incident is resolved)
   const sosAlerts = incidents.filter(
@@ -1087,6 +1626,7 @@ function NotificationsDrawer({ isOpen, onClose, alerts = [], incidents = [], onA
     (a) => !a.isSos && a.type !== "SOS" && !a.dispatched && !dispatchedIncidentIds.has(a.incidentId) && !dispatchedIncidentIds.has(a.sosId)
   );
   const totalCount = sosAlerts.length + regularAlerts.length;
+  const hasUserLocation = userLat != null && userLng != null && !isNaN(Number(userLat)) && !isNaN(Number(userLng));
 
   return (
     <>
@@ -1099,6 +1639,15 @@ function NotificationsDrawer({ isOpen, onClose, alerts = [], incidents = [], onA
             {totalCount > 0 && <span className="badge-count">{totalCount}</span>}
           </h3>
           <div className="notifications-head-actions">
+            <button
+              onClick={() => {
+                onClose();
+                navigate("/alerts");
+              }}
+              style={{ background: "#f1f5f9", color: "#0f172a", fontWeight: "700" }}
+            >
+              All Alerts →
+            </button>
             {alerts.length > 0 && (
               <button onClick={onClearAlerts}>Clear All</button>
             )}
@@ -1120,89 +1669,127 @@ function NotificationsDrawer({ isOpen, onClose, alerts = [], incidents = [], onA
           ) : (
             <>
               {/* 1. Critical SOS Alerts with high urgency layout */}
-              {sosAlerts.map((sos) => (
-                <div key={sos.id} className="sos-alert-card">
-                  <div className="sos-card-header">
-                    <span className="sos-card-badge">
-                      <span className="pulsing-red-dot" />
-                      🚨 CRITICAL SOS TRIGGERED
-                    </span>
-                    <span style={{ fontSize: "10px", color: "#991b1b", fontWeight: "700" }}>
-                      ⏱️ {sos.time || "Immediate"}
-                    </span>
-                  </div>
+              {sosAlerts.map((sos) => {
+                const sLat = sos.lat ?? sos.latitude;
+                const sLng = sos.lng ?? sos.longitude;
+                const distKm = hasUserLocation && sLat && sLng ? calcDistanceKm(userLat, userLng, sLat, sLng) : null;
+                const repCount = sos.reporter_count || (Array.isArray(sos.reports) ? sos.reports.length : (sos.reports_length || 1));
 
-                  <div style={{ fontSize: "13px", fontWeight: "800", color: "#991b1b", margin: "4px 0 2px" }}>
-                    {sos.reporter || "Citizen"}
-                    {sos.role && <span style={{ fontSize: "10px", fontWeight: "normal", color: "#b91c1c" }}> ({sos.role})</span>}
-                  </div>
+                return (
+                  <div key={sos.id} className="sos-alert-card">
+                    <div className="sos-card-header">
+                      <span className="sos-card-badge" style={repCount > 1 ? { background: "#dc2626" } : undefined}>
+                        <span className="pulsing-red-dot" />
+                        🚨 CRITICAL SOS {repCount > 1 ? `(${repCount} REPORTS IN 500m ZONE)` : "TRIGGERED"}
+                      </span>
+                      <span style={{ fontSize: "10px", color: "#991b1b", fontWeight: "700" }}>
+                        ⏱️ {sos.time || "Immediate"}
+                      </span>
+                    </div>
 
-                  <div style={{ fontSize: "11px", color: "#7f1d1d", display: "flex", flexDirection: "column", gap: "2px", margin: "4px 0 8px" }}>
-                    <div>📍 <b>Location:</b> {sos.address}</div>
-                  </div>
-
-                  <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                    <button
-                      className="primary"
-                      onClick={() => {
-                        if (onAutoDispatch) onAutoDispatch(sos);
-                        onClose();
-                      }}
-                      style={{
-                        background: "#dc2626",
-                        borderColor: "#b91c1c",
+                    {repCount > 1 && (
+                      <div style={{
+                        background: "#fee2e2",
+                        border: "1px solid #fca5a5",
+                        borderRadius: "6px",
+                        padding: "5px 9px",
+                        margin: "4px 0",
                         fontSize: "11px",
-                        padding: "6px 12px",
-                        borderRadius: "8px",
-                        flex: 1
-                      }}
-                    >
-                      <Send size={12} /> Dispatch Rescue Squad
-                    </button>
-                    {sos.lat && sos.lng && (
-                      <a
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${sos.lat},${sos.lng}&travelmode=driving`}
-                        target="_blank"
-                        rel="noreferrer"
+                        fontWeight: "800",
+                        color: "#991b1b",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px"
+                      }}>
+                        <span>👥</span>
+                        <span><b>{repCount} Distress Signals</b> generated from this 500m sector</span>
+                      </div>
+                    )}
+
+                    <div style={{ fontSize: "13px", fontWeight: "800", color: "#991b1b", margin: "4px 0 2px" }}>
+                      {sos.reporter || "Citizen"}
+                      {sos.role && <span style={{ fontSize: "10px", fontWeight: "normal", color: "#b91c1c" }}> ({sos.role})</span>}
+                    </div>
+
+                    <div style={{ fontSize: "11px", color: "#7f1d1d", display: "flex", flexDirection: "column", gap: "2px", margin: "4px 0 8px" }}>
+                      <div>📍 <b>Location:</b> {sos.address}</div>
+                      {distKm != null && <div>📏 <b>Distance:</b> {distKm} km from you</div>}
+                    </div>
+
+                    <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                      <button
+                        className="primary"
+                        onClick={() => {
+                          if (onAutoDispatch) onAutoDispatch(sos);
+                          onClose();
+                        }}
                         style={{
-                          background: "#fee2e2",
-                          color: "#991b1b",
-                          border: "1px solid #fca5a5",
-                          padding: "6px 10px",
-                          borderRadius: "8px",
+                          background: "#dc2626",
+                          borderColor: "#b91c1c",
                           fontSize: "11px",
-                          fontWeight: "700",
-                          textDecoration: "none",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "4px"
+                          padding: "6px 12px",
+                          borderRadius: "8px",
+                          flex: 1
                         }}
                       >
-                        <Navigation size={12} /> Maps ↗
-                      </a>
-                    )}
+                        <Send size={12} /> Dispatch Rescue Squad
+                      </button>
+                      {sos.lat && sos.lng && (
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${sos.lat},${sos.lng}&travelmode=driving`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            background: "#fee2e2",
+                            color: "#991b1b",
+                            border: "1px solid #fca5a5",
+                            padding: "6px 10px",
+                            borderRadius: "8px",
+                            fontSize: "11px",
+                            fontWeight: "700",
+                            textDecoration: "none",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px"
+                          }}
+                        >
+                          <Navigation size={12} /> Maps ↗
+                        </a>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {/* 2. Standard Alerts & Flood Advisories */}
-              {regularAlerts.map((alt) => (
-                <div
-                  key={alt.id}
-                  className={`regular-alert-card ${
-                    alt.severity === "CRITICAL" || alt.severity === "High"
-                      ? "critical"
-                      : "warning"
-                  }`}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <b style={{ fontSize: "12px", color: "#0f172a" }}>{alt.title || alt.headline || "Flood Advisory"}</b>
-                    <span style={{ fontSize: "9px", color: "#64748b", fontWeight: "700" }}>{alt.severity || "Warning"}</span>
+              {regularAlerts.map((alt) => {
+                const aLat = alt.lat ?? alt.latitude;
+                const aLng = alt.lng ?? alt.longitude;
+                const distKm = alt.distance_km != null ? alt.distance_km : (hasUserLocation && aLat && aLng ? calcDistanceKm(userLat, userLng, aLat, aLng) : null);
+                const isCritical = alt.severity === "CRITICAL" || alt.severity === "High" || alt.level === "RED";
+
+                return (
+                  <div
+                    key={alt.id}
+                    className={`regular-alert-card ${isCritical ? "critical" : "warning"}`}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => {
+                      onClose();
+                      navigate("/alerts");
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <b style={{ fontSize: "12px", color: "#0f172a" }}>{alt.title || alt.headline || "Flood Advisory"}</b>
+                      <span style={{ fontSize: "9px", color: isCritical ? "#dc2626" : "#64748b", fontWeight: "800" }}>{alt.severity || alt.level || "Warning"}</span>
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#475569", margin: "2px 0" }}>{alt.description || alt.message}</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "10px", color: "#64748b", marginTop: "4px" }}>
+                      <span>📍 {alt.location_name || alt.area || "Area"}</span>
+                      {distKm != null && <span style={{ fontWeight: "700", color: "#2563eb" }}>📏 {distKm} km from you</span>}
+                    </div>
                   </div>
-                  <div style={{ fontSize: "11px", color: "#475569" }}>{alt.description || alt.message}</div>
-                  {alt.area && <div style={{ fontSize: "10px", color: "#64748b" }}>📍 {alt.area}</div>}
-                </div>
-              ))}
+                );
+              })}
             </>
           )}
         </div>
@@ -1249,6 +1836,417 @@ function RiskBadge({ score }) {
   );
 }
 
+// Realtime Alerts Page with Dynamic Location, Haversine/Road Distances, and Multi-Source Warnings
+function AlertsPage({
+  alerts = [],
+  setAlerts,
+  userLat,
+  userLng,
+  userLocationName,
+  locationMode,
+  locationStatus,
+  onDetectGps,
+  notify,
+  onReloadAlerts
+}) {
+  const navigate = useNavigate();
+  const [filterSource, setFilterSource] = useState("all");
+  const [sortBy, setSortBy] = useState("smart");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [actionLoading, setActionLoading] = useState({});
+
+  const handleFeedback = async (alertId, type) => {
+    try {
+      setActionLoading((prev) => ({ ...prev, [alertId]: true }));
+      await apiFetch(`/alerts/${alertId}/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, role: "Ward Admin" })
+      });
+      if (setAlerts) {
+        setAlerts((prev) =>
+          prev.map((a) => (a.id === alertId ? { ...a, status: type === "RESOLVED" ? "Resolved" : "False Alarm" } : a))
+        );
+      }
+      notify(`Alert ${alertId} marked as ${type === "RESOLVED" ? "Resolved" : "False Alarm"}.`);
+    } catch (err) {
+      notify(`Action failed: ${err.message}`);
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [alertId]: false }));
+    }
+  };
+
+  const hasUserLocation = userLat != null && userLng != null && !isNaN(Number(userLat)) && !isNaN(Number(userLng));
+
+  // Compute live enriched distance and freshness for all alerts
+  const enrichedAlerts = alerts.map((alt) => {
+    const aLat = alt.lat ?? alt.latitude;
+    const aLng = alt.lng ?? alt.longitude;
+    const hasAlertLocation = aLat != null && aLng != null && !isNaN(Number(aLat)) && !isNaN(Number(aLng));
+
+    let distKm = null;
+    let etaMin = null;
+    let distanceLabel = "Distance unavailable";
+    let isNearby = false;
+
+    if (hasUserLocation && hasAlertLocation) {
+      distKm = alt.distance_km != null ? alt.distance_km : calcDistanceKm(userLat, userLng, Number(aLat), Number(aLng));
+      etaMin = alt.eta_min != null ? alt.eta_min : (distKm != null ? Math.max(1, Math.round(distKm * 3.5 + 1)) : null);
+      distanceLabel = `${distKm} km from you`;
+      isNearby = distKm < 3.0;
+    } else if (!hasUserLocation && hasAlertLocation) {
+      distanceLabel = "Enable location to see alert distances";
+    }
+
+    const createdTime = new Date(alt.createdAt || alt.updatedAt || Date.now()).getTime();
+    const ageMinutes = Math.max(0, Math.round((Date.now() - createdTime) / 60000));
+    let freshness = "Updated just now";
+    let isStale = false;
+    if (ageMinutes >= 120) {
+      freshness = `Data may be outdated (${Math.round(ageMinutes / 60)}h ago)`;
+      isStale = true;
+    } else if (ageMinutes >= 60) {
+      freshness = `Updated ${Math.round(ageMinutes / 60)} hr ago`;
+    } else if (ageMinutes > 0) {
+      freshness = `Updated ${ageMinutes} min ago`;
+    }
+
+    const severityOrder = {
+      CRITICAL: 1,
+      RED: 1,
+      HIGH: 2,
+      ORANGE: 3,
+      ELEVATED: 3,
+      MODERATE: 4,
+      YELLOW: 4,
+      NORMAL: 5,
+      GREEN: 5
+    };
+    const sevScore = severityOrder[String(alt.severity || alt.level || "NORMAL").toUpperCase()] || 4;
+
+    return {
+      ...alt,
+      aLat: hasAlertLocation ? Number(aLat) : null,
+      aLng: hasAlertLocation ? Number(aLng) : null,
+      hasAlertLocation,
+      distKm,
+      etaMin,
+      distanceLabel,
+      isNearby,
+      freshness,
+      isStale,
+      sevScore
+    };
+  });
+
+  // Filter by source and search query
+  const filteredAlerts = enrichedAlerts.filter((a) => {
+    const src = (a.source || a.type || "").toLowerCase();
+    if (filterSource === "flood" && src !== "flood") return false;
+    if (filterSource === "lightning" && src !== "lightning") return false;
+    if (filterSource === "rainfall" && src !== "rainfall") return false;
+    if (filterSource === "incident" && src !== "incident" && src !== "sos") return false;
+    if (filterSource === "drainage" && src !== "drainage") return false;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchTitle = (a.title || "").toLowerCase().includes(q);
+      const matchDesc = (a.description || a.message || "").toLowerCase().includes(q);
+      const matchLoc = (a.location_name || a.area || a.zoneName || "").toLowerCase().includes(q);
+      const matchId = (a.id || "").toLowerCase().includes(q);
+      if (!matchTitle && !matchDesc && !matchLoc && !matchId) return false;
+    }
+    return true;
+  });
+
+  // Sort alerts
+  const sortedAlerts = [...filteredAlerts].sort((a, b) => {
+    if (sortBy === "smart") {
+      if (a.sevScore !== b.sevScore) return a.sevScore - b.sevScore;
+      if (a.distKm != null && b.distKm != null) return a.distKm - b.distKm;
+      if (a.distKm != null) return -1;
+      if (b.distKm != null) return 1;
+      return 0;
+    }
+    if (sortBy === "proximity") {
+      if (a.distKm != null && b.distKm != null) return a.distKm - b.distKm;
+      if (a.distKm != null) return -1;
+      if (b.distKm != null) return 1;
+      return a.sevScore - b.sevScore;
+    }
+    if (sortBy === "severity") {
+      return a.sevScore - b.sevScore;
+    }
+    if (sortBy === "newest") {
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    }
+    return 0;
+  });
+
+  const countBySource = {
+    all: enrichedAlerts.length,
+    flood: enrichedAlerts.filter((a) => (a.source || a.type) === "flood").length,
+    lightning: enrichedAlerts.filter((a) => (a.source || a.type) === "lightning").length,
+    rainfall: enrichedAlerts.filter((a) => (a.source || a.type) === "rainfall").length,
+    incident: enrichedAlerts.filter((a) => (a.source || a.type) === "incident" || (a.source || a.type) === "sos").length,
+    drainage: enrichedAlerts.filter((a) => (a.source || a.type) === "drainage").length
+  };
+
+  return (
+    <div className="content alerts-page">
+      <PageHeader
+        eyebrow="MULTI-SOURCE LIVE SURVEILLANCE & GEO-INTELLIGENCE"
+        title="Live Emergency & Risk Alerts"
+        sub="Continuous real-time alert feed calculated dynamically relative to your live GPS position with instant road routing and ETA."
+      >
+        <button className="primary" onClick={onReloadAlerts} style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+          <RefreshCw size={14} /> Refresh Feed
+        </button>
+      </PageHeader>
+
+      {/* User GPS Location HUD Banner */}
+      {hasUserLocation ? (
+        <div className="location-alert-banner">
+          <div className="location-banner-text">
+            <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "#dbeafe", color: "#2563eb", display: "grid", placeItems: "center" }}>
+              <Navigation size={18} />
+            </div>
+            <div>
+              <h4>📍 Live GPS Active: {userLocationName || "Detected Location"}</h4>
+              <p>
+                Coordinates: <b>{userLat.toFixed(5)}, {userLng.toFixed(5)}</b> · Alert distances and routing times are calculated dynamically relative to your position.
+              </p>
+            </div>
+          </div>
+          <button className="enable-loc-btn" onClick={onDetectGps} style={{ background: "#0f172a" }}>
+            <Compass size={13} /> Update GPS
+          </button>
+        </div>
+      ) : (
+        <div className="location-alert-banner disabled">
+          <div className="location-banner-text">
+            <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "#fef3c7", color: "#d97706", display: "grid", placeItems: "center" }}>
+              <AlertTriangle size={18} />
+            </div>
+            <div>
+              <h4 style={{ color: "#92400e" }}>Enable location to see alert distances</h4>
+              <p style={{ color: "#b45309" }}>
+                GPS permission is needed to compute live proximity, road distances, and arrival ETAs for flood and lightning warnings.
+              </p>
+            </div>
+          </div>
+          <button className="enable-loc-btn" onClick={onDetectGps}>
+            <MapPin size={13} /> Enable Location
+          </button>
+        </div>
+      )}
+
+      {/* Filter Tabs and Sort Controls */}
+      <div className="alerts-controls-row">
+        <div className="alerts-tabs">
+          {[
+            ["all", "All Alerts", null],
+            ["flood", "🌊 Flood Risk", countBySource.flood],
+            ["lightning", "⚡ Lightning", countBySource.lightning],
+            ["rainfall", "🌧️ Rainfall Radar", countBySource.rainfall],
+            ["incident", "🚨 SOS & Incidents", countBySource.incident],
+            ["drainage", "🚧 Drainage Blockages", countBySource.drainage]
+          ].map(([key, label, count]) => (
+            <button
+              key={key}
+              className={`alerts-tab-btn ${filterSource === key ? "active" : ""}`}
+              onClick={() => setFilterSource(key)}
+            >
+              <span>{label}</span>
+              <span className="tab-count">{count ?? countBySource.all}</span>
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ position: "relative" }}>
+            <Search size={13} style={{ position: "absolute", left: "10px", top: "10px", color: "#94a3b8" }} />
+            <input
+              type="text"
+              placeholder="Search alerts or locations..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ padding: "6px 12px 6px 30px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "11px", width: "200px" }}
+            />
+          </div>
+          <select
+            className="alerts-sort-select"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+          >
+            <option value="smart">Sort: Severity + Proximity</option>
+            <option value="proximity">Sort: Closest Distance First</option>
+            <option value="severity">Sort: Highest Severity</option>
+            <option value="newest">Sort: Newest First</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Alerts Grid */}
+      {sortedAlerts.length === 0 ? (
+        <div style={{ padding: "50px 20px", textAlign: "center", background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+          <div style={{ fontSize: "36px", marginBottom: "10px" }}>✨</div>
+          <h3 style={{ margin: "0 0 6px", fontSize: "16px", color: "#0f172a" }}>No Active Alerts in this Category</h3>
+          <p style={{ margin: 0, fontSize: "12px", color: "#64748b" }}>
+            All monitoring channels in the selected filter are reporting normal operational telemetry.
+          </p>
+        </div>
+      ) : (
+        <div className="alerts-cards-list">
+          {sortedAlerts.map((alt) => {
+            const sev = (alt.severity || alt.level || "NORMAL").toLowerCase();
+            const isCritical = sev === "critical" || sev === "red";
+            const isHigh = sev === "high";
+            const isOrange = sev === "orange" || sev === "elevated" || sev === "moderate";
+
+            const sourceIcon = alt.source === "lightning" ? "⚡" : alt.source === "rainfall" ? "🌧️" : alt.source === "drainage" ? "🚧" : alt.source === "incident" || alt.type === "sos" ? "🚨" : "🌊";
+            const sourceName = alt.sourceName || (alt.source === "lightning" ? "Blitzortung Live Lightning Network" : alt.source === "rainfall" ? "Rainfall Monitoring Radar" : alt.source === "drainage" ? "Chronic Drainage GIS" : alt.source === "incident" ? "Citizen SOS Dispatch" : "VarshaRaksha Risk Engine");
+
+            const isSosAlert = alt.isSos || alt.type === "sos" || alt.type === "SOS" || alt.source === "incident";
+            const repCount = alt.reporter_count || alt.reporterCount || (Array.isArray(alt.reports) ? alt.reports.length : (alt.description && alt.description.includes("reports within 500m") ? parseInt(alt.description.match(/(\d+)\s+reports/)?.[1] || "1", 10) : 1));
+
+            return (
+              <div
+                key={alt.id}
+                className={`alert-card-rich ${isCritical ? "critical" : isHigh ? "high" : isOrange ? "elevated" : "normal"}`}
+              >
+                <div className="alert-rich-head">
+                  <span className="alert-source-tag">
+                    {sourceIcon} {alt.source || alt.type || "ALERT"}
+                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    {isSosAlert && repCount > 1 && (
+                      <span
+                        style={{
+                          fontSize: "9px",
+                          fontWeight: "900",
+                          padding: "2px 6px",
+                          borderRadius: "4px",
+                          background: "#dc2626",
+                          color: "#ffffff",
+                          textTransform: "uppercase"
+                        }}
+                      >
+                        {repCount} SOS Reports
+                      </span>
+                    )}
+                    <span
+                      style={{
+                        fontSize: "9px",
+                        fontWeight: "800",
+                        padding: "2px 6px",
+                        borderRadius: "4px",
+                        background: isCritical ? "#fee2e2" : isHigh ? "#ffedd5" : isOrange ? "#fef3c7" : "#dcfce7",
+                        color: isCritical ? "#dc2626" : isHigh ? "#c2410c" : isOrange ? "#b45309" : "#15803d",
+                        textTransform: "uppercase"
+                      }}
+                    >
+                      {alt.severity || alt.level || "NORMAL"}
+                    </span>
+                    <span style={{ fontSize: "10px", color: alt.isStale ? "#d97706" : "#64748b", fontWeight: "600" }}>
+                      {alt.freshness}
+                    </span>
+                  </div>
+                </div>
+
+                <h3 className="alert-rich-title">{alt.title}</h3>
+                {isSosAlert && repCount > 1 && (
+                  <div style={{
+                    background: "#fee2e2",
+                    border: "1px solid #fca5a5",
+                    borderRadius: "6px",
+                    padding: "4px 8px",
+                    margin: "4px 0 6px",
+                    fontSize: "11px",
+                    fontWeight: "800",
+                    color: "#991b1b",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px"
+                  }}>
+                    <span>👥</span>
+                    <span><b>{repCount} Citizens Reported SOS</b> in this 500m geofenced location</span>
+                  </div>
+                )}
+                <p className="alert-rich-desc">{alt.description || alt.message}</p>
+
+                {/* Geographic Location & Real Distance HUD */}
+                <div className="alert-location-hud">
+                  <div className="alert-loc-line">
+                    <span className="alert-loc-name" title={alt.location_name || alt.area || "Location"}>
+                      <MapPin size={13} color="#2563eb" />
+                      {alt.location_name || alt.area || (alt.hasAlertLocation ? `${alt.aLat.toFixed(4)}, ${alt.aLng.toFixed(4)}` : "Location unavailable")}
+                    </span>
+
+                    {hasUserLocation && alt.hasAlertLocation ? (
+                      <span className={`alert-distance-badge ${alt.isNearby ? "nearby" : ""}`}>
+                        📏 {alt.distKm} km from you {alt.etaMin ? `· ⏱️ ~${alt.etaMin} min` : ""}
+                      </span>
+                    ) : (
+                      <span className="alert-distance-badge unavailable">
+                        {hasUserLocation ? "📍 Location unavailable" : "📍 Distance unavailable"}
+                      </span>
+                    )}
+                  </div>
+
+                  {hasUserLocation && alt.hasAlertLocation && (
+                    <div style={{ fontSize: "9px", color: "#64748b", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span>Mode: <b>{alt.distance_type === "road" ? "Road Distance" : "Straight-line Distance"}</b></span>
+                      <span>GPS Origin: {userLat.toFixed(3)}, {userLng.toFixed(3)}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="alert-rich-footer">
+                  <div className="alert-source-label">
+                    <span>Source: <b>{sourceName}</b></span>
+                    <span>Status: <b style={{ color: alt.status === "Resolved" ? "#16a34a" : alt.status === "False Alarm" ? "#dc2626" : "#0f172a" }}>{alt.status || "Active"}</b></span>
+                  </div>
+
+                  <div className="alert-card-actions">
+                    {alt.hasAlertLocation && (
+                      <button
+                        className="btn-view-map"
+                        onClick={() => {
+                          navigate("/map");
+                        }}
+                        title="View alert location on interactive Map"
+                      >
+                        <Map size={12} /> View on Map
+                      </button>
+                    )}
+                    <button
+                      className="btn-alert-feedback"
+                      onClick={() => handleFeedback(alt.id, "RESOLVED")}
+                      disabled={actionLoading[alt.id]}
+                      title="Mark this alert as resolved"
+                    >
+                      <CheckCircle2 size={12} color="#16a34a" /> Resolve
+                    </button>
+                    <button
+                      className="btn-alert-feedback"
+                      onClick={() => handleFeedback(alt.id, "FALSE_ALARM")}
+                      disabled={actionLoading[alt.id]}
+                      title="Mark this alert as false alarm"
+                    >
+                      <X size={12} color="#dc2626" /> False Alarm
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Main Dashboard with Live Map, Incident Feed Sidebar, and Resource Availability Tracker
 function Dashboard({
   zones,
@@ -1282,11 +2280,13 @@ function Dashboard({
   onAutoDispatch,
   onVerify,
   onFalseAlarm,
+  onResolve,
   onOpenOverride,
   onViewPhoto,
   onGenerateReport,
   onResetReputation
 }) {
+  const navigate = useNavigate();
   const critical = zones.filter((z) => z.risk >= 75).length;
   const elevated = zones.filter((z) => z.risk >= 45 && z.risk < 75).length;
   const totalRain = zones.reduce((sum, z) => sum + (z.rainfall || 0), 0);
@@ -1298,6 +2298,20 @@ function Dashboard({
     if (emsCategoryFilter === "all") return true;
     return ems.category === emsCategoryFilter;
   });
+
+  // Select top nearest resource for the 3 key emergency categories (Hospitals, NGOs, Govt/Police/Fire)
+  const closestHospital = (emergencyServices || [])
+    .filter((e) => e.category === "medical" || e.group?.toLowerCase().includes("hospital") || e.name?.toLowerCase().includes("hospital") || e.name?.toLowerCase().includes("dispensary"))
+    .sort((a, b) => Number(a.distanceKm ?? 999) - Number(b.distanceKm ?? 999))[0] || null;
+
+  const closestNgo = [
+    ...(emergencyServices || []).filter((e) => e.category === "ngo" || e.category === "shelter"),
+    ...(shelters || [])
+  ].sort((a, b) => Number(a.distanceKm ?? a.distance_km ?? 999) - Number(b.distanceKm ?? b.distance_km ?? 999))[0] || null;
+
+  const closestGov = (emergencyServices || [])
+    .filter((e) => e.category === "fire" || e.category === "police" || e.category === "municipal" || e.group?.toLowerCase().includes("fire") || e.group?.toLowerCase().includes("police") || e.name?.toLowerCase().includes("police") || e.name?.toLowerCase().includes("fire"))
+    .sort((a, b) => Number(a.distanceKm ?? 999) - Number(b.distanceKm ?? 999))[0] || null;
 
   const [dashboardIncidentFilter, setDashboardIncidentFilter] = useState("all");
 
@@ -1377,7 +2391,10 @@ function Dashboard({
               onClearRoute={onClearRoute}
               onAutoDispatch={onAutoDispatch}
               onVerify={onVerify}
+              onResolve={onResolve}
               onFalseAlarm={onFalseAlarm}
+              onNavigateIncident={(id) => navigate(`/incidents/${id}`)}
+              onNavigateZone={(zId) => navigate(`/zones/${zId}`)}
             />
           </div>
           <div className="map-legend">
@@ -1473,8 +2490,91 @@ function Dashboard({
             </div>
           </div>
 
+          {/* Top 3 Nearest Units Highlight Row (Matches User Mobile Dashboard) */}
+          <div style={{ padding: "14px 18px 6px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "12px" }}>
+            {/* Card 1: 🏥 Nearest Govt Hospital */}
+            {closestHospital && (
+              <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "10px", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, minWidth: 0 }}>
+                  <div style={{ width: "36px", height: "36px", borderRadius: "8px", background: "#fee2e2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px" }}>🏥</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: "9px", fontWeight: "900", color: "#b91c1c", letterSpacing: "0.5px" }}>NEAREST GOVT HOSPITAL</div>
+                    <div style={{ fontSize: "12px", fontWeight: "800", color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{closestHospital.name}</div>
+                    <div style={{ fontSize: "10px", color: "#64748b", marginTop: "1px" }}>
+                      ⚡ {closestHospital.distanceKm} km away · ~{Math.max(2, Math.round(Number(closestHospital.distanceKm || 1) * 4))} min ETA
+                    </div>
+                  </div>
+                </div>
+                {(closestHospital.navigateUrl || closestHospital.mapsUrl || (closestHospital.lat && closestHospital.lng)) && (
+                  <a
+                    href={closestHospital.navigateUrl || closestHospital.mapsUrl || `https://www.google.com/maps/dir/?api=1&destination=${closestHospital.lat},${closestHospital.lng}&travelmode=driving`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ background: "#dc2626", color: "#fff", padding: "4px 8px", borderRadius: "6px", fontSize: "10px", fontWeight: "700", textDecoration: "none", whiteSpace: "nowrap" }}
+                  >
+                    Directions ↗
+                  </a>
+                )}
+              </div>
+            )}
+
+            {/* Card 2: 🤝 Nearest NGO */}
+            {closestNgo && (
+              <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "10px", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, minWidth: 0 }}>
+                  <div style={{ width: "36px", height: "36px", borderRadius: "8px", background: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px" }}>🤝</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: "9px", fontWeight: "900", color: "#15803d", letterSpacing: "0.5px" }}>NEAREST NGO / SHELTER</div>
+                    <div style={{ fontSize: "12px", fontWeight: "800", color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{closestNgo.name}</div>
+                    <div style={{ fontSize: "10px", color: "#64748b", marginTop: "1px" }}>
+                      ⚡ {closestNgo.distance_km ?? closestNgo.distanceKm} km away · ~{closestNgo.eta_minutes ?? Math.max(2, Math.round(Number(closestNgo.distance_km || closestNgo.distanceKm || 1) * 5))} min ETA
+                    </div>
+                  </div>
+                </div>
+                {(closestNgo.maps_url || closestNgo.mapsUrl || (closestNgo.lat && closestNgo.lng) || (closestNgo.latitude && closestNgo.longitude)) && (
+                  <a
+                    href={closestNgo.maps_url || closestNgo.mapsUrl || `https://www.google.com/maps/dir/?api=1&destination=${closestNgo.latitude || closestNgo.lat},${closestNgo.longitude || closestNgo.lng}&travelmode=driving`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ background: "#16a34a", color: "#fff", padding: "4px 8px", borderRadius: "6px", fontSize: "10px", fontWeight: "700", textDecoration: "none", whiteSpace: "nowrap" }}
+                  >
+                    Directions ↗
+                  </a>
+                )}
+              </div>
+            )}
+
+            {/* Card 3: 🏛️ Nearest Govt / Fire / Police */}
+            {closestGov && (
+              <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "10px", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, minWidth: 0 }}>
+                  <div style={{ width: "36px", height: "36px", borderRadius: "8px", background: "#fef3c7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px" }}>
+                    {closestGov.category === "fire" ? "🚒" : closestGov.category === "police" ? "👮" : "🏛️"}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: "9px", fontWeight: "900", color: "#b45309", letterSpacing: "0.5px" }}>NEAREST RESCUE / GOVT BASE</div>
+                    <div style={{ fontSize: "12px", fontWeight: "800", color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{closestGov.name}</div>
+                    <div style={{ fontSize: "10px", color: "#64748b", marginTop: "1px" }}>
+                      ⚡ {closestGov.distanceKm} km away · ~{Math.max(2, Math.round(Number(closestGov.distanceKm || 1) * 4))} min ETA
+                    </div>
+                  </div>
+                </div>
+                {(closestGov.navigateUrl || closestGov.mapsUrl || (closestGov.lat && closestGov.lng)) && (
+                  <a
+                    href={closestGov.navigateUrl || closestGov.mapsUrl || `https://www.google.com/maps/dir/?api=1&destination=${closestGov.lat},${closestGov.lng}&travelmode=driving`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ background: "#d97706", color: "#fff", padding: "4px 8px", borderRadius: "6px", fontSize: "10px", fontWeight: "700", textDecoration: "none", whiteSpace: "nowrap" }}
+                  >
+                    Directions ↗
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Category Filter Pills (4 Requested Categories + All) */}
-          <div style={{ padding: "12px 18px 4px", display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ padding: "8px 18px 4px", display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
             {[
               { id: "all", label: "All Units (within 5 km)", count: emergencyServices.length + shelters.length },
               { id: "medical", label: "🏥 Hospitals & ICUs", count: emergencyServices.filter((x) => x.category === "medical").length },
@@ -1782,11 +2882,24 @@ function Dashboard({
               Manage Teams <ChevronRight size={14} />
             </NavLink>
           </div>
-          <div className="resource-grid">
-            {resources.map((r) => (
-              <ResourceCard key={r.id} team={r} />
-            ))}
-          </div>
+          {resources.length === 0 ? (
+            <div style={{ padding: "32px 20px", textAlign: "center", background: "rgba(15, 23, 42, 0.4)", borderRadius: "12px", border: "1px dashed rgba(148, 163, 184, 0.2)", margin: "14px" }}>
+              <Layers3 size={28} style={{ color: "#60a5fa", margin: "0 auto 8px", display: "block" }} />
+              <b style={{ color: "#f8fafc", fontSize: "14px" }}>No active emergency resources simulated</b>
+              <p style={{ color: "#94a3b8", fontSize: "12px", margin: "4px auto 14px", maxWidth: "420px" }}>
+                Generate a dynamic resource simulation to populate nearby Fire Stations, Hospitals, NGOs, and municipal rescue teams.
+              </p>
+              <NavLink to="/resources" className="primary small" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <Sparkles size={14} /> Open Resource Manager & Simulate
+              </NavLink>
+            </div>
+          ) : (
+            <div className="resource-grid">
+              {resources.slice(0, 6).map((r) => (
+                <ResourceCard key={r.id} team={r} userLat={userLat} userLng={userLng} />
+              ))}
+            </div>
+          )}
         </section>
       </div>
 
@@ -1868,12 +2981,14 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
   const hasPhoto = Boolean(inc.photoUrl && inc.photoUrl !== "attached" && (inc.photoUrl.startsWith("http") || inc.photoUrl.startsWith("data:image") || inc.photoUrl.startsWith("/uploads")));
 
   // Calculate nearest available emergency response resource
-  const nearestResource = (inc.lat && inc.lng && Array.isArray(resources) && resources.length > 0)
+  const nearestResource = inc.nearestResource || ((inc.lat && inc.lng && Array.isArray(resources) && resources.length > 0)
     ? [...resources]
         .map((r) => ({ ...r, distKm: calcDistanceKm(inc.lat, inc.lng, r.lat, r.lng) }))
         .filter((r) => r.distKm != null)
-        .sort((a, b) => a.distKm - b.distKm)[0]
-    : null;
+        .sort((a, b) => (a.distKm ?? a.distanceKm) - (b.distKm ?? b.distanceKm))[0]
+    : null);
+
+  const repCount = inc.reporter_count || (Array.isArray(inc.reports) ? inc.reports.length : (inc.reports_length || 1));
 
   return (
     <div
@@ -1904,17 +3019,24 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
         >
           <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
             <span className="pulsing-red-dot" style={{ background: "#ffffff" }} />
-            🚨 ACTIVE LIFE-SAFETY SOS DISTRESS
+            🚨 ACTIVE LIFE-SAFETY SOS {repCount > 1 ? `· ${repCount} DISTRESS SIGNALS (500m ZONE)` : "DISTRESS"}
           </span>
           <span style={{ fontSize: "10px", background: "rgba(255,255,255,0.25)", padding: "2px 7px", borderRadius: "10px", fontWeight: "700" }}>
-            Priority Alert
+            {repCount > 1 ? `${repCount} Aggregated Reports` : "Priority Alert"}
           </span>
         </div>
       )}
 
       <div className="incident-card-header">
         <div className="incident-id-badge">
-          <b>{inc.id}</b>
+          <NavLink
+            to={`/incidents/${inc.id}`}
+            style={{ textDecoration: "none", color: "inherit", display: "inline-flex", alignItems: "center", gap: "4px" }}
+            title="Open Incident Details & Resource Allocation"
+          >
+            <b>{inc.id}</b>
+            <ChevronRight size={14} color="#3b82f6" />
+          </NavLink>
           <span className={`status ${inc.status?.toLowerCase().replace(" ", "-")}`}>{inc.status}</span>
         </div>
         <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
@@ -1950,6 +3072,25 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
           <RiskBadge score={inc.severity || (isSos ? 95 : 50)} />
         </div>
       </div>
+
+      {repCount > 1 && (
+        <div style={{
+          background: "#fee2e2",
+          border: "1px solid #fca5a5",
+          borderRadius: "6px",
+          padding: "5px 9px",
+          margin: "4px 0 6px",
+          fontSize: "11px",
+          color: "#991b1b",
+          fontWeight: "800",
+          display: "flex",
+          alignItems: "center",
+          gap: "6px"
+        }}>
+          <span>👥</span>
+          <span><b>{repCount} Citizens Triggered SOS</b> in this 500m geofenced location</span>
+        </div>
+      )}
 
       <div style={{ fontSize: "12px", color: "#1e293b", fontWeight: "600", marginTop: "4px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
         <div>
@@ -2220,6 +3361,62 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
         </div>
       )}
 
+      {/* Nearest Emergency Response Resource POI */}
+      {nearestResource && (
+        <div
+          style={{
+            background: "#f0fdf4",
+            border: "1px solid #bbf7d0",
+            borderRadius: "8px",
+            padding: "7px 10px",
+            marginBottom: "8px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "8px",
+            fontSize: "11px"
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0 }}>
+            <span style={{ fontSize: "16px" }}>
+              {nearestResource.icon || (nearestResource.category === "medical" ? "🏥" : nearestResource.category === "fire" ? "🚒" : nearestResource.category === "police" ? "👮" : "🚑")}
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: "800", color: "#166534", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                Nearest Unit: {nearestResource.name}
+              </div>
+              <div style={{ color: "#15803d", fontSize: "10px", marginTop: "1px" }}>
+                ⚡ {(nearestResource.distanceKm ?? nearestResource.distKm ?? 0.8).toFixed(1)} km away · ~{Math.max(2, Math.round(Number(nearestResource.distanceKm ?? nearestResource.distKm ?? 1) * 4))} min ETA {nearestResource.phone ? `· 📞 ${nearestResource.phone}` : ""}
+              </div>
+            </div>
+          </div>
+          {(nearestResource.lat && nearestResource.lng && inc.lat && inc.lng) ? (
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&origin=${nearestResource.lat},${nearestResource.lng}&destination=${inc.lat},${inc.lng}&travelmode=driving`}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                background: "#16a34a",
+                color: "#ffffff",
+                padding: "3px 8px",
+                borderRadius: "5px",
+                textDecoration: "none",
+                fontWeight: "700",
+                fontSize: "10px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "3px",
+                whiteSpace: "nowrap",
+                border: "1px solid #15803d"
+              }}
+            >
+              <Navigation size={10} />
+              Route ↗
+            </a>
+          ) : null}
+        </div>
+      )}
+
       {/* Action Buttons */}
       <div className="incident-actions">
         {!isDispatched && !isFalseAlarm && (
@@ -2247,36 +3444,137 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
         <button className="ghost small" onClick={() => onOpenOverride(inc)} title="Admin Manual Override">
           <Sliders size={13} /> Override
         </button>
+
+        <NavLink
+          to={`/incidents/${inc.id}`}
+          className="ghost small"
+          style={{
+            background: "#eff6ff",
+            color: "#1d4ed8",
+            fontWeight: "700",
+            border: "1px solid #bfdbfe",
+            textDecoration: "none",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "4px"
+          }}
+        >
+          ⚡ Manage Lifecycle &rarr;
+        </NavLink>
       </div>
     </div>
   );
 }
 
-// Resource Card Component
-function ResourceCard({ team }) {
-  const isEnRoute = team.status === "En route";
-  const isDispatched = team.status === "Dispatched";
-  const isAvailable = team.status === "Available";
-  const statusClass = isAvailable ? "available" : isEnRoute ? "en-route" : isDispatched ? "dispatched" : "on-site";
+// Resource Card Component (Location-Aware Simulated Emergency Resource)
+function ResourceCard({ team, userLat, userLng }) {
+  const statusUpper = (team.status || "AVAILABLE").toUpperCase();
+  const isAvailable = statusUpper === "AVAILABLE" || statusUpper === "READY";
+  const isLimited = statusUpper === "LIMITED";
+  const isEnRoute = statusUpper === "EN_ROUTE" || statusUpper === "EN ROUTE";
+  const isDispatched = statusUpper === "DISPATCHED" || statusUpper === "ALLOCATED";
+  const isDeployed = statusUpper === "DEPLOYED" || statusUpper === "ON-SITE";
+
+  let statusClass = "available";
+  if (isLimited) statusClass = "limited";
+  else if (isEnRoute) statusClass = "en-route";
+  else if (isDispatched) statusClass = "dispatched";
+  else if (isDeployed) statusClass = "on-site";
+
+  const category = (team.category || team.resource_type || "RESCUE").toUpperCase();
+  const categoryLower = category.toLowerCase();
+  
+  const getCategoryIcon = (cat) => {
+    switch (cat) {
+      case "RESCUE": return "🚒";
+      case "MEDICAL": return "🚑";
+      case "FOOD": return "🍱";
+      case "WATER": return "💧";
+      case "SHELTER": return "🛏️";
+      default: return "📦";
+    }
+  };
+
+  const lat = team.latitude ?? team.lat;
+  const lng = team.longitude ?? team.lng;
+  const dist = (userLat && userLng && lat && lng) ? calcDistanceKm(userLat, userLng, lat, lng) : null;
+  const mapLink = (lat && lng) ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : null;
 
   return (
     <div className="resource-card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
-          <b style={{ fontSize: "12px", color: "#0f172a" }}>{team.name}</b>
-          <div style={{ fontSize: "10px", color: "#64748b" }}>{team.station}</div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", flex: 1 }}>
+          <span style={{ fontSize: "20px", lineHeight: "1.2" }}>{team.emoji || getCategoryIcon(category)}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+              <b style={{ fontSize: "13px", color: "#f8fafc", wordBreak: "break-word" }}>{team.name}</b>
+              <span className={`resource-badge-category ${categoryLower}`}>{category}</span>
+            </div>
+            <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px", fontWeight: "500" }}>
+              🏛️ {team.agency || team.station || "Emergency Services Command"}
+            </div>
+          </div>
         </div>
         <span className={`resource-status-pill ${statusClass}`}>{team.status}</span>
       </div>
-      <div style={{ fontSize: "10px", color: "#334155", background: "#f8fafc", padding: "6px 8px", borderRadius: "6px" }}>
-        <b>Equipment:</b> {team.capacity}
+
+      {/* Quantity & Capacity Display */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(15, 23, 42, 0.6)", padding: "8px 10px", borderRadius: "8px", border: "1px solid rgba(148, 163, 184, 0.12)" }}>
+        <div>
+          <div style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", fontWeight: "700", letterSpacing: "0.5px" }}>Available Quantity</div>
+          <div style={{ fontSize: "15px", fontWeight: "800", color: "#60a5fa" }}>
+            {team.quantity != null ? `${team.quantity} ${team.unit || "Units"}` : (team.capacity || "Operational")}
+          </div>
+        </div>
+        {team.simulation_id && (
+          <div style={{ textAlign: "right" }}>
+            <span style={{ fontSize: "9px", fontFamily: "monospace", color: "#64748b", background: "rgba(30, 41, 59, 0.8)", padding: "2px 6px", borderRadius: "4px" }}>
+              {team.simulation_id}
+            </span>
+          </div>
+        )}
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "#64748b" }}>
-        <span>Contact: <b>{team.phone}</b></span>
+
+      {/* Equipment / Specs */}
+      {team.capacity && team.quantity != null && (
+        <div style={{ fontSize: "11px", color: "#cbd5e1" }}>
+          <b>Capacity:</b> {team.capacity}
+        </div>
+      )}
+
+      {/* Real Geographic Base Location & Maps Link */}
+      <div style={{ fontSize: "11px", color: "#94a3b8", display: "flex", flexDirection: "column", gap: "4px", borderTop: "1px solid rgba(148, 163, 184, 0.1)", paddingTop: "8px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <MapPin size={12} style={{ color: "#38bdf8", flexShrink: 0 }} />
+            <span style={{ color: "#e2e8f0" }}>{team.base_location || team.address || team.station || "Real Maps Facility"}</span>
+          </div>
+          {mapLink && (
+            <a
+              href={mapLink}
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "#60a5fa", display: "flex", alignItems: "center", gap: "2px", fontSize: "10px", textDecoration: "none", flexShrink: 0 }}
+              title="Open real coordinates in Google Maps"
+            >
+              Maps <ExternalLink size={10} />
+            </a>
+          )}
+        </div>
+        {dist != null && (
+          <div style={{ fontSize: "10px", color: "#64748b", paddingLeft: "16px" }}>
+            📍 {dist} km from active operational center
+          </div>
+        )}
+      </div>
+
+      {/* Dispatch / Tasking Footer */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "10px", color: "#64748b", borderTop: "1px solid rgba(148, 163, 184, 0.08)", paddingTop: "6px" }}>
+        <span>Contact: <b style={{ color: "#94a3b8" }}>{team.phone || "Command Radio"}</b></span>
         {team.currentIncidentId ? (
-          <span style={{ color: "#1d4ed8", fontWeight: "700" }}>Incident: {team.currentIncidentId} (ETA {team.eta || "10m"})</span>
+          <span style={{ color: "#60a5fa", fontWeight: "700" }}>Incident: {team.currentIncidentId}</span>
         ) : (
-          <span style={{ color: "#16a34a", fontWeight: "600" }}>Ready for Tasking</span>
+          <span style={{ color: "#4ade80", fontWeight: "600" }}>● Ready for Tasking</span>
         )}
       </div>
     </div>
@@ -2371,16 +3669,40 @@ function RiskMap({
   notify,
   onAutoDispatch,
   onVerify,
+  onResolve,
   onFalseAlarm,
   onOpenOverride
 }) {
+  const navigate = useNavigate();
+  const [showHistoricalIncidents, setShowHistoricalIncidents] = useState(false);
+
   return (
     <div className="content">
       <PageHeader
         eyebrow="GEO-INTELLIGENCE · REAL OPENSTREETMAP & RADAR"
         title="Live Street-Level Flood Risk Map"
         sub="Explore real geographic flood zones, Open-Meteo precipitation overlays, and live response vehicle tracking."
-      />
+      >
+        <button
+          onClick={() => setShowHistoricalIncidents(!showHistoricalIncidents)}
+          style={{
+            padding: "6px 12px",
+            background: showHistoricalIncidents ? "#16a34a" : "#0f172a",
+            color: "#fff",
+            border: "1px solid #334155",
+            borderRadius: "6px",
+            fontSize: "12px",
+            fontWeight: "700",
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "5px"
+          }}
+        >
+          <Clock size={13} />
+          {showHistoricalIncidents ? "Hide Historical Incidents" : "Show Historical / Resolved Incidents"}
+        </button>
+      </PageHeader>
 
       {/* Location Search Bar */}
       <LocationSearchBar
@@ -2417,35 +3739,51 @@ function RiskMap({
               onClearRoute={onClearRoute}
               onAutoDispatch={onAutoDispatch}
               onVerify={onVerify}
+              onResolve={onResolve}
               onFalseAlarm={onFalseAlarm}
+              onNavigateIncident={(id) => navigate(`/incidents/${id}`)}
+              onNavigateZone={(zId) => navigate(`/zones/${zId}`)}
+              showHistoricalIncidents={showHistoricalIncidents}
             />
           </div>
           <div className="map-legend">
-            <div className="map-legend-items">
-              <span className="legend-pill red"><span className="legend-dot red"></span>Critical (≥75)</span>
-              <span className="legend-pill orange"><span className="legend-dot orange"></span>Elevated (≥45)</span>
-              <span className="legend-pill green"><span className="legend-dot green"></span>Normal (&lt;45)</span>
+            <div className="map-legend-items" style={{ flexWrap: "wrap", gap: "8px" }}>
+              <span className="legend-pill red" title="Unresolved active emergency SOS"><span className="legend-dot red"></span>🔴 Active SOS / New</span>
+              <span className="legend-pill orange" title="Field verified incident"><span className="legend-dot orange"></span>🟠 Verified</span>
+              <span className="legend-pill" style={{ background: "#f0f9ff", color: "#0369a1", border: "1px solid #7dd3fc" }} title="Response team allocated"><span className="legend-dot" style={{ background: "#0284c7" }}></span>🔵 Resource Allocated</span>
+              <span className="legend-pill" style={{ background: "#eff6ff", color: "#1d4ed8", border: "1px solid #93c5fd" }} title="Dispatched and traveling to site"><span className="legend-dot" style={{ background: "#2563eb" }}></span>🚑 En Route</span>
+              <span className="legend-pill green" title="Operational unit on scene"><span className="legend-dot green"></span>📍 Reached Site</span>
+              {showHistoricalIncidents && (
+                <span className="legend-pill" style={{ background: "#dcfce7", color: "#166534", border: "1px solid #86efac" }} title="Mitigated and closed incident"><span className="legend-dot" style={{ background: "#16a34a" }}></span>🟢 Resolved</span>
+              )}
             </div>
-            <span className="map-note">🛡️ Click any shelter marker or card below to highlight safest road route</span>
+            <span className="map-note">🛡️ Click any risk zone or incident marker to inspect sector intelligence</span>
           </div>
         </section>
         <section className="panel zone-list">
           <div className="panel-head">
             <div>
               <h3>Risk Zones</h3>
-              <span>Live calculation</span>
+              <span>Live calculations · Click to inspect</span>
             </div>
           </div>
           {[...zones]
             .sort((a, b) => b.risk - a.risk)
             .map((z) => (
-              <div className="zone-item" key={z.id}>
+              <div
+                className="zone-item"
+                key={z.id}
+                onClick={() => navigate(`/zones/${z.id}`)}
+                style={{ cursor: "pointer" }}
+                title={`Open details for ${z.name}`}
+              >
                 <div className={`zone-dot ${z.risk >= 75 ? "red" : z.risk >= 45 ? "orange" : "green"}`}></div>
-                <div>
+                <div style={{ flex: 1 }}>
                   <b>{z.name}</b>
                   <span>{z.ward} · {z.reports} reports · {z.rainfall}mm rain</span>
                 </div>
                 <RiskBadge score={z.risk} />
+                <ChevronRight size={14} color="#94a3b8" />
               </div>
             ))}
         </section>
@@ -2659,23 +3997,23 @@ function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch
   );
 }
 
-// Mini Map Component for Smart Dispatch with live route & pulsing vectors
-function DispatchMiniMap({ incident, teamObj }) {
+// Embedded Interactive Dispatch Mini-Map with Dynamic Maps API markers & real road routing
+function DispatchMiniMap({ incident, nearbyResources = [], selectedResource, routeData, loadingRoute, onSelectResource }) {
   const mapRef = useRef(null);
   const mapInst = useRef(null);
 
+  const incLat = incident?.lat != null ? Number(incident.lat) : (incident?.liveLocation?.latitude != null ? Number(incident.liveLocation.latitude) : null);
+  const incLng = incident?.lng != null ? Number(incident.lng) : (incident?.liveLocation?.longitude != null ? Number(incident.liveLocation.longitude) : null);
+
   useEffect(() => {
     if (!mapRef.current) return;
-    const incLat = Number(incident?.lat) || 19.132;
-    const incLng = Number(incident?.lng) || 72.848;
-    const teamLat = Number(teamObj?.lat) || incLat + 0.0035;
-    const teamLng = Number(teamObj?.lng) || incLng + 0.0025;
+    if (incLat == null || incLng == null || isNaN(incLat) || isNaN(incLng)) return;
 
     if (!mapInst.current) {
       mapInst.current = L.map(mapRef.current, {
-        center: [(incLat + teamLat) / 2, (incLng + teamLng) / 2],
-        zoom: 15,
-        zoomControl: false,
+        center: [incLat, incLng],
+        zoom: 14,
+        zoomControl: true,
         attributionControl: false
       });
 
@@ -2686,6 +4024,8 @@ function DispatchMiniMap({ incident, teamObj }) {
     }
 
     const map = mapInst.current;
+
+    // Clear previous layers
     map.eachLayer((layer) => {
       if (layer instanceof L.Marker || layer instanceof L.Polyline) {
         map.removeLayer(layer);
@@ -2697,55 +4037,151 @@ function DispatchMiniMap({ incident, teamObj }) {
     const isDispatched = incident?.status === "Dispatched" || incident?.dispatchProgress === "en_route" || isOnScene;
     const isResolved = incident?.status === "Resolved";
 
-    // 1. Incident marker
+    // 1. Incident marker with pulsing ring
     const incIcon = L.divIcon({
       className: "mini-inc-icon",
       html: `
         <div style="position:relative;display:flex;align-items:center;justify-content:center;">
-          <div style="position:absolute;inset:-6px;border-radius:50%;background:${isSos ? "rgba(239,68,68,0.4)" : "rgba(245,158,11,0.4)"};animation:pulse-ring 2s infinite ease-in-out;"></div>
-          <div style="background:${isSos ? "#ef4444" : "#f59e0b"};color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:2px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,0.3);">
-            ${isSos ? "🚨" : "⚠️"}
+          <div style="position:absolute;inset:-8px;border-radius:50%;background:${isSos ? "rgba(239,68,68,0.45)" : "rgba(245,158,11,0.45)"};animation:pulse-ring 1.8s infinite ease-in-out;"></div>
+          <div style="background:${isSos ? "#ef4444" : "#f59e0b"};color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;border:2.5px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,0.35);font-weight:bold;">
+            ${isSos ? "🚨" : "📍"}
           </div>
         </div>
       `,
-      iconSize: [28, 28],
-      iconAnchor: [14, 14]
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
     });
-    L.marker([incLat, incLng], { icon: incIcon }).addTo(map).bindTooltip(`📍 Incident: ${incident?.id || "Target"}`);
 
-    // 2. Team Squad marker
-    const teamIcon = L.divIcon({
-      className: "mini-team-icon",
-      html: `
-        <div style="position:relative;display:flex;align-items:center;justify-content:center;">
-          ${isDispatched && !isResolved ? `<div style="position:absolute;inset:-6px;border-radius:50%;background:${isOnScene ? "rgba(16,185,129,0.4)" : "rgba(245,158,11,0.4)"};animation:pulse-ring 2s infinite ease-in-out;"></div>` : ''}
-          <div style="background:${isResolved ? "#10b981" : isOnScene ? "#10b981" : isDispatched ? "#f59e0b" : "#2563eb"};color:#fff;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,0.3);">
-            ${teamObj?.type?.includes("Boat") ? "🚤" : teamObj?.type?.includes("Medical") ? "🚑" : "🚒"}
+    const incMarker = L.marker([incLat, incLng], { icon: incIcon, zIndexOffset: 1000 }).addTo(map);
+    incMarker.bindPopup(`
+      <div style="font-family:sans-serif;font-size:12px;color:#0f172a;min-width:180px;">
+        <b style="color:${isSos ? "#dc2626" : "#2563eb"};font-size:13px;">📍 ${incident?.id || "Target Incident"}</b>
+        <div style="margin-top:4px;color:#475569;"><b>Location:</b> ${incident?.address || incident?.zoneId || "Incident Site"}</div>
+        <div style="margin-top:2px;color:#475569;"><b>Cause:</b> ${incident?.cause || "Waterlogging"}</div>
+        <div style="margin-top:2px;color:#475569;"><b>Status:</b> <span style="font-weight:700;">${incident?.status || "Received"}</span></div>
+      </div>
+    `);
+
+    // 2. Render all discovered nearby emergency facilities as interactive map markers
+    const boundsCoords = [[incLat, incLng]];
+
+    nearbyResources.forEach((res) => {
+      if (res.lat == null || res.lng == null || isNaN(res.lat) || isNaN(res.lng)) return;
+      const isSelected = selectedResource && (selectedResource.id === res.id || selectedResource.name === res.name);
+
+      const catInfo = getAuthorityResourceCategory(res);
+      const catIcon = res.icon || catInfo.icon;
+      const catColor = catInfo.color;
+
+      const iconKey = `dispatch-res-${isSelected ? "sel" : "norm"}-${catIcon}`;
+      const resDivIcon = getCachedDivIcon(iconKey, {
+        className: `dyn-res-icon ${isSelected ? "selected-res" : ""}`,
+        html: `
+          <div style="position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+            ${isSelected ? `<div style="position:absolute;inset:-6px;border-radius:50%;background:rgba(37,99,235,0.4);animation:pulse-ring 2s infinite ease-in-out;"></div>` : ""}
+            <div style="background:${isSelected ? "#1d4ed8" : "#ffffff"};color:${isSelected ? "#ffffff" : "#0f172a"};width:${isSelected ? "34px" : "28px"};height:${isSelected ? "34px" : "28px"};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${isSelected ? "16px" : "13px"};border:${isSelected ? "3px solid #ffffff" : `2px solid ${catColor}`};box-shadow:0 3px 10px rgba(0,0,0,0.25);transition:all 0.2s ease;">
+              ${catIcon}
+            </div>
           </div>
+        `,
+        iconSize: [isSelected ? 34 : 28, isSelected ? 34 : 28],
+        iconAnchor: [isSelected ? 17 : 14, isSelected ? 17 : 14]
+      });
+
+      const resMarker = L.marker([res.lat, res.lng], { icon: resDivIcon, zIndexOffset: isSelected ? 500 : 100 }).addTo(map);
+      
+      resMarker.bindPopup(`
+        <div style="font-family:sans-serif;font-size:12px;color:#0f172a;min-width:200px;">
+          <b style="font-size:13px;color:#0f172a;">${catIcon} ${res.name}</b>
+          <div style="font-size:11px;color:${catColor};font-weight:700;margin-top:2px;">${catInfo.label}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px;">${res.group || res.subType || res.category}</div>
+          <div style="font-size:11px;color:#475569;margin-top:4px;">📍 ${res.address || res.station}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:6px;border-top:1px solid #e2e8f0;">
+            <span style="font-size:11px;font-weight:700;color:#2563eb;">⚡ ${res.distanceKm != null ? `${res.distanceKm} km` : ""}</span>
+            <span style="font-size:11px;font-weight:700;color:#16a34a;">⏱️ ${res.etaText || (res.etaMinutes ? `${res.etaMinutes} min` : "ETA ~5 min")}</span>
+          </div>
+          ${!isSelected ? `<div style="margin-top:8px;text-align:center;"><button style="background:#2563eb;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;" onclick="window.__selectDispatchRes && window.__selectDispatchRes('${res.id}')">Select for Dispatch</button></div>` : `<div style="margin-top:6px;text-align:center;font-size:11px;font-weight:800;color:#2563eb;">✓ Currently Selected</div>`}
         </div>
-      `,
-      iconSize: [30, 30],
-      iconAnchor: [15, 15]
+      `);
+
+      resMarker.on("click", () => {
+        if (onSelectResource) onSelectResource(res);
+      });
+
+      if (isSelected) {
+        boundsCoords.push([res.lat, res.lng]);
+      }
     });
-    L.marker([teamLat, teamLng], { icon: teamIcon }).addTo(map).bindTooltip(`🚒 Squad: ${teamObj?.name || "Assigned Unit"}`);
 
-    // 3. Connecting route trajectory
-    L.polyline([[teamLat, teamLng], [incLat, incLng]], {
-      color: isResolved ? "#10b981" : isOnScene ? "#10b981" : "#f59e0b",
-      weight: 4,
-      opacity: 0.9,
-      dashArray: isOnScene || isResolved ? undefined : "8, 6"
-    }).addTo(map);
+    // 3. Render real road routing geometry from selected emergency service to incident
+    if (selectedResource?.lat != null && selectedResource?.lng != null) {
+      if (routeData?.coordinates && Array.isArray(routeData.coordinates) && routeData.coordinates.length > 0) {
+        const polyCoords = routeData.coordinates.map((c) => [c.lat, c.lng]);
+        L.polyline(polyCoords, {
+          color: isResolved ? "#10b981" : isOnScene ? "#059669" : "#2563eb",
+          weight: 5,
+          opacity: 0.9,
+          lineJoin: "round"
+        }).addTo(map);
 
+        polyCoords.forEach((pt) => boundsCoords.push(pt));
+      } else {
+        // Direct fallback line while route is loading or if routing offline
+        L.polyline([[selectedResource.lat, selectedResource.lng], [incLat, incLng]], {
+          color: isResolved ? "#10b981" : isOnScene ? "#10b981" : "#2563eb",
+          weight: 4,
+          opacity: 0.8,
+          dashArray: isOnScene || isResolved ? undefined : "6, 6"
+        }).addTo(map);
+      }
+    }
+
+    // Fit map view bounds comfortably to encompass incident, selected unit, and route
     try {
-      const bounds = L.latLngBounds([[incLat, incLng], [teamLat, teamLng]]);
-      map.fitBounds(bounds, { padding: [35, 35], animate: true });
+      if (boundsCoords.length > 1) {
+        const bounds = L.latLngBounds(boundsCoords);
+        map.fitBounds(bounds, { padding: [45, 45], maxZoom: 16, animate: true });
+      } else {
+        map.setView([incLat, incLng], 15, { animate: true });
+      }
     } catch {}
-  }, [incident?.id, incident?.status, incident?.dispatchProgress, teamObj?.id, teamObj?.lat, teamObj?.lng]);
+  }, [
+    incident?.id,
+    incLat,
+    incLng,
+    incident?.status,
+    incident?.dispatchProgress,
+    nearbyResources.length,
+    selectedResource?.id,
+    selectedResource?.lat,
+    selectedResource?.lng,
+    routeData?.coordinates
+  ]);
+
+  // Expose global callback for Leaflet popup buttons
+  useEffect(() => {
+    window.__selectDispatchRes = (resId) => {
+      const target = nearbyResources.find((r) => r.id === resId);
+      if (target && onSelectResource) onSelectResource(target);
+    };
+    return () => {
+      delete window.__selectDispatchRes;
+    };
+  }, [nearbyResources, onSelectResource]);
 
   const isOnScene = incident?.status === "On Scene" || incident?.dispatchProgress === "on_scene";
   const isDispatched = incident?.status === "Dispatched" || incident?.dispatchProgress === "en_route" || isOnScene;
   const isResolved = incident?.status === "Resolved";
+
+  if (incLat == null || incLng == null || isNaN(incLat) || isNaN(incLng)) {
+    return (
+      <div className="dispatch-minimap-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#f8fafc", color: "#64748b", padding: "20px" }}>
+        <AlertCircle size={28} color="#f59e0b" style={{ marginBottom: "8px" }} />
+        <b style={{ color: "#1e293b", fontSize: "13px" }}>Incident location unavailable</b>
+        <span style={{ fontSize: "11px", marginTop: "4px" }}>No valid GPS coordinates associated with {incident?.id || "this report"}.</span>
+      </div>
+    );
+  }
 
   return (
     <div className="dispatch-minimap-card">
@@ -2754,7 +4190,7 @@ function DispatchMiniMap({ incident, teamObj }) {
           width: "8px",
           height: "8px",
           borderRadius: "50%",
-          background: isResolved ? "#10b981" : isOnScene ? "#10b981" : isDispatched ? "#f59e0b" : "#3b82f6",
+          background: isResolved ? "#10b981" : isOnScene ? "#059669" : isDispatched ? "#f59e0b" : "#2563eb",
           display: "inline-block",
           boxShadow: isDispatched && !isResolved ? "0 0 8px #f59e0b" : "none"
         }} />
@@ -2764,17 +4200,26 @@ function DispatchMiniMap({ incident, teamObj }) {
             : isOnScene
             ? "📍 Squad Reached Site · Operating"
             : isDispatched
-            ? "🚗 Squad En Route (ETA ~5 min)"
+            ? `🚗 Squad En Route (${routeData?.durationMin ? `ETA ~${routeData.durationMin} min` : selectedResource?.etaText || "ETA ~5 min"})`
+            : selectedResource
+            ? `⚡ ${selectedResource.name} · ${selectedResource.distanceKm != null ? `${selectedResource.distanceKm} km away` : "Nearby"}`
             : "⚡ Standby · Ready for Deployment"}
         </span>
       </div>
+
+      {loadingRoute && (
+        <div style={{ position: "absolute", top: "10px", right: "10px", background: "rgba(15,23,42,0.85)", color: "#fff", padding: "4px 10px", borderRadius: "8px", fontSize: "10px", fontWeight: "700", zIndex: 500, display: "flex", alignItems: "center", gap: "6px" }}>
+          <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> Calculating Road Route & ETA...
+        </div>
+      )}
+
       <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
     </div>
   );
 }
 
-// Smart Dispatch Page with Animated Stepper & Fluid Button Micro-interactions
-function Dispatch({ incidents, resources, notify, onReload, onAutoDispatch }) {
+// Smart Dispatch Page with Dynamic Maps API Emergency Resource Discovery & Real Road Routing
+function Dispatch({ incidents, resources = [], notify, onReload, onAutoDispatch }) {
   const sortedIncidents = [...incidents].sort(
     (a, b) => new Date(b.userTimestamp || b.updatedAt || b.createdAt || b.time || 0) - new Date(a.userTimestamp || a.updatedAt || a.createdAt || a.time || 0)
   );
@@ -2782,57 +4227,149 @@ function Dispatch({ incidents, resources, notify, onReload, onAutoDispatch }) {
   const [selectedId, setSelectedId] = useState(sortedIncidents[0]?.id || null);
   const selected = sortedIncidents.find((i) => i.id === selectedId) || sortedIncidents[0] || null;
 
-  // Compute resources sorted by proximity to the active problem / incident coordinates
-  const sortedResourcesByDistance = [...resources]
-    .map((r) => {
-      const distKm = (selected?.lat && selected?.lng && r.lat && r.lng)
-        ? calcDistanceKm(selected.lat, selected.lng, r.lat, r.lng)
-        : null;
-      return { ...r, distKm };
-    })
-    .sort((a, b) => {
-      if (a.distKm == null) return 1;
-      if (b.distKm == null) return -1;
-      return a.distKm - b.distKm;
-    });
+  // Dynamic Emergency Resource Discovery State
+  const [searchRadius, setSearchRadius] = useState(5);
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [nearbyResources, setNearbyResources] = useState([]);
+  const [loadingResources, setLoadingResources] = useState(false);
+  const [errorResources, setErrorResources] = useState(null);
 
-  const [team, setTeam] = useState(
-    selected?.assignedTeam || selected?.recommendedTeam || sortedResourcesByDistance[0]?.name || resources[0]?.name || "Municipal Cleaning & Desilting Crew"
-  );
+  // Selected Resource for Tasking
+  const [selectedResource, setSelectedResource] = useState(null);
+  const [team, setTeam] = useState("");
+
+  // Real OSRM Road Routing State
+  const [routeData, setRouteData] = useState(null);
+  const [loadingRoute, setLoadingRoute] = useState(false);
+
+  // Action / Confirmation State
   const [sending, setSending] = useState(false);
   const [updatingProgress, setUpdatingProgress] = useState(false);
+  const [showDispatchConfirm, setShowDispatchConfirm] = useState(false);
 
+  // Keep selectedId valid
   useEffect(() => {
     if (!selectedId && sortedIncidents.length > 0) {
       setSelectedId(sortedIncidents[0].id);
     }
   }, [sortedIncidents.length]);
 
-  useEffect(() => {
-    if (selected?.assignedTeam) {
-      setTeam(selected.assignedTeam);
-    } else if (selected?.recommendedTeam) {
-      setTeam(selected.recommendedTeam);
-    } else if (sortedResourcesByDistance.length > 0) {
-      setTeam(sortedResourcesByDistance[0].name);
-    }
-  }, [selected?.id]);
+  // Extract selected incident GPS
+  const incLat = selected?.lat != null ? Number(selected.lat) : (selected?.liveLocation?.latitude != null ? Number(selected.liveLocation.latitude) : null);
+  const incLng = selected?.lng != null ? Number(selected.lng) : (selected?.liveLocation?.longitude != null ? Number(selected.liveLocation.longitude) : null);
 
-  const selectedTeamObj = sortedResourcesByDistance.find((r) => r.name === team) || resources[0];
+  // 1. Dynamic Emergency Resource Discovery Effect: Queries Maps API around the Incident's ACTUAL GPS
+  useEffect(() => {
+    if (!selected) {
+      setNearbyResources([]);
+      setSelectedResource(null);
+      return;
+    }
+
+    if (incLat == null || incLng == null || isNaN(incLat) || isNaN(incLng) || incLat === 0 || incLng === 0) {
+      setNearbyResources([]);
+      setSelectedResource(null);
+      setErrorResources("Incident location unavailable. No valid GPS coordinates for this incident.");
+      return;
+    }
+
+    let isMounted = true;
+    setLoadingResources(true);
+    setErrorResources(null);
+
+    // Call dedicated backend nearby resources API powered by Google Places & OpenStreetMap
+    apiFetch(`/incidents/${selected.id}/nearby-resources?radius_km=${searchRadius}&category=${activeCategory}`)
+      .then((data) => {
+        if (!isMounted) return;
+        const resList = data.resources || [];
+        setNearbyResources(resList);
+
+        if (resList.length > 0) {
+          // If incident already had an assigned team, try to match it; otherwise auto-select closest resource
+          const matched = selected.assignedTeam
+            ? resList.find((r) => r.name === selected.assignedTeam) || resList[0]
+            : resList[0];
+          setSelectedResource(matched);
+          setTeam(matched.name);
+        } else {
+          setSelectedResource(null);
+          setTeam("");
+        }
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        console.warn("[Smart Dispatch] Dynamic resource discovery error:", err.message);
+        setErrorResources("Unable to load nearby emergency resources from Maps API. " + err.message);
+        setNearbyResources([]);
+        setSelectedResource(null);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingResources(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selected?.id, incLat, incLng, searchRadius, activeCategory]);
+
+  // 2. Real Road Routing Effect: Calculates driving trajectory from selected emergency resource to incident
+  useEffect(() => {
+    if (!selectedResource || !selectedResource.lat || !selectedResource.lng || incLat == null || incLng == null) {
+      setRouteData(null);
+      return;
+    }
+
+    let isMounted = true;
+    setLoadingRoute(true);
+
+    apiFetch(`/route?fromLat=${selectedResource.lat}&fromLng=${selectedResource.lng}&toLat=${incLat}&toLng=${incLng}`)
+      .then((route) => {
+        if (!isMounted) return;
+        if (route && route.success) {
+          setRouteData(route);
+        } else {
+          setRouteData(null);
+        }
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        console.warn("[Smart Dispatch] Route calculation note:", err.message);
+        setRouteData(null);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingRoute(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedResource?.id, selectedResource?.lat, selectedResource?.lng, incLat, incLng]);
+
+  const handleSelectResourceItem = (resItem) => {
+    setSelectedResource(resItem);
+    setTeam(resItem.name);
+  };
 
   const handleDispatch = async () => {
-    if (!selected) return;
+    if (!selected || !selectedResource) return;
     setSending(true);
     try {
+      const etaStr = routeData?.durationMin
+        ? `${routeData.durationMin} min`
+        : selectedResource.etaText || "8–12 min";
+
       await apiFetch(`/incidents/${selected.id}/dispatch`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          team,
-          reason: selected.cause
+          team: selectedResource.name,
+          teamId: selectedResource.id,
+          reason: selected.cause || "Hyperlocal urban flood emergency tasking",
+          eta: etaStr
         })
       });
-      notify(`✓ Resource ${team} allocated to ${selected.id}. Live status: En Route.`);
+      notify(`✓ Dispatched ${selectedResource.name} to ${selected.id}. Distance: ${selectedResource.distanceKm} km, ETA: ${etaStr}.`);
+      setShowDispatchConfirm(false);
       onReload();
     } catch (err) {
       notify("Dispatch failed: " + err.message);
@@ -2880,15 +4417,16 @@ function Dispatch({ incidents, resources, notify, onReload, onAutoDispatch }) {
     <div className="content">
       <PageHeader
         eyebrow="RESPONSE ORCHESTRATION"
-        title="Smart Dispatch & Resource Tasking"
-        sub="Auto-route municipal teams to real citizen incident locations based on cause divergence diagnosis."
+        title="Smart Dispatch & Dynamic Resource Tasking"
+        sub="Discover real nearby emergency services around citizen GPS coordinates using live Maps API integration and OSRM road routing."
       />
       <div className="dispatch-layout">
+        {/* Left Column: Incidents Queue */}
         <section className="panel">
           <div className="panel-head">
             <div>
               <h3>Incidents Feed</h3>
-              <span>Choose an incident to route & track resources</span>
+              <span>Choose an incident to discover nearby emergency services</span>
             </div>
           </div>
           {sortedIncidents.length === 0 ? (
@@ -2899,14 +4437,8 @@ function Dispatch({ incidents, resources, notify, onReload, onAutoDispatch }) {
               const itemOnScene = i.status === "On Scene" || i.dispatchProgress === "on_scene";
               const itemDispatched = i.status === "Dispatched" || i.dispatchProgress === "en_route" || itemOnScene;
               const isChosen = selected?.id === i.id;
-
-              // Nearest squad for this individual incident item
-              const incNearest = (i.lat && i.lng && resources.length > 0)
-                ? [...resources]
-                    .map((r) => ({ ...r, distKm: calcDistanceKm(i.lat, i.lng, r.lat, r.lng) }))
-                    .filter((r) => r.distKm != null)
-                    .sort((a, b) => a.distKm - b.distKm)[0]
-                : null;
+              const itemLat = i.lat != null ? Number(i.lat) : (i.liveLocation?.latitude != null ? Number(i.liveLocation.latitude) : null);
+              const itemLng = i.lng != null ? Number(i.lng) : (i.liveLocation?.longitude != null ? Number(i.liveLocation.longitude) : null);
 
               return (
                 <button
@@ -2944,17 +4476,18 @@ function Dispatch({ incidents, resources, notify, onReload, onAutoDispatch }) {
                     </div>
                     <span>{i.address || i.zoneId} · {i.cause}</span>
 
-                    {/* Proximity / Assigned Unit Tag */}
-                    {itemDispatched && i.assignedTeam ? (
-                      <div style={{ fontSize: "10px", color: itemResolved ? "#166534" : "#2563eb", marginTop: "2px", fontWeight: "600" }}>
+                    {/* GPS Coordinates Preview */}
+                    <div style={{ fontSize: "9px", color: "#64748b", marginTop: "2px", display: "flex", alignItems: "center", gap: "4px" }}>
+                      <span>📍</span>
+                      <span>{itemLat != null && itemLng != null ? `${itemLat.toFixed(4)}, ${itemLng.toFixed(4)}` : "GPS unavailable"}</span>
+                    </div>
+
+                    {/* Assigned Unit Tag */}
+                    {itemDispatched && i.assignedTeam && (
+                      <div style={{ fontSize: "10px", color: itemResolved ? "#166534" : "#2563eb", marginTop: "2px", fontWeight: "700" }}>
                         🚒 {i.assignedTeam}
                       </div>
-                    ) : incNearest ? (
-                      <div style={{ fontSize: "10px", color: "#0284c7", marginTop: "2px", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px" }}>
-                        <span>📍 Nearest:</span>
-                        <span>{incNearest.name.split(" ")[0]} ({incNearest.distKm} km)</span>
-                      </div>
-                    ) : null}
+                    )}
                   </div>
                   <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
                     <RiskBadge score={i.severity} />
@@ -2970,6 +4503,7 @@ function Dispatch({ incidents, resources, notify, onReload, onAutoDispatch }) {
           )}
         </section>
 
+        {/* Right Column: Selected Incident & Dynamic Dispatch Workspace */}
         <section className="panel dispatch-form">
           <div className="dispatch-hero">
             <div className="hero-icon"><RouteIcon /></div>
@@ -2980,11 +4514,15 @@ function Dispatch({ incidents, resources, notify, onReload, onAutoDispatch }) {
                   {selected?.status || "Received"}
                 </span>
               </div>
-              <h2>{selected?.id || "No Incident"}</h2>
+              <h2>{selected?.id || "No Incident Selected"}</h2>
               <p>
-                {selected?.reporter} · {selected?.address || selected?.zoneId} · Severity <b>{selected?.severity}</b>
+                {selected?.reporter || "Citizen"} · {selected?.address || selected?.zoneId} · Severity <b>{selected?.severity}</b>
                 {selected?.originalSeverity && selected.originalSeverity > selected.severity ? ` (Mitigated from ${selected.originalSeverity})` : ""}
               </p>
+              <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "4px", display: "flex", alignItems: "center", gap: "6px" }}>
+                <MapPin size={13} color="#38bdf8" />
+                <span><b>GPS Coordinates:</b> {incLat != null && incLng != null ? `${incLat.toFixed(5)}, ${incLng.toFixed(5)}` : "Location coordinates unavailable"}</span>
+              </div>
             </div>
           </div>
 
@@ -3028,61 +4566,199 @@ function Dispatch({ incidents, resources, notify, onReload, onAutoDispatch }) {
             </div>
           )}
 
-          {/* Embedded Interactive Dispatch Route Mini-Map */}
+          {/* Embedded Interactive Dispatch Route Map */}
           {selected && (
-            <DispatchMiniMap incident={selected} teamObj={selectedTeamObj} />
+            <DispatchMiniMap
+              incident={selected}
+              nearbyResources={nearbyResources}
+              selectedResource={selectedResource}
+              routeData={routeData}
+              loadingRoute={loadingRoute}
+              onSelectResource={handleSelectResourceItem}
+            />
           )}
 
-          {/* Nearest Response Squads Ranked by Proximity Cards Grid */}
-          <div style={{ marginTop: "14px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-              <label style={{ fontSize: "11px", fontWeight: "800", color: "#1e293b", margin: 0 }}>
-                📍 Nearest Response Squads to {selected?.id || "Problem"}:
-              </label>
-              <span style={{ fontSize: "10px", color: "#64748b" }}>Ranked by shortest distance</span>
+          {/* Dynamic Maps API Discovery Filter Bar */}
+          <div style={{ marginTop: "16px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "12px 14px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "10px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "11px", fontWeight: "800", color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  🗺️ Maps API POI Search Radius:
+                </span>
+                <div style={{ display: "flex", gap: "4px" }}>
+                  {[3, 5, 10, 15].map((rad) => (
+                    <button
+                      key={rad}
+                      onClick={() => setSearchRadius(rad)}
+                      style={{
+                        padding: "3px 8px",
+                        fontSize: "11px",
+                        fontWeight: searchRadius === rad ? "800" : "600",
+                        borderRadius: "6px",
+                        border: searchRadius === rad ? "1.5px solid #2563eb" : "1px solid #cbd5e1",
+                        background: searchRadius === rad ? "#eff6ff" : "#ffffff",
+                        color: searchRadius === rad ? "#1d4ed8" : "#475569",
+                        cursor: "pointer"
+                      }}
+                    >
+                      {rad} km
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ fontSize: "11px", color: "#64748b", display: "flex", alignItems: "center", gap: "4px" }}>
+                {loadingResources ? (
+                  <>
+                    <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> Searching Maps API...
+                  </>
+                ) : (
+                  <span>Discovered: <b>{nearbyResources.length}</b> real places</span>
+                )}
+              </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "8px", marginBottom: "10px" }}>
-              {sortedResourcesByDistance.slice(0, 3).map((r, idx) => {
-                const isChosenTeam = team === r.name;
+            {/* Category Filter Chips */}
+            <div style={{ display: "flex", gap: "6px", overflowX: "auto", paddingBottom: "2px" }}>
+              {[
+                { id: "all", label: "All Categories", icon: "🌐" },
+                { id: "fire", label: "Fire & Water Rescue", icon: "🚒" },
+                { id: "medical", label: "Hospitals & ICUs", icon: "🏥" },
+                { id: "police", label: "Police & Security", icon: "👮" },
+                { id: "municipal", label: "Municipal Disaster Cells", icon: "🏛️" },
+                { id: "shelter", label: "Evacuation Shelters", icon: "🏠" }
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setActiveCategory(cat.id)}
+                  style={{
+                    padding: "4px 10px",
+                    fontSize: "10px",
+                    fontWeight: activeCategory === cat.id ? "800" : "600",
+                    borderRadius: "20px",
+                    border: activeCategory === cat.id ? "1.5px solid #2563eb" : "1px solid #e2e8f0",
+                    background: activeCategory === cat.id ? "#2563eb" : "#ffffff",
+                    color: activeCategory === cat.id ? "#ffffff" : "#475569",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    transition: "all 0.15s ease"
+                  }}
+                >
+                  <span>{cat.icon}</span>
+                  <span>{cat.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Error / Empty State Notice */}
+          {errorResources && (
+            <div style={{ marginTop: "12px", padding: "12px 14px", background: "#fef2f2", border: "1.5px solid #fecaca", borderRadius: "10px", color: "#991b1b", fontSize: "12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <AlertCircle size={16} />
+                <span>{errorResources}</span>
+              </div>
+              <button
+                className="ghost small"
+                onClick={() => setSearchRadius((r) => Math.min(15, r + 5))}
+                style={{ fontSize: "10px" }}
+              >
+                Retry Search
+              </button>
+            </div>
+          )}
+
+          {!loadingResources && !errorResources && nearbyResources.length === 0 && (
+            <div style={{ marginTop: "12px", padding: "18px", textAlign: "center", background: "#f8fafc", border: "1px dashed #cbd5e1", borderRadius: "12px", color: "#64748b" }}>
+              <Compass size={24} color="#94a3b8" style={{ marginBottom: "6px" }} />
+              <div style={{ fontSize: "12px", fontWeight: "700", color: "#1e293b" }}>No nearby emergency resources found within {searchRadius} km.</div>
+              <p style={{ fontSize: "11px", margin: "4px 0 10px" }}>Expand the search radius to discover facilities in adjacent municipal sectors.</p>
+              <button
+                className="primary small"
+                onClick={() => setSearchRadius(10)}
+                style={{ fontSize: "11px" }}
+              >
+                ⚡ Expand Search Radius to 10 km
+              </button>
+            </div>
+          )}
+
+          {/* Dynamically Discovered Real Emergency Services Cards Grid */}
+          <div style={{ marginTop: "14px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+              <label style={{ fontSize: "11px", fontWeight: "800", color: "#1e293b", margin: 0 }}>
+                📍 Nearest Emergency Services to {selected?.id || "Incident Site"} (Discovered via Maps API):
+              </label>
+              <span style={{ fontSize: "10px", color: "#64748b" }}>Sorted by shortest distance</span>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px", marginBottom: "12px" }}>
+              {nearbyResources.map((r, idx) => {
+                const isChosen = selectedResource?.id === r.id || team === r.name;
                 return (
                   <div
-                    key={r.id}
-                    onClick={() => setTeam(r.name)}
+                    key={r.id || idx}
+                    onClick={() => handleSelectResourceItem(r)}
                     style={{
-                      background: isChosenTeam ? "#eff6ff" : "#ffffff",
-                      border: isChosenTeam ? "2px solid #2563eb" : "1px solid #e2e8f0",
-                      borderRadius: "10px",
-                      padding: "9px 11px",
+                      background: isChosen ? "#eff6ff" : "#ffffff",
+                      border: isChosen ? "2px solid #2563eb" : "1px solid #e2e8f0",
+                      borderRadius: "12px",
+                      padding: "10px 12px",
                       cursor: "pointer",
                       transition: "all 0.2s ease",
-                      boxShadow: isChosenTeam ? "0 4px 12px rgba(37,99,235,0.15)" : "0 1px 3px rgba(0,0,0,0.03)"
+                      boxShadow: isChosen ? "0 4px 14px rgba(37,99,235,0.18)" : "0 1px 3px rgba(0,0,0,0.03)",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between"
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <span style={{ fontSize: "16px" }}>
-                        {r.type?.includes("Boat") ? "🚤" : r.type?.includes("Medical") ? "🚑" : "🚒"}
-                      </span>
-                      <span style={{
-                        fontSize: "9px",
-                        fontWeight: "800",
-                        background: idx === 0 ? "#dcfce7" : "#dbeafe",
-                        color: idx === 0 ? "#15803d" : "#1e40af",
-                        padding: "2px 6px",
-                        borderRadius: "10px",
-                        border: idx === 0 ? "1px solid #86efac" : "1px solid #bfdbfe"
-                      }}>
-                        {idx === 0 ? "⚡ Nearest " : ""}{r.distKm != null ? `${r.distKm} km` : ""}
-                      </span>
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <span style={{ fontSize: "18px" }}>
+                          {r.icon || (r.category === "fire" ? "🚒" : r.category === "medical" ? "🏥" : r.category === "police" ? "👮" : r.category === "shelter" ? "🏠" : "🏛️")}
+                        </span>
+                        <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+                          <span style={{
+                            fontSize: "9px",
+                            fontWeight: "800",
+                            background: idx === 0 ? "#dcfce7" : "#dbeafe",
+                            color: idx === 0 ? "#15803d" : "#1e40af",
+                            padding: "2px 6px",
+                            borderRadius: "10px",
+                            border: idx === 0 ? "1px solid #86efac" : "1px solid #bfdbfe"
+                          }}>
+                            {idx === 0 ? "⚡ Nearest " : ""}{r.distanceKm != null ? `${r.distanceKm} km` : ""}
+                          </span>
+                          {r.etaText && (
+                            <span style={{ fontSize: "9px", fontWeight: "800", background: "#f1f5f9", color: "#475569", padding: "2px 6px", borderRadius: "10px" }}>
+                              ⏱️ {r.etaText}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <b style={{ fontSize: "12px", color: "#0f172a", display: "block", marginTop: "6px", lineHeight: "1.3" }}>
+                        {r.name}
+                      </b>
+                      <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>
+                        📍 {r.address || r.station}
+                      </div>
+                      <div style={{ fontSize: "9px", color: "#94a3b8", marginTop: "2px" }}>
+                        🏢 {r.group || r.subType || r.category}
+                      </div>
                     </div>
-                    <b style={{ fontSize: "11px", color: "#0f172a", display: "block", marginTop: "4px" }}>{r.name}</b>
-                    <div style={{ fontSize: "9px", color: "#64748b", marginTop: "1px" }}>📍 {r.station}</div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "5px" }}>
-                      <span style={{ fontSize: "9px", fontWeight: "700", color: r.status === "Available" ? "#16a34a" : "#d97706" }}>
-                        ● {r.status}
+
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px", paddingTop: "6px", borderTop: "1px solid #f1f5f9" }}>
+                      <span style={{ fontSize: "9px", fontWeight: "700", color: r.openNow === false ? "#dc2626" : "#16a34a" }}>
+                        ● {r.status || "Active 24/7"}
                       </span>
-                      {isChosenTeam && (
-                        <span style={{ fontSize: "9px", fontWeight: "800", color: "#2563eb" }}>✓ Selected</span>
+                      {isChosen ? (
+                        <span style={{ fontSize: "10px", fontWeight: "800", color: "#2563eb" }}>✓ Selected</span>
+                      ) : (
+                        <span style={{ fontSize: "10px", color: "#64748b" }}>Select ➔</span>
                       )}
                     </div>
                   </div>
@@ -3091,23 +4767,45 @@ function Dispatch({ incidents, resources, notify, onReload, onAutoDispatch }) {
             </div>
           </div>
 
+          {/* Assigned Emergency Service Selector */}
           <label style={{ marginTop: "4px" }}>
-            Assigned Response Team (Proximity Sorted)
-            <select value={team} onChange={(e) => setTeam(e.target.value)} disabled={sending || updatingProgress}>
-              {sortedResourcesByDistance.map((r, idx) => (
-                <option key={r.id} value={r.name}>
-                  {idx === 0 && r.distKm != null ? `⚡ [Nearest: ${r.distKm} km] ` : r.distKm != null ? `[${r.distKm} km away] ` : ""}{r.name} ({r.status})
+            Assigned Response Team (Discovered by Maps API)
+            <select
+              value={team}
+              onChange={(e) => {
+                const chosenName = e.target.value;
+                setTeam(chosenName);
+                const found = nearbyResources.find((r) => r.name === chosenName);
+                if (found) setSelectedResource(found);
+              }}
+              disabled={sending || updatingProgress || nearbyResources.length === 0}
+            >
+              {nearbyResources.map((r, idx) => (
+                <option key={r.id || idx} value={r.name}>
+                  {idx === 0 && r.distanceKm != null ? `⚡ [Nearest: ${r.distanceKm} km] ` : r.distanceKm != null ? `[${r.distanceKm} km away] ` : ""}{r.name} ({r.etaText || "ETA ~5 min"})
                 </option>
               ))}
             </select>
           </label>
 
+          {/* Routing Rationale & Live ETA Display */}
           <div className="route-card">
             <div>
-              <b>Automated Routing Rationale</b>
-              <p>{selected?.routingRationale || selected?.causeDescription || "Standard flood response crew assignment."}</p>
+              <b>Automated Routing Rationale & Road Corridor</b>
+              <p>
+                {selected?.routingRationale || selected?.causeDescription || "Standard municipal emergency response tasking."}
+                {routeData?.distanceKm && ` Driven route: ${routeData.distanceKm} km via safest arterial high-ground corridor.`}
+              </p>
             </div>
-            <div className="eta">{isOnScene ? "0 min (On site)" : "8–12 min"}</div>
+            <div className="eta">
+              {isOnScene
+                ? "0 min (On site)"
+                : routeData?.durationMin
+                ? `ETA ${routeData.durationMin} min`
+                : selectedResource?.etaText
+                ? `ETA ${selectedResource.etaText}`
+                : "8–12 min"}
+            </div>
           </div>
 
           {/* Smooth Interactive Action Controls */}
@@ -3115,8 +4813,8 @@ function Dispatch({ incidents, resources, notify, onReload, onAutoDispatch }) {
             {!isDispatched && !isOnScene && !isResolved && (
               <button
                 className="dispatch-action-btn primary"
-                onClick={handleDispatch}
-                disabled={!selected || sending}
+                onClick={() => setShowDispatchConfirm(true)}
+                disabled={!selected || !selectedResource || sending}
                 style={{ flex: 1 }}
               >
                 {sending ? (
@@ -3125,7 +4823,7 @@ function Dispatch({ incidents, resources, notify, onReload, onAutoDispatch }) {
                   </>
                 ) : (
                   <>
-                    <Send size={15} /> 🚀 Dispatch Nearest Squad
+                    <Send size={15} /> 🚀 Dispatch Selected Emergency Squad ({selectedResource?.name ? selectedResource.name.split(" ")[0] : "Nearest"})
                   </>
                 )}
               </button>
@@ -3189,26 +4887,1778 @@ function Dispatch({ incidents, resources, notify, onReload, onAutoDispatch }) {
           </div>
         </section>
       </div>
+
+      {/* Confirmation Modal before Dispatching */}
+      {showDispatchConfirm && selected && selectedResource && (
+        <div className="modal-backdrop" onClick={() => setShowDispatchConfirm(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "480px" }}>
+            <div className="modal-header">
+              <h3 style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Send size={18} color="#2563eb" /> Confirm Emergency Dispatch Tasking
+              </h3>
+              <button className="close-btn" onClick={() => setShowDispatchConfirm(false)}>
+                <X size={16} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div style={{ background: "#f8fafc", padding: "12px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                <div style={{ fontSize: "10px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>Target Incident</div>
+                <div style={{ fontSize: "14px", fontWeight: "800", color: "#0f172a", marginTop: "2px" }}>{selected.id} · {selected.address}</div>
+                <div style={{ fontSize: "11px", color: "#475569", marginTop: "2px" }}>GPS: {incLat?.toFixed(4)}, {incLng?.toFixed(4)} · Cause: {selected.cause}</div>
+              </div>
+
+              <div style={{ background: "#eff6ff", padding: "12px", borderRadius: "10px", border: "1px solid #bfdbfe" }}>
+                <div style={{ fontSize: "10px", fontWeight: "800", color: "#1d4ed8", textTransform: "uppercase" }}>Assigned Emergency Service Unit</div>
+                <div style={{ fontSize: "14px", fontWeight: "800", color: "#1e3a8a", marginTop: "2px" }}>{selectedResource.icon || "🚒"} {selectedResource.name}</div>
+                <div style={{ fontSize: "11px", color: "#1e40af", marginTop: "2px" }}>📍 {selectedResource.address || selectedResource.station}</div>
+                <div style={{ display: "flex", gap: "14px", marginTop: "6px", fontSize: "11px", fontWeight: "700" }}>
+                  <span>Distance: <b>{selectedResource.distanceKm} km</b></span>
+                  <span>Estimated ETA: <b>{routeData?.durationMin ? `${routeData.durationMin} min` : selectedResource.etaText || "8–12 min"}</b></span>
+                </div>
+              </div>
+
+              <p style={{ fontSize: "11px", color: "#64748b", margin: "4px 0 0" }}>
+                Deploying this unit will notify ward dispatchers, log the action to the audit ledger, and initiate live en-route GPS tracking.
+              </p>
+            </div>
+            <div className="modal-footer" style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+              <button className="ghost" onClick={() => setShowDispatchConfirm(false)}>
+                Cancel
+              </button>
+              <button className="primary" onClick={handleDispatch} disabled={sending}>
+                {sending ? "Deploying..." : "Confirm & Deploy Squad"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// Dedicated Resources Page
-function ResourcesPage({ resources, notify, onReload }) {
+
+// Dedicated Comprehensive Incident Details & Dynamic Lifecycle Management Page
+function IncidentDetailPage({ incidents, resources = [], notify, onReload, onAutoDispatch, onVerify, onFalseAlarm, onOpenOverride, onViewPhoto, onResetReputation }) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  const [incident, setIncident] = useState(() => incidents.find((i) => i.id === id) || null);
+  const [loadingIncident, setLoadingIncident] = useState(!incident);
+  const [nearbyResources, setNearbyResources] = useState([]);
+  const [loadingResources, setLoadingResources] = useState(false);
+  const [searchRadius, setSearchRadius] = useState(5);
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [selectedResource, setSelectedResource] = useState(null);
+  const [routeData, setRouteData] = useState(null);
+  const [loadingRoute, setLoadingRoute] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [confirmModal, setConfirmModal] = useState(null);
+
+  // Sync from props or fetch fresh incident
+  useEffect(() => {
+    const found = incidents.find((i) => i.id === id);
+    if (found) {
+      setIncident(found);
+      setLoadingIncident(false);
+    } else {
+      setLoadingIncident(true);
+      apiFetch(`/incidents/${id}`)
+        .then((res) => {
+          setIncident(res);
+          setLoadingIncident(false);
+        })
+        .catch((err) => {
+          console.error("[IncidentDetailPage] Load error:", err);
+          setLoadingIncident(false);
+        });
+    }
+  }, [id, incidents]);
+
+  // Dynamically discover emergency resources around incident GPS via Maps API
+  useEffect(() => {
+    if (!incident) return;
+    const lat = Number(incident.lat ?? incident.latitude ?? incident.liveLocation?.latitude);
+    const lng = Number(incident.lng ?? incident.longitude ?? incident.liveLocation?.longitude);
+    if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
+      setNearbyResources([]);
+      return;
+    }
+
+    setLoadingResources(true);
+    apiFetch(`/incidents/${incident.id}/nearby-resources?radius_km=${searchRadius}&category=${activeCategory}`)
+      .then((res) => {
+        const list = res.resources || [];
+        setNearbyResources(list);
+        if (list.length > 0) {
+          setSelectedResource((prev) => {
+            if (prev) {
+              const matched = list.find((r) => r.name === prev.name || r.id === prev.id);
+              if (matched) return matched;
+            }
+            return list[0];
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn("[IncidentDetailPage] Nearby resources warning:", err);
+      })
+      .finally(() => setLoadingResources(false));
+  }, [incident?.id, searchRadius, activeCategory]);
+
+  // Calculate real OSRM turn-by-turn road route when selected resource changes
+  useEffect(() => {
+    if (!incident || !selectedResource) {
+      setRouteData(null);
+      return;
+    }
+    const incLat = Number(incident.lat ?? incident.latitude ?? incident.liveLocation?.latitude);
+    const incLng = Number(incident.lng ?? incident.longitude ?? incident.liveLocation?.longitude);
+    const resLat = Number(selectedResource.lat);
+    const resLng = Number(selectedResource.lng);
+    if (isNaN(incLat) || isNaN(incLng) || isNaN(resLat) || isNaN(resLng)) return;
+
+    setLoadingRoute(true);
+    apiFetch(`/route?fromLat=${resLat}&fromLng=${resLng}&toLat=${incLat}&toLng=${incLng}`)
+      .then((res) => {
+        setRouteData(res);
+      })
+      .catch(() => {
+        setRouteData({
+          coordinates: [{ lat: resLat, lng: resLng }, { lat: incLat, lng: incLng }],
+          distanceKm: selectedResource.distanceKm || 1.8,
+          durationMin: selectedResource.etaMinutes || 6
+        });
+      })
+      .finally(() => setLoadingRoute(false));
+  }, [incident?.id, selectedResource?.id, selectedResource?.lat, selectedResource?.lng]);
+
+  // Lifecycle Action Handlers
+  const handleVerify = async () => {
+    setActionLoading(true);
+    try {
+      const res = await apiFetch(`/incidents/${id}/verify`, { method: "POST" });
+      notify(`Incident ${id} marked as VERIFIED.`);
+      if (res.incident) setIncident(res.incident);
+      if (onReload) onReload();
+    } catch (err) {
+      notify("Verification failed: " + err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleAutoDispatch = async () => {
+    setActionLoading(true);
+    try {
+      const res = await apiFetch(`/incidents/${id}/auto-dispatch`, { method: "POST" });
+      notify(res.message || `Auto-dispatched rapid emergency unit to ${id}.`);
+      if (res.incident) setIncident(res.incident);
+      if (onReload) onReload();
+    } catch (err) {
+      notify("Auto-dispatch failed: " + err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleProgressStage = async (stage) => {
+    setActionLoading(true);
+    try {
+      const res = await apiFetch(`/incidents/${id}/progress`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stage })
+      });
+      notify(`Lifecycle updated: ${id} → ${stage.replace("_", " ").toUpperCase()}`);
+      if (res.incident) setIncident(res.incident);
+      if (onReload) onReload();
+    } catch (err) {
+      notify("Progress update failed: " + err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleResolve = async () => {
+    setActionLoading(true);
+    try {
+      const res = await apiFetch(`/incidents/${id}/resolve`, { method: "POST" });
+      notify(`Incident ${id} marked as RESOLVED. SOS marker cleared from active map.`);
+      if (res.incident) setIncident(res.incident);
+      if (onReload) onReload();
+    } catch (err) {
+      notify("Resolution failed: " + err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleFalseAlarm = async () => {
+    setActionLoading(true);
+    try {
+      const res = await apiFetch(`/incidents/${id}/false-alarm`, { method: "POST" });
+      notify(`Incident ${id} marked as FALSE ALARM. Cleared from active map.`);
+      if (res.incident) setIncident(res.incident);
+      if (onReload) onReload();
+    } catch (err) {
+      notify("False alarm failed: " + err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleAllocateResource = async (res) => {
+    setActionLoading(true);
+    try {
+      const alloc = await apiFetch(`/incidents/${id}/allocate-resource`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(res)
+      });
+      notify(`Allocated ${res.name} (${res.distanceKm} km, ETA: ${res.etaText}) to ${id}.`);
+      if (alloc.incident) setIncident(alloc.incident);
+      setConfirmModal(null);
+      if (onReload) onReload();
+    } catch (err) {
+      notify("Allocation failed: " + err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  if (loadingIncident) {
+    return (
+      <div className="content" style={{ textAlign: "center", padding: "80px" }}>
+        <Loader2 size={36} style={{ animation: "spin 1s linear infinite", color: "#2563eb" }} />
+        <h3 style={{ marginTop: "16px" }}>Loading Incident {id}...</h3>
+      </div>
+    );
+  }
+
+  if (!incident) {
+    return (
+      <div className="content" style={{ textAlign: "center", padding: "60px" }}>
+        <AlertTriangle size={48} color="#ef4444" />
+        <h2 style={{ marginTop: "12px" }}>Incident {id} Not Found</h2>
+        <p style={{ color: "#64748b", margin: "8px 0 20px" }}>The requested incident record does not exist in the database.</p>
+        <button className="primary" onClick={() => navigate("/incidents")}>
+          <ArrowLeft size={14} /> Return to Incidents Feed
+        </button>
+      </div>
+    );
+  }
+
+  const inc = incident;
+  const isSos = Boolean(inc.isSos || inc.type === "SOS" || inc.causeCode === "SOS_EMERGENCY");
+  const statusUpper = String(inc.status || "").toUpperCase();
+  const isResolved = statusUpper === "RESOLVED" || inc.status === "Resolved";
+  const isFalseAlarm = statusUpper === "FALSE_ALARM" || inc.status === "False Alarm";
+  const isReached = statusUpper === "ON SCENE" || statusUpper === "ON_SCENE" || statusUpper === "REACHED_SITE" || inc.dispatchProgress === "on_scene";
+  const isEnRoute = statusUpper === "DISPATCHED" || statusUpper === "EN_ROUTE" || inc.dispatchProgress === "en_route";
+  const isAllocated = statusUpper === "RESOURCE ALLOCATED" || statusUpper === "RESOURCE_ALLOCATED" || statusUpper === "ALLOCATED" || Boolean(inc.assignedResource);
+  const isVerified = statusUpper === "VERIFIED" || inc.status === "Verified";
+
+  const incLat = Number(inc.lat ?? inc.latitude ?? inc.liveLocation?.latitude);
+  const incLng = Number(inc.lng ?? inc.longitude ?? inc.liveLocation?.longitude);
+
+  const hasVideo = Boolean((inc.videoUrl || inc.video) && inc.videoUrl !== "attached" && (inc.videoUrl?.startsWith("http") || inc.videoUrl?.startsWith("data:video") || inc.videoUrl?.startsWith("/uploads")));
+  const hasPhoto = Boolean(inc.photoUrl && inc.photoUrl !== "attached" && (inc.photoUrl.startsWith("http") || inc.photoUrl.startsWith("data:image") || inc.photoUrl.startsWith("/uploads")));
+
+  // Pipeline Stepper Progress Index
+  // 0: Received, 1: Verified, 2: Resource Allocated, 3: En Route, 4: Reached Site, 5: Resolved
+  const currentStep = isResolved ? 5 : isReached ? 4 : isEnRoute ? 3 : isAllocated ? 2 : isVerified ? 1 : 0;
+
+  return (
+    <div className="content">
+      {/* Back to feed & Quick Status */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "10px" }}>
+        <button className="ghost small" onClick={() => navigate("/incidents")} style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+          <ArrowLeft size={14} /> Back to Incident Feed
+        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontSize: "11px", color: "#64748b" }}>Live Lifecycle:</span>
+          <span className={`status ${inc.status?.toLowerCase().replace(" ", "-")}`} style={{ fontSize: "12px", padding: "4px 10px" }}>
+            {inc.status}
+          </span>
+          <RiskBadge score={inc.severity || (isSos ? 95 : 50)} />
+        </div>
+      </div>
+
+      {/* High-Urgency SOS Banner if active */}
+      {isSos && !isResolved && !isFalseAlarm && (
+        <div
+          style={{
+            background: "linear-gradient(135deg, #dc2626, #991b1b)",
+            color: "#ffffff",
+            padding: "14px 18px",
+            borderRadius: "10px",
+            marginBottom: "16px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            boxShadow: "0 4px 14px rgba(220, 38, 38, 0.35)",
+            flexWrap: "wrap",
+            gap: "12px"
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <span className="pulsing-red-dot" style={{ background: "#ffffff", width: "12px", height: "12px" }} />
+            <div>
+              <b style={{ fontSize: "15px", letterSpacing: "0.5px" }}>
+                🚨 ACTIVE CRITICAL SOS DISTRESS CLUSTER (500m GEOFENCE)
+              </b>
+              <div style={{ fontSize: "12px", opacity: 0.95, marginTop: "3px" }}>
+                <b>{inc.reporter_count || inc.reports?.length || 1}</b> {((inc.reporter_count || inc.reports?.length || 1) === 1) ? "citizen has" : "citizens have"} triggered emergency SOS in this 500m sector · First: {inc.first_reported_at ? new Date(inc.first_reported_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : inc.time} · Latest: {inc.last_reported_at ? new Date(inc.last_reported_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Active"}
+              </div>
+            </div>
+          </div>
+          <span style={{ fontSize: "11px", background: "rgba(255,255,255,0.25)", padding: "5px 12px", borderRadius: "12px", fontWeight: "800" }}>
+            {inc.reporter_count || inc.reports?.length || 1} AGGREGATED REPORTS
+          </span>
+        </div>
+      )}
+
+      {/* Main Incident Details Header Card */}
+      <section className="panel" style={{ marginBottom: "16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "16px" }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <h2 style={{ margin: 0, fontSize: "22px", color: "#0f172a" }}>{inc.id}</h2>
+              <span style={{ fontSize: "12px", background: "#f1f5f9", padding: "3px 9px", borderRadius: "6px", color: "#334155", fontWeight: "700" }}>
+                {inc.zoneId || "Mumbai Zone"}
+              </span>
+            </div>
+            <div style={{ fontSize: "13px", color: "#475569", marginTop: "4px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <span>📍 <b>{inc.address || "Live Street Location"}</b></span>
+              <span>·</span>
+              <span>Primary Reporter: <b>{inc.reporter}</b> ({inc.role || "Citizen"})</span>
+              <span>·</span>
+              <span>⏱️ {inc.time || (inc.userTimestamp ? new Date(inc.userTimestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Just now")}</span>
+            </div>
+            {incLat && incLng && (
+              <div style={{ fontSize: "11px", color: "#64748b", marginTop: "6px", display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ background: "#f8fafc", border: "1px solid #e2e8f0", padding: "2px 8px", borderRadius: "4px", fontFamily: "monospace" }}>
+                  GPS: {incLat.toFixed(5)}, {incLng.toFixed(5)}
+                </span>
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${incLat},${incLng}&travelmode=driving`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: "#2563eb", fontWeight: "700", textDecoration: "none" }}
+                >
+                  Open in Google Maps ↗
+                </a>
+              </div>
+            )}
+          </div>
+
+          {/* Assigned Resource Status Card if assigned */}
+          {inc.assignedResource ? (
+            <div style={{ background: "#eff6ff", border: "1.5px solid #93c5fd", borderRadius: "10px", padding: "10px 14px", minWidth: "240px" }}>
+              <div style={{ fontSize: "10px", color: "#1d4ed8", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Assigned Response Unit
+              </div>
+              <b style={{ fontSize: "13px", color: "#0f172a", display: "block", marginTop: "2px" }}>
+                {inc.assignedResource.name}
+              </b>
+              <div style={{ fontSize: "11px", color: "#334155", marginTop: "2px" }}>
+                📍 {inc.assignedResource.distanceKm} km away · ETA: <b>{inc.assignedResource.etaText || "8 min"}</b>
+              </div>
+            </div>
+          ) : inc.assignedTeam ? (
+            <div style={{ background: "#eff6ff", border: "1.5px solid #93c5fd", borderRadius: "10px", padding: "10px 14px", minWidth: "240px" }}>
+              <div style={{ fontSize: "10px", color: "#1d4ed8", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Assigned Squad
+              </div>
+              <b style={{ fontSize: "13px", color: "#0f172a", display: "block", marginTop: "2px" }}>
+                {inc.assignedTeam}
+              </b>
+              <div style={{ fontSize: "11px", color: "#334155", marginTop: "2px" }}>
+                Status: <b>{inc.status}</b>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Visual Lifecycle Stepper Pipeline */}
+        <div style={{ marginTop: "20px", paddingTop: "16px", borderTop: "1px solid #f1f5f9" }}>
+          <div style={{ fontSize: "11px", fontWeight: "800", color: "#475569", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            Operational Lifecycle Progress
+          </div>
+
+          {isFalseAlarm ? (
+            <div style={{ background: "#f8fafc", border: "1px solid #cbd5e1", padding: "12px 16px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "10px", color: "#475569" }}>
+              <X size={20} color="#64748b" />
+              <div>
+                <b>Closed as False Alarm</b>
+                <div style={{ fontSize: "11px", color: "#64748b" }}>
+                  {inc.falseAlarmReason || "Flagged by Authority Admin"} {inc.falseAlarmAt ? `· Recorded at ${new Date(inc.falseAlarmAt).toLocaleTimeString()}` : ""}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "8px" }}>
+              {[
+                { step: 0, label: "1. Received", icon: "🔴", desc: "Citizen Distress Logged", active: currentStep >= 0 },
+                { step: 1, label: "2. Verified", icon: "🟠", desc: inc.verifiedAt ? `Verified ${new Date(inc.verifiedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Ground Verification", active: currentStep >= 1 },
+                { step: 2, label: "3. Allocated", icon: "🔵", desc: inc.allocatedAt ? `Assigned Unit` : "Resource Assigned", active: currentStep >= 2 },
+                { step: 3, label: "4. En Route", icon: "🚑", desc: inc.dispatchedAt ? `Dispatched` : "Traveling to Site", active: currentStep >= 3 },
+                { step: 4, label: "5. Reached Site", icon: "📍", desc: inc.reachedAt ? `On Scene` : "Operating on Site", active: currentStep >= 4 },
+                { step: 5, label: "6. Resolved", icon: "🟢", desc: inc.resolvedAt ? `Closed ${new Date(inc.resolvedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Hazard Mitigated", active: currentStep >= 5 }
+              ].map((st) => {
+                const isCurrent = currentStep === st.step;
+                const isDone = currentStep > st.step;
+                return (
+                  <div
+                    key={st.step}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: "8px",
+                      border: isCurrent ? "2px solid #2563eb" : isDone ? "1.5px solid #86efac" : "1px solid #e2e8f0",
+                      background: isCurrent ? "#eff6ff" : isDone ? "#f0fdf4" : "#f8fafc",
+                      position: "relative"
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "11px", fontWeight: "800", color: isCurrent ? "#1d4ed8" : isDone ? "#166534" : "#64748b" }}>
+                        {st.label}
+                      </span>
+                      <span>{isDone ? "✓" : st.icon}</span>
+                    </div>
+                    <div style={{ fontSize: "10px", color: isCurrent ? "#1e40af" : isDone ? "#15803d" : "#94a3b8", marginTop: "3px" }}>
+                      {st.desc}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* State-Aware Action Control Bar */}
+        <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: "1px solid #f1f5f9", display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontSize: "11px", fontWeight: "800", color: "#334155", marginRight: "4px" }}>
+            Authority Actions:
+          </span>
+
+          {!isVerified && !isDispatched && !isResolved && !isFalseAlarm && (
+            <button className="ghost small" onClick={handleVerify} disabled={actionLoading} style={{ color: "#16a34a", fontWeight: "700" }}>
+              <CheckCircle2 size={13} /> Mark Verified
+            </button>
+          )}
+
+          {!isResolved && !isFalseAlarm && (
+            <button className="auto-dispatch-btn pumping-unit" onClick={handleAutoDispatch} disabled={actionLoading} style={{ fontSize: "11px" }}>
+              <Zap size={13} /> Auto-Dispatch Rapid Unit
+            </button>
+          )}
+
+          {isAllocated && !isEnRoute && !isReached && !isResolved && !isFalseAlarm && (
+            <button className="primary small" onClick={() => handleProgressStage("en_route")} disabled={actionLoading}>
+              <Truck size={13} /> Resource En Route
+            </button>
+          )}
+
+          {(isEnRoute || isAllocated) && !isReached && !isResolved && !isFalseAlarm && (
+            <button className="primary small" onClick={() => handleProgressStage("on_scene")} disabled={actionLoading} style={{ background: "#059669" }}>
+              <MapPin size={13} /> Mark Reached Site
+            </button>
+          )}
+
+          {!isResolved && !isFalseAlarm && (
+            <button className="primary small" onClick={handleResolve} disabled={actionLoading} style={{ background: "#16a34a" }}>
+              <Check size={13} /> Mark Resolved & Close SOS
+            </button>
+          )}
+
+          {!isResolved && !isFalseAlarm && (
+            <button className="danger-btn small" onClick={handleFalseAlarm} disabled={actionLoading}>
+              <X size={13} /> False Alarm
+            </button>
+          )}
+
+          <button className="ghost small" onClick={() => onOpenOverride(inc)} title="Admin Manual Override">
+            <Sliders size={13} /> Manual Override
+          </button>
+        </div>
+      </section>
+
+      {/* Clustered SOS Reports & Individual GPS Distribution Panel */}
+      {((inc.reports && inc.reports.length > 0) || inc.reporter_count > 1 || isSos) && (
+        <section className="panel" style={{ marginBottom: "16px", border: "1.5px solid #fca5a5", background: "#fffdfa" }}>
+          <div className="panel-head" style={{ marginBottom: "12px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "10px" }}>
+            <div>
+              <h3 style={{ margin: 0, color: "#991b1b", display: "flex", alignItems: "center", gap: "8px" }}>
+                <AlertOctagon size={18} color="#dc2626" />
+                Aggregated SOS Cluster Telemetry & Individual Reporter GPS Locations
+              </h3>
+              <span style={{ fontSize: "11px", color: "#64748b", marginTop: "3px", display: "block" }}>
+                500-meter geographic deduplication fence anchored at ({incLat?.toFixed(5)}, {incLng?.toFixed(5)}). Individual GPS coordinates preserved below for ground search & rescue.
+              </span>
+            </div>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <span style={{ fontSize: "11px", background: "#fee2e2", color: "#991b1b", padding: "4px 10px", borderRadius: "6px", fontWeight: "800" }}>
+                {inc.reports?.length || inc.reporter_count || 1} Active Distress Signals
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px", marginBottom: "14px" }}>
+            <div style={{ background: "#ffffff", padding: "10px 14px", borderRadius: "8px", border: "1px solid #fed7aa" }}>
+              <div style={{ fontSize: "10px", color: "#9a3412", fontWeight: "800", textTransform: "uppercase" }}>Primary Anchor Location</div>
+              <div style={{ fontSize: "12px", fontWeight: "700", color: "#1e293b", marginTop: "2px" }}>{inc.address || "Main Incident Center"}</div>
+              <div style={{ fontSize: "11px", color: "#64748b", fontFamily: "monospace" }}>{incLat?.toFixed(5)}, {incLng?.toFixed(5)}</div>
+            </div>
+            <div style={{ background: "#ffffff", padding: "10px 14px", borderRadius: "8px", border: "1px solid #fed7aa" }}>
+              <div style={{ fontSize: "10px", color: "#9a3412", fontWeight: "800", textTransform: "uppercase" }}>First Distress Logged</div>
+              <div style={{ fontSize: "12px", fontWeight: "700", color: "#1e293b", marginTop: "2px" }}>
+                {inc.first_reported_at ? new Date(inc.first_reported_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : inc.time || "Initial"}
+              </div>
+              <div style={{ fontSize: "11px", color: "#64748b" }}>Initial distress beacon</div>
+            </div>
+            <div style={{ background: "#ffffff", padding: "10px 14px", borderRadius: "8px", border: "1px solid #fed7aa" }}>
+              <div style={{ fontSize: "10px", color: "#9a3412", fontWeight: "800", textTransform: "uppercase" }}>Latest Distress Report</div>
+              <div style={{ fontSize: "12px", fontWeight: "700", color: "#1e293b", marginTop: "2px" }}>
+                {inc.last_reported_at ? new Date(inc.last_reported_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Recent"}
+              </div>
+              <div style={{ fontSize: "11px", color: "#64748b" }}>Cluster boundary active</div>
+            </div>
+          </div>
+
+          {/* Table of Attached Citizen Reports */}
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", background: "#ffffff", borderRadius: "8px", overflow: "hidden", border: "1px solid #e2e8f0" }}>
+              <thead>
+                <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", textAlign: "left" }}>
+                  <th style={{ padding: "8px 12px", color: "#475569" }}>#</th>
+                  <th style={{ padding: "8px 12px", color: "#475569" }}>Reporting User</th>
+                  <th style={{ padding: "8px 12px", color: "#475569" }}>Contact / Role</th>
+                  <th style={{ padding: "8px 12px", color: "#475569" }}>Live GPS Location</th>
+                  <th style={{ padding: "8px 12px", color: "#475569" }}>Distance from Anchor</th>
+                  <th style={{ padding: "8px 12px", color: "#475569" }}>Reported Time</th>
+                  <th style={{ padding: "8px 12px", color: "#475569", textAlign: "right" }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(inc.reports && inc.reports.length > 0 ? inc.reports : [
+                  {
+                    id: "RPT-01",
+                    user_name: inc.reporter || "Primary Caller",
+                    role: inc.role || "Citizen",
+                    user_phone: inc.userPhone || "Emergency Line",
+                    latitude: incLat,
+                    longitude: incLng,
+                    address: inc.address,
+                    distance_meters: 0,
+                    timestamp: inc.createdAt || inc.userTimestamp
+                  }
+                ]).map((rep, idx) => {
+                  const repLat = rep.latitude != null ? rep.latitude : (rep.lat != null ? rep.lat : incLat);
+                  const repLng = rep.longitude != null ? rep.longitude : (rep.lng != null ? rep.lng : incLng);
+                  return (
+                    <tr key={rep.id || idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      <td style={{ padding: "8px 12px", fontWeight: "700", color: "#64748b" }}>{idx + 1}</td>
+                      <td style={{ padding: "8px 12px" }}>
+                        <b>{rep.user_name || "Citizen"}</b>
+                        {idx === 0 && <span style={{ marginLeft: "6px", fontSize: "9px", background: "#dbeafe", color: "#1e40af", padding: "1px 5px", borderRadius: "4px", fontWeight: "800" }}>ANCHOR</span>}
+                      </td>
+                      <td style={{ padding: "8px 12px", color: "#334155" }}>
+                        <div>{rep.user_phone || "Not provided"}</div>
+                        <span style={{ fontSize: "10px", color: "#64748b" }}>{rep.role || "Citizen"}</span>
+                      </td>
+                      <td style={{ padding: "8px 12px" }}>
+                        <div style={{ fontFamily: "monospace", fontSize: "11px", color: "#0f172a" }}>
+                          {Number(repLat)?.toFixed(5)}, {Number(repLng)?.toFixed(5)}
+                        </div>
+                        <div style={{ fontSize: "10px", color: "#64748b" }}>{rep.address || inc.address}</div>
+                      </td>
+                      <td style={{ padding: "8px 12px" }}>
+                        <span style={{ background: (rep.distance_meters || 0) === 0 ? "#f1f5f9" : "#eff6ff", color: (rep.distance_meters || 0) === 0 ? "#475569" : "#2563eb", padding: "2px 7px", borderRadius: "4px", fontWeight: "700", fontSize: "11px" }}>
+                          {(rep.distance_meters || 0) === 0 ? "0m (Center)" : `+${rep.distance_meters}m`}
+                        </span>
+                      </td>
+                      <td style={{ padding: "8px 12px", color: "#64748b", fontSize: "11px" }}>
+                        {rep.timestamp ? new Date(rep.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Just now"}
+                      </td>
+                      <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${repLat},${repLng}&travelmode=driving`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ fontSize: "11px", color: "#2563eb", fontWeight: "700", textDecoration: "none" }}
+                        >
+                          Google Maps ↗
+                        </a>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* Dynamic Emergency Resource Discovery Section (Maps API Powered) */}
+      <div className="dispatch-layout" style={{ marginTop: "16px" }}>
+        {/* Discovered Nearby Facilities Column */}
+        <section className="panel" style={{ flex: "1 1 450px" }}>
+          <div className="panel-head">
+            <div>
+              <h3>Dynamic Emergency Resource Discovery</h3>
+              <span>Live Maps API search around GPS ({incLat?.toFixed(4)}, {incLng?.toFixed(4)})</span>
+            </div>
+            {/* Search Radius Pills */}
+            <div style={{ display: "flex", gap: "4px", background: "#f1f5f9", padding: "3px", borderRadius: "8px" }}>
+              {[3, 5, 10, 15].map((rad) => (
+                <button
+                  key={rad}
+                  onClick={() => setSearchRadius(rad)}
+                  style={{
+                    padding: "3px 8px",
+                    fontSize: "11px",
+                    fontWeight: searchRadius === rad ? "800" : "600",
+                    borderRadius: "6px",
+                    border: searchRadius === rad ? "1.5px solid #2563eb" : "1px solid transparent",
+                    background: searchRadius === rad ? "#eff6ff" : "transparent",
+                    color: searchRadius === rad ? "#1d4ed8" : "#64748b",
+                    cursor: "pointer"
+                  }}
+                >
+                  {rad} km
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Category Filter Chips */}
+          <div style={{ display: "flex", gap: "6px", overflowX: "auto", paddingBottom: "8px", margin: "10px 0" }}>
+            {[
+              { id: "all", label: "All Categories", icon: "🌐" },
+              { id: "fire", label: "Fire & Water Rescue", icon: "🚒" },
+              { id: "medical", label: "Hospitals & ICUs", icon: "🏥" },
+              { id: "police", label: "Police Stations", icon: "👮" },
+              { id: "municipal", label: "Municipal Disaster Cells", icon: "🏛️" },
+              { id: "shelter", label: "Shelters & Evac", icon: "🏠" }
+            ].map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                style={{
+                  padding: "4px 10px",
+                  fontSize: "10px",
+                  fontWeight: activeCategory === cat.id ? "800" : "600",
+                  borderRadius: "20px",
+                  border: activeCategory === cat.id ? "1.5px solid #2563eb" : "1px solid #e2e8f0",
+                  background: activeCategory === cat.id ? "#2563eb" : "#ffffff",
+                  color: activeCategory === cat.id ? "#ffffff" : "#475569",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap"
+                }}
+              >
+                {cat.icon} {cat.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Results List */}
+          {loadingResources ? (
+            <div style={{ padding: "40px", textAlign: "center", color: "#64748b" }}>
+              <Loader2 size={24} style={{ animation: "spin 1s linear infinite", color: "#2563eb" }} />
+              <div style={{ marginTop: "8px", fontSize: "12px" }}>Querying Maps API for nearby emergency services...</div>
+            </div>
+          ) : nearbyResources.length === 0 ? (
+            <div style={{ padding: "30px", textAlign: "center", color: "#64748b", background: "#f8fafc", borderRadius: "8px" }}>
+              <AlertCircle size={24} color="#94a3b8" />
+              <div style={{ marginTop: "6px", fontWeight: "700", fontSize: "13px" }}>No emergency facilities found within {searchRadius} km</div>
+              <p style={{ fontSize: "11px", marginTop: "4px" }}>Expand the search radius above to 10 km or 15 km to discover broader regional rescue hubs.</p>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: "8px", maxHeight: "400px", overflowY: "auto", paddingRight: "4px" }}>
+              {nearbyResources.map((res, idx) => {
+                const isChosen = selectedResource && (selectedResource.id === res.id || selectedResource.name === res.name);
+                return (
+                  <div
+                    key={res.id || idx}
+                    onClick={() => setSelectedResource(res)}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: "8px",
+                      border: isChosen ? "2px solid #2563eb" : "1px solid #e2e8f0",
+                      background: isChosen ? "#eff6ff" : "#ffffff",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease"
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span style={{ fontSize: "15px" }}>{res.icon || (res.category === "medical" ? "🏥" : res.category === "police" ? "👮" : res.category === "municipal" ? "🏛️" : res.category === "shelter" ? "🏠" : "🚒")}</span>
+                          <b style={{ fontSize: "12px", color: "#0f172a" }}>{res.name}</b>
+                        </div>
+                        <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>📍 {res.address}</div>
+                      </div>
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <span style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", padding: "2px 7px", borderRadius: "10px", fontSize: "10px", fontWeight: "800" }}>
+                          ⚡ {res.distanceKm} km
+                        </span>
+                        <div style={{ fontSize: "10px", color: "#2563eb", fontWeight: "700", marginTop: "3px" }}>
+                          ETA: {res.etaText || "6 min"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px", paddingTop: "6px", borderTop: "1px solid #f1f5f9" }}>
+                      <span style={{ fontSize: "10px", color: "#16a34a", fontWeight: "700" }}>
+                        ● Active Emergency POI
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfirmModal(res);
+                        }}
+                        style={{
+                          background: "#2563eb",
+                          color: "#ffffff",
+                          border: "none",
+                          padding: "4px 10px",
+                          borderRadius: "6px",
+                          fontSize: "10px",
+                          fontWeight: "700",
+                          cursor: "pointer"
+                        }}
+                      >
+                        🚀 Allocate & Dispatch
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Mini-Map & Ground Truth Telemetry Column */}
+        <section className="panel" style={{ flex: "1 1 500px" }}>
+          <div className="panel-head">
+            <div>
+              <h3>Turn-by-Turn Road Corridor</h3>
+              <span>{selectedResource ? `OSRM Route from ${selectedResource.name} to ${inc.id}` : "Select a discovered facility to inspect routing"}</span>
+            </div>
+            {routeData && (
+              <span style={{ fontSize: "11px", fontWeight: "800", color: "#2563eb" }}>
+                ⏱️ {routeData.durationMin || selectedResource?.etaMinutes || 5} min ({routeData.distanceKm || selectedResource?.distanceKm} km)
+              </span>
+            )}
+          </div>
+
+          <div style={{ height: "340px", position: "relative", borderRadius: "8px", overflow: "hidden", border: "1px solid #cbd5e1" }}>
+            <DispatchMiniMap
+              incident={inc}
+              nearbyResources={nearbyResources}
+              selectedResource={selectedResource}
+              routeData={routeData}
+              loadingRoute={loadingRoute}
+              onSelectResource={(res) => setSelectedResource(res)}
+            />
+          </div>
+
+          {/* Ground Truth Video / Photo Evidence */}
+          <div style={{ marginTop: "14px", display: "grid", gridTemplateColumns: hasPhoto || hasVideo ? "1fr 1fr" : "1fr", gap: "10px" }}>
+            {hasVideo && (
+              <div style={{ borderRadius: "8px", overflow: "hidden", border: "1px solid #334155", background: "#0f172a" }}>
+                <video
+                  src={inc.videoUrl?.startsWith("/") ? `${API.replace(/\/api\/?$/, "")}${inc.videoUrl}` : inc.videoUrl}
+                  controls
+                  playsInline
+                  style={{ width: "100%", maxHeight: "150px", objectFit: "contain", display: "block" }}
+                />
+                <div style={{ padding: "4px 8px", fontSize: "10px", color: "#fff", fontWeight: "700", background: "#0f172a" }}>
+                  🎥 Citizen Video Evidence
+                </div>
+              </div>
+            )}
+            {hasPhoto && !hasVideo && (
+              <div style={{ borderRadius: "8px", overflow: "hidden", border: "1px solid #cbd5e1" }}>
+                <img
+                  src={inc.photoUrl}
+                  alt="Ground Truth Evidence"
+                  style={{ width: "100%", height: "150px", objectFit: "cover", display: "block", cursor: "pointer" }}
+                  onClick={() => onViewPhoto && onViewPhoto(inc.photoUrl, inc, false)}
+                />
+                <div style={{ padding: "4px 8px", fontSize: "10px", color: "#334155", fontWeight: "700", background: "#f8fafc" }}>
+                  📸 Ground Truth Photo Evidence
+                </div>
+              </div>
+            )}
+
+            <div style={{ background: "#f8fafc", padding: "10px", borderRadius: "8px", border: "1px solid #e2e8f0", fontSize: "11px", color: "#334155" }}>
+              <div style={{ fontWeight: "700", marginBottom: "4px", color: "#0f172a" }}>Ground Telemetry:</div>
+              <div>🌊 Water Level: <b>{inc.waterLevel || 15} cm</b></div>
+              <div>🚰 Drainage Status: <b>{inc.drainObservation || "Unsure"}</b></div>
+              <div>⏱️ Onset Speed: <b>{inc.onsetSpeed || "10–20 min"}</b></div>
+              <div>🤖 AI Confidence: <b>{((inc.aiVerification?.confidence_score ?? inc.cvConfidence ?? 88) * (inc.aiVerification?.confidence_score != null ? 100 : 1)).toFixed(0)}%</b></div>
+              {inc.note && <div style={{ marginTop: "4px", fontStyle: "italic", color: "#64748b" }}>"{inc.note}"</div>}
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {/* Confirmation Modal before Dispatching */}
+      {confirmModal && (
+        <div className="modal-backdrop" onClick={() => setConfirmModal(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "480px" }}>
+            <div className="modal-header">
+              <h3>Confirm Rapid Unit Allocation</h3>
+              <button className="icon-btn" onClick={() => setConfirmModal(null)}><X size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: "12px", color: "#475569", margin: "0 0 12px" }}>
+                Allocate and dispatch the selected emergency facility to <b>{inc.id}</b>.
+              </p>
+              <div style={{ background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid #e2e8f0", fontSize: "12px" }}>
+                <div><b>Resource:</b> {confirmModal.name} ({confirmModal.category})</div>
+                <div style={{ marginTop: "4px" }}><b>Location:</b> {confirmModal.address}</div>
+                <div style={{ marginTop: "4px" }}><b>Distance:</b> {confirmModal.distanceKm} km · ETA: <b>{confirmModal.etaText || "6 min"}</b></div>
+                <div style={{ marginTop: "4px" }}><b>Destination:</b> {inc.address || inc.id}</div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="ghost" onClick={() => setConfirmModal(null)}>Cancel</button>
+              <button className="primary" onClick={() => handleAllocateResource(confirmModal)} disabled={actionLoading}>
+                🚀 Confirm & Dispatch Unit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Dedicated Comprehensive Zone Details & Multi-Sector Monitoring Page
+function ZoneDetailPage({
+  zones = [],
+  incidents = [],
+  alerts = [],
+  resources = [],
+  shelters = [],
+  chronicBlockages = [],
+  notify,
+  onReload,
+  onAutoDispatch,
+  onVerify,
+  onFalseAlarm,
+  onResolve,
+  onOpenOverride,
+  onViewPhoto,
+  onResetReputation
+}) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  const [zone, setZone] = useState(() => {
+    const target = String(id || "").toLowerCase();
+    return zones.find((z) => String(z.id || "").toLowerCase() === target || String(z.name || "").toLowerCase() === target) || null;
+  });
+  const [loadingZone, setLoadingZone] = useState(!zone);
+
+  // Sync from props or fetch fresh zone from backend
+  useEffect(() => {
+    const target = String(id || "").toLowerCase();
+    const found = zones.find((z) => String(z.id || "").toLowerCase() === target || String(z.name || "").toLowerCase() === target);
+    if (found) {
+      setZone(found);
+      setLoadingZone(false);
+    } else {
+      setLoadingZone(true);
+      apiFetch(`/zones/${id}`)
+        .then((res) => {
+          setZone(res);
+          setLoadingZone(false);
+        })
+        .catch((err) => {
+          console.error("[ZoneDetailPage] Load error:", err);
+          setLoadingZone(false);
+        });
+    }
+  }, [id, zones]);
+
+  const zoneId = zone?.id || id;
+  const zoneLat = Number(zone?.lat ?? zone?.latitude ?? 19.132);
+  const zoneLng = Number(zone?.lng ?? zone?.longitude ?? 72.848);
+
+  // Active Incidents in this zone (by zoneId or proximity < 1.8km)
+  const zoneIncidents = incidents.filter((inc) => {
+    if (inc.zoneId && (inc.zoneId === zoneId || inc.zoneId === zone?.name)) return true;
+    if (inc.lat && inc.lng && zoneLat && zoneLng) {
+      const d = calcDistanceKm(zoneLat, zoneLng, inc.lat, inc.lng);
+      return d != null && d <= 1.8;
+    }
+    return false;
+  });
+
+  // Recent Alerts in this zone
+  const zoneAlerts = alerts.filter((alt) => {
+    if (alt.zoneId && (alt.zoneId === zoneId || alt.zoneId === zone?.name)) return true;
+    if (alt.lat && alt.lng && zoneLat && zoneLng) {
+      const d = calcDistanceKm(zoneLat, zoneLng, alt.lat, alt.lng);
+      return d != null && d <= 2.5;
+    }
+    return false;
+  });
+
+  // Nearby Resources in this zone
+  const nearbyZoneResources = resources.map((r) => {
+    const rLat = r.latitude ?? r.lat;
+    const rLng = r.longitude ?? r.lng;
+    const dist = (rLat && rLng && zoneLat && zoneLng) ? calcDistanceKm(zoneLat, zoneLng, rLat, rLng) : null;
+    return { ...r, distanceKm: dist };
+  }).filter((r) => r.distanceKm == null || r.distanceKm <= 5.0).sort((a, b) => (a.distanceKm ?? 99) - (b.distanceKm ?? 99));
+
+  // Nearby Shelters
+  const nearbyZoneShelters = shelters.map((s) => {
+    const sLat = s.latitude ?? s.lat;
+    const sLng = s.longitude ?? s.lng;
+    const dist = (sLat && sLng && zoneLat && zoneLng) ? calcDistanceKm(zoneLat, zoneLng, sLat, sLng) : null;
+    return { ...s, distanceKm: dist };
+  }).filter((s) => s.distanceKm == null || s.distanceKm <= 5.0).sort((a, b) => (a.distanceKm ?? 99) - (b.distanceKm ?? 99));
+
+  // Chronic Blockages in this ward
+  const zoneBlockages = chronicBlockages.filter((cb) => {
+    if (zone?.ward && cb.ward && (cb.ward.toLowerCase().includes(zone.ward.toLowerCase()) || zone.ward.toLowerCase().includes(cb.ward.toLowerCase()))) return true;
+    if (cb.lat && cb.lng && zoneLat && zoneLng) {
+      const d = calcDistanceKm(zoneLat, zoneLng, cb.lat, cb.lng);
+      return d != null && d <= 2.0;
+    }
+    return false;
+  });
+
+  const riskScore = zone?.risk ?? 50;
+  const riskLevel = riskScore >= 75 ? "CRITICAL" : riskScore >= 45 ? "ELEVATED" : "NORMAL";
+  const riskColor = riskScore >= 75 ? "#dc2626" : riskScore >= 45 ? "#ea580c" : "#16a34a";
+  const riskBg = riskScore >= 75 ? "#fee2e2" : riskScore >= 45 ? "#ffedd5" : "#dcfce7";
+
+  if (loadingZone && !zone) {
+    return (
+      <div className="incident-detail-container" style={{ padding: "30px", textAlign: "center" }}>
+        <Loader2 className="animate-spin" size={36} color="#2563eb" style={{ margin: "40px auto 16px" }} />
+        <h3 style={{ color: "#0f172a" }}>Loading Zone Intelligence...</h3>
+        <p style={{ color: "#64748b" }}>Retrieving real-time hydrological & risk telemetry for Zone {id}...</p>
+      </div>
+    );
+  }
+
+  if (!zone) {
+    return (
+      <div className="incident-detail-container" style={{ padding: "30px", textAlign: "center" }}>
+        <AlertTriangle size={48} color="#dc2626" style={{ margin: "40px auto 16px" }} />
+        <h2 style={{ color: "#0f172a" }}>Zone Not Found ({id})</h2>
+        <p style={{ color: "#64748b", maxWidth: "420px", margin: "10px auto 20px" }}>
+          The requested risk zone could not be located in the current municipal registry.
+        </p>
+        <button className="primary" onClick={() => navigate("/map")}>
+          ← Back to Live Risk Map
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="incident-detail-container" style={{ padding: "20px 28px 48px", maxWidth: "1400px", margin: "0 auto" }}>
+      {/* Top Breadcrumb Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <button
+            onClick={() => navigate(-1)}
+            className="ghost"
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", padding: "6px 12px" }}
+          >
+            <ArrowLeft size={14} /> Back
+          </button>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <h1 style={{ fontSize: "22px", fontWeight: "800", color: "#0f172a", margin: 0 }}>
+                {zone.name}
+              </h1>
+              <span style={{ fontSize: "11px", fontWeight: "800", padding: "3px 8px", borderRadius: "6px", background: riskBg, color: riskColor, border: `1px solid ${riskColor}40` }}>
+                {riskLevel === "CRITICAL" ? "🔴" : riskLevel === "ELEVATED" ? "🟠" : "🟢"} {riskLevel} ({riskScore}/100)
+              </span>
+            </div>
+            <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
+              📍 <b>{zone.ward || "Civic Ward"}</b> · Zone ID: <b>{zone.id}</b> · Coordinates: <b>{zoneLat.toFixed(4)}, {zoneLng.toFixed(4)}</b>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Action Buttons */}
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button
+            onClick={() => navigate("/map")}
+            className="ghost"
+            style={{ fontSize: "12px", padding: "7px 14px", display: "flex", alignItems: "center", gap: "6px" }}
+          >
+            <Map size={14} /> Live Risk Map
+          </button>
+          <button
+            onClick={() => onReload && onReload()}
+            className="primary"
+            style={{ fontSize: "12px", padding: "7px 14px", display: "flex", alignItems: "center", gap: "6px" }}
+          >
+            <RefreshCw size={14} /> Refresh Telemetry
+          </button>
+        </div>
+      </div>
+
+      {/* KPI Stats Grid */}
+      <div className="stats-grid" style={{ marginBottom: "20px" }}>
+        <div className="stat-card" style={{ borderLeft: `4px solid ${riskColor}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "12px", color: "#64748b", fontWeight: "600" }}>Risk Score</span>
+            <Activity size={18} color={riskColor} />
+          </div>
+          <div style={{ fontSize: "26px", fontWeight: "900", color: riskColor, marginTop: "4px" }}>
+            {riskScore}<span style={{ fontSize: "14px", color: "#94a3b8", fontWeight: "500" }}>/100</span>
+          </div>
+          <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+            Status: <b style={{ color: riskColor }}>{riskLevel}</b>
+          </div>
+        </div>
+
+        <div className="stat-card" style={{ borderLeft: "4px solid #0284c7" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "12px", color: "#64748b", fontWeight: "600" }}>Rainfall Intensity</span>
+            <CloudRain size={18} color="#0284c7" />
+          </div>
+          <div style={{ fontSize: "26px", fontWeight: "900", color: "#0f172a", marginTop: "4px" }}>
+            {zone.rainfall || 0}<span style={{ fontSize: "14px", color: "#94a3b8", fontWeight: "500" }}> mm/hr</span>
+          </div>
+          <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+            Live Radar: <b style={{ color: (zone.rainfall || 0) >= 40 ? "#dc2626" : "#0284c7" }}>{(zone.rainfall || 0) >= 50 ? "Heavy Downpour" : (zone.rainfall || 0) >= 25 ? "Moderate Rain" : "Light Showers"}</b>
+          </div>
+        </div>
+
+        <div className="stat-card" style={{ borderLeft: "4px solid #2563eb" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "12px", color: "#64748b", fontWeight: "600" }}>Flood Water Depth</span>
+            <Droplets size={18} color="#2563eb" />
+          </div>
+          <div style={{ fontSize: "26px", fontWeight: "900", color: "#0f172a", marginTop: "4px" }}>
+            {zone.waterLevel || 0}<span style={{ fontSize: "14px", color: "#94a3b8", fontWeight: "500" }}> cm</span>
+          </div>
+          <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+            Trend: <b style={{ color: zone.trend === "rising" ? "#dc2626" : "#16a34a" }}>{zone.trend ? zone.trend.toUpperCase() : "STABLE"}</b>
+          </div>
+        </div>
+
+        <div className="stat-card" style={{ borderLeft: "4px solid #ea580c" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "12px", color: "#64748b", fontWeight: "600" }}>Active Incidents</span>
+            <Siren size={18} color="#ea580c" />
+          </div>
+          <div style={{ fontSize: "26px", fontWeight: "900", color: zoneIncidents.length > 0 ? "#dc2626" : "#16a34a", marginTop: "4px" }}>
+            {zoneIncidents.length}
+          </div>
+          <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+            Citizen Reports: <b>{zone.reports || zoneIncidents.length}</b>
+          </div>
+        </div>
+      </div>
+
+      {/* Main 2-Column Layout */}
+      <div className="dispatch-layout" style={{ gap: "20px" }}>
+        {/* Left Column: Interactive Map & Telemetry Details */}
+        <div style={{ flex: "1 1 580px", display: "flex", flexDirection: "column", gap: "16px" }}>
+          {/* Zone Focused Map */}
+          <section className="panel" style={{ padding: "0", overflow: "hidden" }}>
+            <div className="panel-head" style={{ padding: "12px 16px" }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "14px" }}>Zone Geographic Sector & Emergency Assets</h3>
+                <span style={{ fontSize: "11px", color: "#64748b" }}>Live perimeter map with incidents & resources</span>
+              </div>
+              <span style={{ fontSize: "11px", color: "#16a34a", fontWeight: "700" }}>● Realtime SSE</span>
+            </div>
+            <div style={{ height: "380px", position: "relative" }}>
+              <LeafletMap
+                zones={[zone]}
+                incidents={zoneIncidents}
+                resources={nearbyZoneResources}
+                shelters={nearbyZoneShelters}
+                selectedZoneId={zone.id}
+                center={[zoneLat, zoneLng]}
+                userLocation={[zoneLat, zoneLng]}
+                userLocationName={zone.name}
+                height="380px"
+                zoom={15}
+                onNavigateIncident={(incId) => navigate(`/incidents/${incId}`)}
+              />
+            </div>
+          </section>
+
+          {/* Drainage & Civic Diagnosis Card */}
+          <section className="panel" style={{ padding: "16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+              <Wrench size={18} color="#0284c7" />
+              <h3 style={{ margin: 0, fontSize: "14px" }}>Drainage & Civic Hydrology Status</h3>
+            </div>
+            <div style={{ background: "#f8fafc", padding: "12px 14px", borderRadius: "8px", border: "1px solid #e2e8f0", fontSize: "12px", color: "#334155" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div>
+                  <div style={{ color: "#64748b", fontSize: "11px" }}>Primary Diagnosis Cause</div>
+                  <div style={{ fontWeight: "700", color: "#0f172a", marginTop: "2px" }}>{zone.cause || "Normal Drainage Flow"}</div>
+                </div>
+                <div>
+                  <div style={{ color: "#64748b", fontSize: "11px" }}>Stormwater Outfall Condition</div>
+                  <div style={{ fontWeight: "700", color: "#0f172a", marginTop: "2px" }}>
+                    {riskScore >= 75 ? "Submerged / Silted Outfall" : riskScore >= 45 ? "High Tide Backflow Risk" : "Free Gravity Discharge"}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: "#64748b", fontSize: "11px" }}>Dewatering Requirement</div>
+                  <div style={{ fontWeight: "700", color: riskScore >= 75 ? "#dc2626" : "#16a34a", marginTop: "2px" }}>
+                    {riskScore >= 75 ? "500HP Dewatering Pump Deployed" : "Standard Gravity Drainage"}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: "#64748b", fontSize: "11px" }}>Chronic Hotspots in Ward</div>
+                  <div style={{ fontWeight: "700", color: "#0f172a", marginTop: "2px" }}>
+                    {zoneBlockages.length} Chronic Silt Locations
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Active Alerts for this Zone */}
+          {zoneAlerts.length > 0 && (
+            <section className="panel" style={{ padding: "16px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+                <Bell size={18} color="#ea580c" />
+                <h3 style={{ margin: 0, fontSize: "14px" }}>Active Broadcast Alerts for {zone.name}</h3>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {zoneAlerts.map((alt) => (
+                  <div key={alt.id} style={{ background: alt.level === "RED" ? "#fee2e2" : "#ffedd5", padding: "10px 12px", borderRadius: "8px", border: `1px solid ${alt.level === "RED" ? "#fca5a5" : "#fed7aa"}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <b style={{ fontSize: "12px", color: alt.level === "RED" ? "#991b1b" : "#9a3412" }}>{alt.title}</b>
+                      <span style={{ fontSize: "10px", fontWeight: "700", background: "#fff", padding: "2px 6px", borderRadius: "4px" }}>{alt.level}</span>
+                    </div>
+                    <p style={{ fontSize: "11px", color: "#334155", margin: "4px 0" }}>{alt.message}</p>
+                    <div style={{ fontSize: "10px", color: "#64748b" }}>
+                      Channels: {Array.isArray(alt.channels) ? alt.channels.join(", ") : alt.channels || "App"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+
+        {/* Right Column: Active Incidents & Emergency Resources */}
+        <div style={{ flex: "1 1 480px", display: "flex", flexDirection: "column", gap: "16px" }}>
+          {/* Active Incidents in Zone */}
+          <section className="panel" style={{ padding: "16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Siren size={18} color="#dc2626" />
+                <h3 style={{ margin: 0, fontSize: "14px" }}>Active Incidents in Sector ({zoneIncidents.length})</h3>
+              </div>
+              <button onClick={() => navigate("/incidents")} className="ghost" style={{ fontSize: "11px", padding: "3px 8px" }}>
+                View All Incidents &rarr;
+              </button>
+            </div>
+
+            {zoneIncidents.length === 0 ? (
+              <div style={{ padding: "24px", textAlign: "center", background: "#f8fafc", borderRadius: "8px", border: "1px dashed #cbd5e1" }}>
+                <CheckCircle2 size={28} color="#16a34a" style={{ margin: "0 auto 8px" }} />
+                <div style={{ fontSize: "13px", fontWeight: "700", color: "#0f172a" }}>No Active Emergency Reports</div>
+                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>All incidents in this sector are resolved or normal.</div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {zoneIncidents.map((inc) => (
+                  <div
+                    key={inc.id}
+                    onClick={() => navigate(`/incidents/${inc.id}`)}
+                    style={{
+                      background: "#fff",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      padding: "10px 12px",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between"
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#2563eb")}
+                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#e2e8f0")}
+                  >
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <b style={{ fontSize: "13px", color: inc.isSos ? "#dc2626" : "#0f172a" }}>
+                          {inc.isSos ? "🚨 " : "📍 "}{inc.id}
+                        </b>
+                        <span className={`map-badge ${inc.status === "Verified" ? "orange" : inc.status === "Resolved" ? "green" : "blue"}`} style={{ fontSize: "9px" }}>
+                          {inc.status || "Received"}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: "11px", color: "#475569", marginTop: "2px" }}>
+                        {inc.address || inc.cause || "Waterlogging Reported"} · {inc.time || "Just now"}
+                      </div>
+                    </div>
+                    <ChevronRight size={16} color="#94a3b8" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Nearby Emergency Resources */}
+          <section className="panel" style={{ padding: "16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Truck size={18} color="#2563eb" />
+                <h3 style={{ margin: 0, fontSize: "14px" }}>Emergency Resources & Infrastructure</h3>
+              </div>
+              <button onClick={() => navigate("/resources")} className="ghost" style={{ fontSize: "11px", padding: "3px 8px" }}>
+                Manage Fleet &rarr;
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "360px", overflowY: "auto" }}>
+              {nearbyZoneResources.slice(0, 6).map((res) => {
+                const catInfo = getAuthorityResourceCategory(res);
+                return (
+                  <div
+                    key={res.id}
+                    style={{
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      padding: "8px 12px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between"
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <span style={{ fontSize: "20px" }}>{catInfo.icon}</span>
+                      <div>
+                        <div style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a" }}>{res.name}</div>
+                        <div style={{ fontSize: "10px", color: "#64748b" }}>
+                          {catInfo.label} · {res.status || "Available"}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right", fontSize: "11px", fontWeight: "700", color: "#2563eb" }}>
+                      {res.distanceKm != null ? `${res.distanceKm} km` : "Nearby"}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Dedicated Resources Page with Dynamic Emergency Simulation
+function ResourcesPage({
+  resources = [],
+  setResources,
+  userLat = 19.132,
+  userLng = 72.848,
+  userLocationName = "Andheri / Mumbai Command Center",
+  notify,
+  onReload
+}) {
+  const [generating, setGenerating] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'table'
+  const [lastGenMeta, setLastGenMeta] = useState(null);
+  const [simError, setSimError] = useState(null);
+
+  // Trigger Dynamic Simulation generation via backend Maps API lookup
+  const handleGenerateSimulations = async () => {
+    setGenerating(true);
+    setSimError(null);
+    try {
+      if (notify) notify("Generating emergency resource simulation...");
+      const res = await apiFetch("/resources/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          latitude: userLat,
+          longitude: userLng,
+          radius_km: 6.0
+        })
+      });
+
+      if (res && res.success) {
+        setLastGenMeta({
+          simulation_id: res.simulation_id,
+          count: res.count,
+          facilities_count: res.facilities_count,
+          categories_count: res.categories_count,
+          center: res.center
+        });
+        if (typeof setResources === "function") {
+          setResources(res.resources || []);
+        }
+        if (typeof onReload === "function") {
+          onReload();
+        }
+        if (notify) {
+          notify(`Simulation generated successfully. ${res.count} resources across ${res.facilities_count} nearby facilities in ${res.categories_count} resource categories.`);
+        }
+      } else {
+        throw new Error(res?.error || "Unable to discover nearby facilities.");
+      }
+    } catch (err) {
+      console.error("[Generate Simulations Error]:", err);
+      setSimError(err.message || "Unable to discover nearby facilities.");
+      if (notify) notify("Simulation generation failed: " + (err.message || "Maps API lookup failed"));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // Clear simulated resource inventory
+  const handleClearSimulation = async () => {
+    setClearing(false);
+    try {
+      setClearing(true);
+      await apiFetch("/resources/simulate", { method: "DELETE" });
+      if (typeof setResources === "function") {
+        setResources([]);
+      }
+      if (typeof onReload === "function") {
+        onReload();
+      }
+      setLastGenMeta(null);
+      if (notify) notify("Resource simulation cleared. Inventory is now empty.");
+    } catch (err) {
+      if (notify) notify("Failed to clear simulation: " + err.message);
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  const simulationId = lastGenMeta?.simulation_id || resources[0]?.simulation_id;
+  const uniqueFacilities = new Set(resources.map((r) => r.agency || r.station || r.base_location)).size;
+  const uniqueCategories = new Set(resources.map((r) => (r.category || r.resource_type || "RESCUE").toUpperCase())).size;
+
+  // Category counts
+  const rescueCount = resources.filter((r) => (r.category || r.resource_type || "").toUpperCase() === "RESCUE").length;
+  const medicalCount = resources.filter((r) => (r.category || r.resource_type || "").toUpperCase() === "MEDICAL").length;
+  const foodCount = resources.filter((r) => (r.category || r.resource_type || "").toUpperCase() === "FOOD").length;
+  const waterCount = resources.filter((r) => (r.category || r.resource_type || "").toUpperCase() === "WATER").length;
+  const shelterCount = resources.filter((r) => (r.category || r.resource_type || "").toUpperCase() === "SHELTER").length;
+
+  // Filtered resources
+  const filteredResources = resources.filter((r) => {
+    const cat = (r.category || r.resource_type || "RESCUE").toUpperCase();
+    if (categoryFilter !== "ALL" && cat !== categoryFilter) return false;
+
+    const status = (r.status || "AVAILABLE").toUpperCase();
+    if (statusFilter !== "ALL") {
+      if (statusFilter === "AVAILABLE" && (status !== "AVAILABLE" && status !== "READY")) return false;
+      if (statusFilter === "LIMITED" && status !== "LIMITED") return false;
+      if (statusFilter === "DEPLOYED" && (status === "AVAILABLE" || status === "LIMITED")) return false;
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchName = (r.name || "").toLowerCase().includes(q);
+      const matchAgency = (r.agency || r.station || "").toLowerCase().includes(q);
+      const matchLoc = (r.base_location || r.address || "").toLowerCase().includes(q);
+      const matchCap = (r.capacity || "").toLowerCase().includes(q);
+      const matchCat = cat.toLowerCase().includes(q);
+      if (!matchName && !matchAgency && !matchLoc && !matchCap && !matchCat) return false;
+    }
+    return true;
+  });
+
   return (
     <div className="content">
       <PageHeader
-        eyebrow="FLEET & PERSONNEL"
+        eyebrow="FLEET, HOSPITALS, NGOS & DISASTER RELIEF INVENTORY"
         title="Resource Availability & Readiness Tracker"
-        sub="Live tracker of municipal desilting crews, dewatering pumps, and traffic units."
+        sub="Live inventory of simulated emergency resources and nearby facilities."
       >
-        <button className="ghost" onClick={onReload}><RefreshCw size={14} /> Refresh Status</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          {resources.length > 0 && (
+            <button
+              className="ghost"
+              onClick={handleClearSimulation}
+              disabled={clearing || generating}
+              style={{ color: "#f87171", borderColor: "rgba(239, 68, 68, 0.3)" }}
+              title="Clear all generated simulations"
+            >
+              {clearing ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={14} />}
+              Clear Simulation
+            </button>
+          )}
+
+          {resources.length > 0 && (
+            <button className="ghost" onClick={onReload} disabled={generating}>
+              <RefreshCw size={14} /> Refresh Status
+            </button>
+          )}
+
+          <button
+            className="primary"
+            onClick={handleGenerateSimulations}
+            disabled={generating}
+            style={{ display: "flex", alignItems: "center", gap: "8px", boxShadow: "0 0 16px rgba(37, 99, 235, 0.4)" }}
+          >
+            {generating ? (
+              <>
+                <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />
+                <span>Generating simulation...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles size={16} />
+                <span>{resources.length > 0 ? "Regenerate Simulation" : "Generate Simulations"}</span>
+              </>
+            )}
+          </button>
+        </div>
       </PageHeader>
-      <div className="resource-grid">
-        {resources.map((r) => (
-          <ResourceCard key={r.id} team={r} />
-        ))}
-      </div>
+
+      {/* Generating Full Banner Loading State */}
+      {generating && (
+        <div style={{
+          background: "linear-gradient(135deg, rgba(30, 58, 138, 0.4) 0%, rgba(15, 23, 42, 0.8) 100%)",
+          border: "1px solid rgba(96, 165, 250, 0.3)",
+          borderRadius: "14px",
+          padding: "24px",
+          textAlign: "center",
+          marginBottom: "20px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "12px"
+        }}>
+          <Loader2 size={32} style={{ color: "#60a5fa", animation: "spin 1s linear infinite" }} />
+          <div>
+            <b style={{ fontSize: "16px", color: "#f8fafc" }}>Generating emergency resource simulation...</b>
+            <p style={{ fontSize: "12px", color: "#94a3b8", marginTop: "4px" }}>
+              Querying Google Maps API for nearby Fire Stations, Hospitals, NGOs, and Municipal Facilities around {userLocationName}...
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Error State Banner */}
+      {simError && !generating && (
+        <div style={{
+          background: "rgba(239, 68, 68, 0.12)",
+          border: "1px solid rgba(239, 68, 68, 0.3)",
+          borderRadius: "12px",
+          padding: "16px 20px",
+          marginBottom: "20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "12px"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <AlertTriangle size={20} style={{ color: "#f87171" }} />
+            <div>
+              <b style={{ color: "#fca5a5", fontSize: "14px" }}>{simError}</b>
+              <div style={{ color: "#f87171", fontSize: "12px", marginTop: "2px" }}>
+                Ensure your internet connection and Maps API key are active.
+              </div>
+            </div>
+          </div>
+          <button className="primary small" onClick={handleGenerateSimulations}>
+            <RefreshCw size={12} /> Retry Simulation
+          </button>
+        </div>
+      )}
+
+      {/* INITIAL EMPTY STATE (When no simulations have been generated) */}
+      {resources.length === 0 && !generating ? (
+        <div className="resource-empty-state">
+          <div className="resource-empty-icon">
+            <Layers3 size={36} />
+          </div>
+          <h2 style={{ fontSize: "20px", fontWeight: "700", color: "#f8fafc", marginBottom: "8px" }}>
+            Emergency Resource Inventory
+          </h2>
+          <p style={{ fontSize: "14px", color: "#94a3b8", marginBottom: "16px", fontWeight: "600" }}>
+            No active resources available.
+          </p>
+          <p style={{ fontSize: "13px", color: "#64748b", maxWidth: "520px", marginBottom: "28px", lineHeight: "1.6" }}>
+            The inventory is empty. Click the button below to discover real nearby facilities (Fire Stations, Hospitals, NGOs, Relief Shelters) from Google Maps around <b>{userLocationName || "Mumbai Operational Area"}</b> and simulate live emergency resource availability.
+          </p>
+
+          <button
+            className="primary"
+            style={{ padding: "12px 28px", fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "10px", boxShadow: "0 0 24px rgba(37, 99, 235, 0.5)" }}
+            onClick={handleGenerateSimulations}
+            disabled={generating}
+          >
+            <Sparkles size={18} />
+            <span>Generate Simulations</span>
+          </button>
+        </div>
+      ) : resources.length > 0 && (
+        <>
+          {/* Active Simulation Summary Banner */}
+          <div className="simulation-banner">
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+              <div style={{
+                background: "rgba(37, 99, 235, 0.2)",
+                border: "1px solid rgba(96, 165, 250, 0.4)",
+                padding: "6px 12px",
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px"
+              }}>
+                <CheckCircle2 size={16} style={{ color: "#60a5fa" }} />
+                <span style={{ fontSize: "12px", fontWeight: "700", color: "#93c5fd" }}>
+                  SIMULATION ACTIVE
+                </span>
+                {simulationId && (
+                  <span style={{ fontSize: "11px", fontFamily: "monospace", color: "#cbd5e1", background: "rgba(15, 23, 42, 0.6)", padding: "2px 6px", borderRadius: "4px" }}>
+                    {simulationId}
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: "13px", color: "#e2e8f0" }}>
+                <b>{resources.length} resources</b> discovered across <b>{uniqueFacilities} nearby facilities</b> in <b>{uniqueCategories} categories</b>.
+              </div>
+            </div>
+
+            <div style={{ fontSize: "11px", color: "#94a3b8", display: "flex", alignItems: "center", gap: "6px" }}>
+              <MapPin size={13} style={{ color: "#38bdf8" }} />
+              <span>Center: <b>{userLocationName || "Mumbai Command"}</b></span>
+            </div>
+          </div>
+
+          {/* Filter & Controls Bar */}
+          <div className="resource-filter-bar">
+            {/* Category Pills */}
+            <div className="resource-filter-pills">
+              <button
+                className={`resource-filter-pill ${categoryFilter === "ALL" ? "active" : ""}`}
+                onClick={() => setCategoryFilter("ALL")}
+              >
+                All ({resources.length})
+              </button>
+              <button
+                className={`resource-filter-pill ${categoryFilter === "RESCUE" ? "active" : ""}`}
+                onClick={() => setCategoryFilter("RESCUE")}
+              >
+                🚒 Rescue ({rescueCount})
+              </button>
+              <button
+                className={`resource-filter-pill ${categoryFilter === "MEDICAL" ? "active" : ""}`}
+                onClick={() => setCategoryFilter("MEDICAL")}
+              >
+                🚑 Medical ({medicalCount})
+              </button>
+              <button
+                className={`resource-filter-pill ${categoryFilter === "FOOD" ? "active" : ""}`}
+                onClick={() => setCategoryFilter("FOOD")}
+              >
+                🍱 Food ({foodCount})
+              </button>
+              <button
+                className={`resource-filter-pill ${categoryFilter === "WATER" ? "active" : ""}`}
+                onClick={() => setCategoryFilter("WATER")}
+              >
+                💧 Water ({waterCount})
+              </button>
+              <button
+                className={`resource-filter-pill ${categoryFilter === "SHELTER" ? "active" : ""}`}
+                onClick={() => setCategoryFilter("SHELTER")}
+              >
+                🛏️ Shelter ({shelterCount})
+              </button>
+            </div>
+
+            {/* Status & Search & View Toggle */}
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              {/* Search Box */}
+              <div style={{ position: "relative", minWidth: "180px" }}>
+                <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#64748b" }} />
+                <input
+                  type="text"
+                  placeholder="Filter resources or facilities..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    padding: "6px 10px 6px 30px",
+                    fontSize: "12px",
+                    background: "rgba(30, 41, 59, 0.8)",
+                    border: "1px solid rgba(148, 163, 184, 0.2)",
+                    borderRadius: "8px",
+                    color: "#f8fafc",
+                    width: "100%"
+                  }}
+                />
+              </div>
+
+              {/* Status Filter Dropdown */}
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                style={{
+                  padding: "6px 12px",
+                  fontSize: "12px",
+                  background: "rgba(30, 41, 59, 0.8)",
+                  border: "1px solid rgba(148, 163, 184, 0.2)",
+                  borderRadius: "8px",
+                  color: "#f8fafc",
+                  cursor: "pointer"
+                }}
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="AVAILABLE">Available Only</option>
+                <option value="LIMITED">Limited Only</option>
+                <option value="DEPLOYED">Deployed / Allocated</option>
+              </select>
+
+              {/* View Toggle */}
+              <div style={{ display: "flex", border: "1px solid rgba(148, 163, 184, 0.2)", borderRadius: "8px", overflow: "hidden" }}>
+                <button
+                  style={{
+                    padding: "6px 10px",
+                    fontSize: "11px",
+                    fontWeight: "600",
+                    background: viewMode === "grid" ? "#2563eb" : "rgba(30, 41, 59, 0.6)",
+                    color: viewMode === "grid" ? "#fff" : "#94a3b8",
+                    border: "none",
+                    cursor: "pointer"
+                  }}
+                  onClick={() => setViewMode("grid")}
+                >
+                  Cards
+                </button>
+                <button
+                  style={{
+                    padding: "6px 10px",
+                    fontSize: "11px",
+                    fontWeight: "600",
+                    background: viewMode === "table" ? "#2563eb" : "rgba(30, 41, 59, 0.6)",
+                    color: viewMode === "table" ? "#fff" : "#94a3b8",
+                    border: "none",
+                    cursor: "pointer"
+                  }}
+                  onClick={() => setViewMode("table")}
+                >
+                  Table
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Filter results empty state */}
+          {filteredResources.length === 0 ? (
+            <div style={{ padding: "40px", textAlign: "center", background: "rgba(15, 23, 42, 0.4)", borderRadius: "12px", border: "1px solid rgba(148, 163, 184, 0.15)", margin: "20px 0" }}>
+              <Filter size={24} style={{ color: "#64748b", marginBottom: "8px" }} />
+              <div style={{ fontSize: "14px", fontWeight: "600", color: "#cbd5e1" }}>No matching resources</div>
+              <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>
+                No resources match the selected category ("{categoryFilter}") or search criteria.
+              </div>
+              <button
+                className="ghost small"
+                style={{ marginTop: "12px" }}
+                onClick={() => { setCategoryFilter("ALL"); setStatusFilter("ALL"); setSearchQuery(""); }}
+              >
+                Reset Filters
+              </button>
+            </div>
+          ) : viewMode === "grid" ? (
+            /* GRID VIEW */
+            <div className="resource-grid">
+              {filteredResources.map((r) => (
+                <ResourceCard key={r.id} team={r} userLat={userLat} userLng={userLng} />
+              ))}
+            </div>
+          ) : (
+            /* TABLE VIEW */
+            <div style={{ overflowX: "auto", background: "rgba(15, 23, 42, 0.6)", border: "1px solid rgba(148, 163, 184, 0.18)", borderRadius: "12px" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", textAlign: "left" }}>
+                <thead>
+                  <tr style={{ background: "rgba(30, 41, 59, 0.8)", borderBottom: "1px solid rgba(148, 163, 184, 0.2)", color: "#94a3b8", textTransform: "uppercase", fontSize: "10px", letterSpacing: "0.5px" }}>
+                    <th style={{ padding: "12px 16px" }}>Resource</th>
+                    <th style={{ padding: "12px 16px" }}>Category</th>
+                    <th style={{ padding: "12px 16px" }}>Agency / Facility</th>
+                    <th style={{ padding: "12px 16px" }}>Quantity</th>
+                    <th style={{ padding: "12px 16px" }}>Location</th>
+                    <th style={{ padding: "12px 16px" }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredResources.map((r) => {
+                    const cat = (r.category || r.resource_type || "RESCUE").toUpperCase();
+                    const statusUpper = (r.status || "AVAILABLE").toUpperCase();
+                    const isAvail = statusUpper === "AVAILABLE" || statusUpper === "READY";
+                    const isLim = statusUpper === "LIMITED";
+                    const lat = r.latitude ?? r.lat;
+                    const lng = r.longitude ?? r.lng;
+                    const mapLink = (lat && lng) ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : null;
+
+                    return (
+                      <tr key={r.id} style={{ borderBottom: "1px solid rgba(148, 163, 184, 0.1)" }}>
+                        <td style={{ padding: "12px 16px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <span style={{ fontSize: "16px" }}>{r.emoji || "📦"}</span>
+                            <div>
+                              <b style={{ color: "#f8fafc" }}>{r.name}</b>
+                              {r.capacity && <div style={{ fontSize: "10px", color: "#64748b" }}>{r.capacity}</div>}
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ padding: "12px 16px" }}>
+                          <span className={`resource-badge-category ${cat.toLowerCase()}`}>{cat}</span>
+                        </td>
+                        <td style={{ padding: "12px 16px", color: "#cbd5e1" }}>
+                          <b>{r.agency || r.station || "Disaster Command"}</b>
+                        </td>
+                        <td style={{ padding: "12px 16px" }}>
+                          <b style={{ color: "#60a5fa", fontSize: "13px" }}>
+                            {r.quantity != null ? `${r.quantity} ${r.unit || "Units"}` : "Operational"}
+                          </b>
+                        </td>
+                        <td style={{ padding: "12px 16px", color: "#94a3b8" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                            <MapPin size={11} style={{ color: "#38bdf8", flexShrink: 0 }} />
+                            <span>{r.base_location || r.address || r.station || "Real Facility"}</span>
+                            {mapLink && (
+                              <a href={mapLink} target="_blank" rel="noreferrer" style={{ color: "#60a5fa", marginLeft: "4px" }}>
+                                <ExternalLink size={10} />
+                              </a>
+                            )}
+                          </div>
+                        </td>
+                        <td style={{ padding: "12px 16px" }}>
+                          <span className={`resource-status-pill ${isAvail ? "available" : isLim ? "limited" : "dispatched"}`}>
+                            {r.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -4834,21 +8284,33 @@ function App() {
     }
   }, []);
 
-  // Calculate safest OSRM road route to chosen shelter
+  const routeCacheRef = useRef(new Map());
+  const prevGpsCoordsRef = useRef(null);
+
+  // Calculate safest OSRM road route to chosen shelter (with persistent coordinate caching)
   const handleSelectShelter = useCallback(async (sh) => {
     setSelectedShelter(sh);
-    setLoadingRoute(true);
     const destLat = sh.latitude ?? sh.lat;
     const destLng = sh.longitude ?? sh.lng;
+    const cacheKey = `${Number(userLat).toFixed(4)},${Number(userLng).toFixed(4)}_${Number(destLat).toFixed(4)},${Number(destLng).toFixed(4)}`;
 
+    const cached = routeCacheRef.current.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < 300000) {
+      setActiveRoute(cached.data);
+      notify(`🛣️ Safest route to ${sh.name}: ${cached.data.durationMin || 5} min ETA (${cached.data.distanceKm || 1.5} km) [Cached].`);
+      return;
+    }
+
+    setLoadingRoute(true);
     try {
       const routeData = await apiFetch(`/route?fromLat=${userLat}&fromLng=${userLng}&toLat=${destLat}&toLng=${destLng}`);
+      routeCacheRef.current.set(cacheKey, { data: routeData, timestamp: Date.now() });
       setActiveRoute(routeData);
       notify(`🛣️ Safest route to ${sh.name}: ${routeData.durationMin || 5} min ETA (${routeData.distanceKm || 1.5} km).`);
     } catch (err) {
       console.warn("[web] Route calculation error:", err.message);
       // Fallback route line
-      setActiveRoute({
+      const fallbackRoute = {
         coordinates: [
           { lat: userLat, lng: userLng },
           { lat: destLat, lng: destLng }
@@ -4856,7 +8318,8 @@ function App() {
         distanceKm: ((sh.distance_km ?? sh.distanceKm) || 1.2),
         durationMin: (sh.eta_minutes ?? 5),
         hazardAdvisory: "Direct road corridor · Exercise caution near local storm drains."
-      });
+      };
+      setActiveRoute(fallbackRoute);
       notify(`🗺️ Displaying direct corridor to ${sh.name}.`);
     } finally {
       setLoadingRoute(false);
@@ -4868,7 +8331,7 @@ function App() {
     setActiveRoute(null);
   }, []);
 
-  // Live GPS Detection Handler
+  // Live GPS Detection Handler (Throttled by 25m distance threshold to avoid state thrashing)
   const handleDetectGps = useCallback(() => {
     if (!navigator.geolocation) {
       setLocationStatus("gps_denied");
@@ -4880,6 +8343,21 @@ function App() {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
+
+        // Sensible GPS filtering: only do full reverse geocode and shelter query if moved > 25 meters
+        const prevGps = prevGpsCoordsRef.current;
+        if (prevGps) {
+          const distKm = calcDistanceKm(prevGps.latitude, prevGps.longitude, latitude, longitude);
+          if (distKm != null && distKm < 0.025) {
+            // User moved less than 25m: update coordinates without refetching all APIs
+            setUserLat(latitude);
+            setUserLng(longitude);
+            setLocationStatus("idle");
+            return;
+          }
+        }
+
+        prevGpsCoordsRef.current = { latitude, longitude };
         let detectedName = `GPS Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
 
         try {
@@ -4901,7 +8379,7 @@ function App() {
         setLocationStatus("gps_denied");
         fetchSheltersAndLocationData(19.1320, 72.8480, "Andheri West Station Road Market", "preset");
       },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
     );
   }, [fetchSheltersAndLocationData, notify]);
 
@@ -4946,7 +8424,7 @@ function App() {
       const [z, inc, al, res, cb, ems] = await Promise.all([
         apiFetch("/zones").catch(() => []),
         apiFetch("/incidents").catch(() => []),
-        apiFetch("/alerts").catch(() => []),
+        apiFetch(`/alerts?lat=${userLat}&lng=${userLng}`).catch(() => []),
         apiFetch(`/resources?lat=${userLat}&lng=${userLng}`).catch(() => []),
         apiFetch("/chronic-blockages").catch(() => []),
         apiFetch(`/emergency-services?lat=${userLat}&lng=${userLng}&radius_km=5`).catch(() => [])
@@ -4962,7 +8440,7 @@ function App() {
     }
   }, [userLat, userLng]);
 
-  // Initial Startup Effect with SSE & 4s fast sync interval
+  // Initial Startup Effect with SSE & Throttled Fallback Polling
   useEffect(() => {
     loadInitialData();
     if (navigator.geolocation) {
@@ -4971,7 +8449,7 @@ function App() {
       fetchSheltersAndLocationData(19.1320, 72.8480, "Andheri West Station Road Market", "preset");
     }
 
-    // Connect to live SSE Stream for real-time dispatch updates
+    // Connect to live SSE Stream for targeted real-time updates (no full-layer wipeouts)
     let es;
     try {
       es = new EventSource(`${API}/stream`);
@@ -4988,12 +8466,8 @@ function App() {
           ) {
             if (data.payload?.incident) {
               const newInc = data.payload.incident;
-              setIncidents((prev) => {
-                const rest = prev.filter((i) => i.id !== newInc.id);
-                return [newInc, ...rest];
-              });
+              setIncidents((prev) => [newInc, ...prev.filter((i) => i.id !== newInc.id)]);
             }
-            loadInitialData();
           }
           if (data.type === "RISK_UPDATED" && Array.isArray(data.zones)) {
             setZones(data.zones);
@@ -5008,10 +8482,7 @@ function App() {
           const d = JSON.parse(evt.data);
           if (d.payload?.incident) {
             const newInc = d.payload.incident;
-            setIncidents((prev) => {
-              const rest = prev.filter((i) => i.id !== newInc.id);
-              return [newInc, ...rest];
-            });
+            setIncidents((prev) => [newInc, ...prev.filter((i) => i.id !== newInc.id)]);
             if (newInc.isSos || newInc.type === "SOS" || newInc.status === "ACTIVE_SOS") {
               playSosEmergencyChime();
               setNotificationsOpen(true);
@@ -5019,8 +8490,8 @@ function App() {
             }
           }
         } catch {}
-        loadInitialData();
       });
+
       es.addEventListener("sos:triggered", (evt) => {
         try {
           const d = JSON.parse(evt.data);
@@ -5036,10 +8507,45 @@ function App() {
           setNotificationsOpen(true);
           notify(`🚨 CRITICAL SOS TRIGGERED: ${sosInc?.reporter || "Distress Signal"} at ${sosInc?.address || "Active Area"}`);
         } catch {}
-        loadInitialData();
       });
-      es.addEventListener("report:merged", () => loadInitialData());
-      es.addEventListener("dispatch:created", () => loadInitialData());
+
+      es.addEventListener("incident:resolved", (evt) => {
+        try {
+          const d = JSON.parse(evt.data);
+          const incId = d.id || d.incident?.id;
+          if (incId) {
+            setIncidents((prev) => prev.filter((i) => i.id !== incId && i.sosId !== incId));
+            setAlerts((prev) => prev.filter((a) => a.incidentId !== incId && a.sosId !== incId && a.id !== incId));
+          }
+        } catch {}
+      });
+
+      es.addEventListener("incident:updated", (evt) => {
+        try {
+          const d = JSON.parse(evt.data);
+          if (d.incident) {
+            const up = d.incident;
+            if (up.status === "Resolved" || up.status === "False Alarm" || up.isQuarantined) {
+              setIncidents((prev) => prev.filter((i) => i.id !== up.id && i.sosId !== up.sosId));
+              setAlerts((prev) => prev.filter((a) => a.incidentId !== up.id && a.sosId !== up.sosId && a.id !== up.id));
+            } else {
+              setIncidents((prev) => [up, ...prev.filter((i) => i.id !== up.id)]);
+            }
+          }
+        } catch {}
+      });
+
+      es.addEventListener("SOS_CLUSTER_UPDATED", (evt) => {
+        try {
+          const d = JSON.parse(evt.data);
+          const up = d.incident || d.payload?.incident;
+          if (up) {
+            setIncidents((prev) => [up, ...prev.filter((i) => i.id !== up.id)]);
+            notify(`🚨 SOS CLUSTER UPDATED: Incident ${up.id} now has ${up.reporter_count || 2} reports in 500m zone.`);
+          }
+        } catch {}
+      });
+
       es.addEventListener("zones:synced", (e) => {
         try {
           const d = JSON.parse(e.data);
@@ -5060,10 +8566,10 @@ function App() {
     };
     document.addEventListener("visibilitychange", handleVisibility);
 
-    // 4s polling sync ensures immediate visibility even if browser drops SSE
+    // 20s polling fallback (drastically reduced from 4s to eliminate render/network thrashing)
     const pollTimer = setInterval(() => {
       loadInitialData();
-    }, 4000);
+    }, 20000);
 
     return () => {
       if (es) es.close();
@@ -5119,9 +8625,22 @@ function App() {
     try {
       await apiFetch(`/incidents/${id}/false-alarm`, { method: "POST" });
       notify(`Incident ${id} marked as False Alarm. User trust score updated.`);
+      setIncidents((prev) => prev.filter((i) => i.id !== id && i.sosId !== id));
       loadInitialData();
     } catch (err) {
       notify("Operation failed: " + err.message);
+    }
+  };
+
+  const handleResolve = async (id) => {
+    try {
+      await apiFetch(`/incidents/${id}/resolve`, { method: "POST" });
+      notify(`Incident / SOS ${id} marked as RESOLVED and cleared from active map.`);
+      setIncidents((prev) => prev.filter((i) => i.id !== id && i.sosId !== id));
+      setAlerts((prev) => prev.filter((a) => a.incidentId !== id && a.sosId !== id && a.id !== id));
+      loadInitialData();
+    } catch (err) {
+      notify("Resolution failed: " + err.message);
     }
   };
 
@@ -5203,6 +8722,8 @@ function App() {
           incidents={incidents}
           onAutoDispatch={handleAutoDispatch}
           onClearAlerts={() => setAlerts([])}
+          userLat={userLat}
+          userLng={userLng}
         />
 
         {notification && (
@@ -5258,6 +8779,23 @@ function App() {
               }
             />
             <Route
+              path="/alerts"
+              element={
+                <AlertsPage
+                  alerts={alerts}
+                  setAlerts={setAlerts}
+                  userLat={userLat}
+                  userLng={userLng}
+                  userLocationName={userLocationName}
+                  locationMode={locationMode}
+                  locationStatus={locationStatus}
+                  onDetectGps={handleDetectGps}
+                  notify={notify}
+                  onReloadAlerts={loadInitialData}
+                />
+              }
+            />
+            <Route
               path="/map"
               element={
                 <RiskMap
@@ -5286,6 +8824,7 @@ function App() {
                   onAutoDispatch={handleAutoDispatch}
                   onVerify={handleVerify}
                   onFalseAlarm={handleFalseAlarm}
+                  onResolve={handleResolve}
                   onOpenOverride={setOverrideIncident}
                 />
               }
@@ -5301,6 +8840,46 @@ function App() {
                   onAutoDispatch={handleAutoDispatch}
                   onVerify={handleVerify}
                   onFalseAlarm={handleFalseAlarm}
+                  onResolve={handleResolve}
+                  onOpenOverride={setOverrideIncident}
+                  onViewPhoto={(url, inc, isVideo) => setPhotoModal({ url, incident: inc, isVideo })}
+                  onResetReputation={handleResetReputation}
+                />
+              }
+            />
+            <Route
+              path="/incidents/:id"
+              element={
+                <IncidentDetailPage
+                  incidents={incidents}
+                  resources={resources}
+                  notify={notify}
+                  onReload={loadInitialData}
+                  onAutoDispatch={handleAutoDispatch}
+                  onVerify={handleVerify}
+                  onFalseAlarm={handleFalseAlarm}
+                  onOpenOverride={setOverrideIncident}
+                  onViewPhoto={(url, inc, isVideo) => setPhotoModal({ url, incident: inc, isVideo })}
+                  onResetReputation={handleResetReputation}
+                />
+              }
+            />
+            <Route
+              path="/zones/:id"
+              element={
+                <ZoneDetailPage
+                  zones={zones}
+                  incidents={incidents}
+                  alerts={alerts}
+                  resources={resources}
+                  shelters={shelters}
+                  chronicBlockages={chronicBlockages}
+                  notify={notify}
+                  onReload={loadInitialData}
+                  onAutoDispatch={handleAutoDispatch}
+                  onVerify={handleVerify}
+                  onFalseAlarm={handleFalseAlarm}
+                  onResolve={handleResolve}
                   onOpenOverride={setOverrideIncident}
                   onViewPhoto={(url, inc, isVideo) => setPhotoModal({ url, incident: inc, isVideo })}
                   onResetReputation={handleResetReputation}
@@ -5321,7 +8900,17 @@ function App() {
             />
             <Route
               path="/resources"
-              element={<ResourcesPage resources={resources} notify={notify} onReload={loadInitialData} />}
+              element={
+                <ResourcesPage
+                  resources={resources}
+                  setResources={setResources}
+                  userLat={userLat}
+                  userLng={userLng}
+                  userLocationName={userLocationName}
+                  notify={notify}
+                  onReload={loadInitialData}
+                />
+              }
             />
             <Route
               path="/drainage"
