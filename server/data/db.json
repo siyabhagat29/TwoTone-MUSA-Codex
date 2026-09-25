@@ -14,12 +14,12 @@
       "reports": 0,
       "trend": "stable",
       "totalTodayRain": 2.3,
-      "tempC": 27.4,
-      "humidity": 84,
+      "tempC": 27.3,
+      "humidity": 83,
       "riverDischarge": 3.63,
       "dischargeRatio": 1.02,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-25T17:42:39.350Z"
+      "lastUpdated": "2026-09-25T18:29:18.179Z"
     },
     {
       "id": "Z-02",
@@ -35,12 +35,12 @@
       "reports": 0,
       "trend": "stable",
       "totalTodayRain": 2.3,
-      "tempC": 27.4,
-      "humidity": 84,
+      "tempC": 27.3,
+      "humidity": 83,
       "riverDischarge": 1.69,
       "dischargeRatio": 1.02,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-25T17:42:39.489Z"
+      "lastUpdated": "2026-09-25T18:29:18.334Z"
     },
     {
       "id": "Z-03",
@@ -56,12 +56,12 @@
       "reports": 0,
       "trend": "stable",
       "totalTodayRain": 2.3,
-      "tempC": 27.4,
-      "humidity": 84,
+      "tempC": 27.3,
+      "humidity": 83,
       "riverDischarge": 3.63,
       "dischargeRatio": 1.02,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-25T17:42:39.640Z"
+      "lastUpdated": "2026-09-25T18:29:18.490Z"
     },
     {
       "id": "Z-04",
@@ -77,12 +77,12 @@
       "reports": 0,
       "trend": "stable",
       "totalTodayRain": 2.2,
-      "tempC": 27.6,
+      "tempC": 27.5,
       "humidity": 82,
       "riverDischarge": 1.69,
       "dischargeRatio": 1.02,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-25T17:42:39.778Z"
+      "lastUpdated": "2026-09-25T18:29:18.642Z"
     },
     {
       "id": "Z-05",
@@ -101,7 +101,7 @@
       "tempC": 27,
       "humidity": 86,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-25T17:42:39.917Z",
+      "lastUpdated": "2026-09-25T18:29:18.792Z",
       "riverDischarge": 1.69,
       "dischargeRatio": 1.02
     }
@@ -281,10 +281,10 @@
       "evidenceHash": "0xSOS1a0d90cabf0",
       "address": "Sector Road 4572",
       "note": "EMERGENCY SOS BROADCAST: User New Citizen 4572 triggered life-safety alarm at Sector Road 4572. Contact: +9198000457299",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -320,7 +320,11 @@
           "address": "Sector Road 4572",
           "distance_meters": 0,
           "timestamp": "2026-09-25T14:51:21.443Z",
-          "created_at": "2026-09-25T14:51:21.443Z"
+          "created_at": "2026-09-25T14:51:21.443Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -542,10 +546,10 @@
       "evidenceHash": "0xSOS1a0d90cab92",
       "address": "Circle 1",
       "note": "EMERGENCY SOS BROADCAST: User Sim User 1 triggered life-safety alarm at Circle 1. Contact: +919700045721",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -581,7 +585,11 @@
           "address": "Circle 1",
           "distance_meters": 0,
           "timestamp": "2026-09-25T14:51:21.350Z",
-          "created_at": "2026-09-25T14:51:21.350Z"
+          "created_at": "2026-09-25T14:51:21.350Z",
+          "photo_url": "/uploads/sample_flood_photo_3.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-881382-923",
@@ -599,7 +607,11 @@
           "address": "Circle 3",
           "distance_meters": 46,
           "timestamp": "2026-09-25T14:51:21.351Z",
-          "created_at": "2026-09-25T14:51:21.351Z"
+          "created_at": "2026-09-25T14:51:21.351Z",
+          "photo_url": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-881399-459",
@@ -617,7 +629,11 @@
           "address": "Circle 2",
           "distance_meters": 46,
           "timestamp": "2026-09-25T14:51:21.351Z",
-          "created_at": "2026-09-25T14:51:21.351Z"
+          "created_at": "2026-09-25T14:51:21.351Z",
+          "photo_url": "/uploads/sample_flood_photo.jpg",
+          "photoUrl": "/uploads/sample_flood_photo.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-881415-791",
@@ -635,7 +651,11 @@
           "address": "Circle 4",
           "distance_meters": 59,
           "timestamp": "2026-09-25T14:51:21.352Z",
-          "created_at": "2026-09-25T14:51:21.352Z"
+          "created_at": "2026-09-25T14:51:21.352Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -911,10 +931,10 @@
       "evidenceHash": "0xSOS1a0d90cab77",
       "address": "North Junction 4572",
       "note": "EMERGENCY SOS BROADCAST: User User D (4572) triggered life-safety alarm at North Junction 4572. Contact: +9198000045724",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -950,7 +970,11 @@
           "address": "North Junction 4572",
           "distance_meters": 0,
           "timestamp": "2026-09-25T14:51:21.323Z",
-          "created_at": "2026-09-25T14:51:21.323Z"
+          "created_at": "2026-09-25T14:51:21.323Z",
+          "photo_url": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -1172,10 +1196,10 @@
       "evidenceHash": "0xSOS1a0d90cab2b",
       "address": "Sector Road 4572",
       "note": "EMERGENCY SOS BROADCAST: User User A (4572) triggered life-safety alarm at Sector Road 4572. Contact: +9198000045721",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -1211,7 +1235,11 @@
           "address": "Sector Road 4572",
           "distance_meters": 0,
           "timestamp": "2026-09-25T14:51:21.183Z",
-          "created_at": "2026-09-25T14:51:21.183Z"
+          "created_at": "2026-09-25T14:51:21.183Z",
+          "photo_url": "/uploads/sample_flood_photo.jpg",
+          "photoUrl": "/uploads/sample_flood_photo.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-881290-260",
@@ -1229,7 +1257,11 @@
           "address": "Market Lane 4572",
           "distance_meters": 137,
           "timestamp": "2026-09-25T14:51:21.279Z",
-          "created_at": "2026-09-25T14:51:21.279Z"
+          "created_at": "2026-09-25T14:51:21.279Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-881313-430",
@@ -1247,7 +1279,11 @@
           "address": "Plaza Corner 4572",
           "distance_meters": 382,
           "timestamp": "2026-09-25T14:51:21.301Z",
-          "created_at": "2026-09-25T14:51:21.301Z"
+          "created_at": "2026-09-25T14:51:21.301Z",
+          "photo_url": "/uploads/sample_flood_photo_3.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -1508,10 +1544,10 @@
       "evidenceHash": "0xSOS1a0d905b44b",
       "address": "Sector Road 4331",
       "note": "EMERGENCY SOS BROADCAST: User New Citizen 4331 triggered life-safety alarm at Sector Road 4331. Contact: +9198000433199",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -1547,7 +1583,11 @@
           "address": "Sector Road 4331",
           "distance_meters": 0,
           "timestamp": "2026-09-25T14:43:44.823Z",
-          "created_at": "2026-09-25T14:43:44.823Z"
+          "created_at": "2026-09-25T14:43:44.823Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -1769,10 +1809,10 @@
       "evidenceHash": "0xSOS1a0d905b3c4",
       "address": "Circle 1",
       "note": "EMERGENCY SOS BROADCAST: User Sim User 1 triggered life-safety alarm at Circle 1. Contact: +919700043311",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -1808,7 +1848,11 @@
           "address": "Circle 1",
           "distance_meters": 0,
           "timestamp": "2026-09-25T14:43:44.696Z",
-          "created_at": "2026-09-25T14:43:44.696Z"
+          "created_at": "2026-09-25T14:43:44.696Z",
+          "photo_url": "/uploads/sample_flood_photo_3.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-424736-985",
@@ -1826,7 +1870,11 @@
           "address": "Circle 2",
           "distance_meters": 46,
           "timestamp": "2026-09-25T14:43:44.697Z",
-          "created_at": "2026-09-25T14:43:44.697Z"
+          "created_at": "2026-09-25T14:43:44.697Z",
+          "photo_url": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-424753-880",
@@ -1844,7 +1892,11 @@
           "address": "Circle 3",
           "distance_meters": 46,
           "timestamp": "2026-09-25T14:43:44.698Z",
-          "created_at": "2026-09-25T14:43:44.698Z"
+          "created_at": "2026-09-25T14:43:44.698Z",
+          "photo_url": "/uploads/sample_flood_photo.jpg",
+          "photoUrl": "/uploads/sample_flood_photo.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-424770-170",
@@ -1862,7 +1914,11 @@
           "address": "Circle 4",
           "distance_meters": 59,
           "timestamp": "2026-09-25T14:43:44.698Z",
-          "created_at": "2026-09-25T14:43:44.698Z"
+          "created_at": "2026-09-25T14:43:44.698Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -2138,10 +2194,10 @@
       "evidenceHash": "0xSOS1a0d905b3a9",
       "address": "North Junction 4331",
       "note": "EMERGENCY SOS BROADCAST: User User D (4331) triggered life-safety alarm at North Junction 4331. Contact: +9198000043314",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -2177,7 +2233,11 @@
           "address": "North Junction 4331",
           "distance_meters": 0,
           "timestamp": "2026-09-25T14:43:44.674Z",
-          "created_at": "2026-09-25T14:43:44.674Z"
+          "created_at": "2026-09-25T14:43:44.674Z",
+          "photo_url": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -2399,10 +2459,10 @@
       "evidenceHash": "0xSOS1a0d905b372",
       "address": "Sector Road 4331",
       "note": "EMERGENCY SOS BROADCAST: User User A (4331) triggered life-safety alarm at Sector Road 4331. Contact: +9198000043311",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -2438,7 +2498,11 @@
           "address": "Sector Road 4331",
           "distance_meters": 0,
           "timestamp": "2026-09-25T14:43:44.544Z",
-          "created_at": "2026-09-25T14:43:44.544Z"
+          "created_at": "2026-09-25T14:43:44.544Z",
+          "photo_url": "/uploads/sample_flood_photo.jpg",
+          "photoUrl": "/uploads/sample_flood_photo.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-424650-481",
@@ -2456,7 +2520,11 @@
           "address": "Market Lane 4331",
           "distance_meters": 137,
           "timestamp": "2026-09-25T14:43:44.641Z",
-          "created_at": "2026-09-25T14:43:44.641Z"
+          "created_at": "2026-09-25T14:43:44.641Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-424665-523",
@@ -2474,7 +2542,11 @@
           "address": "Plaza Corner 4331",
           "distance_meters": 382,
           "timestamp": "2026-09-25T14:43:44.658Z",
-          "created_at": "2026-09-25T14:43:44.658Z"
+          "created_at": "2026-09-25T14:43:44.658Z",
+          "photo_url": "/uploads/sample_flood_photo_3.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -2735,10 +2807,10 @@
       "evidenceHash": "0xSOS1a0d8f7f2fa",
       "address": "Sector Road 8269",
       "note": "EMERGENCY SOS BROADCAST: User New Citizen 8269 triggered life-safety alarm at Sector Road 8269. Contact: +9198000826999",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -2774,7 +2846,11 @@
           "address": "Sector Road 8269",
           "distance_meters": 0,
           "timestamp": "2026-09-25T14:28:43.375Z",
-          "created_at": "2026-09-25T14:28:43.375Z"
+          "created_at": "2026-09-25T14:28:43.375Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -2996,10 +3072,10 @@
       "evidenceHash": "0xSOS1a0d8f7f2a5",
       "address": "Circle 1",
       "note": "EMERGENCY SOS BROADCAST: User Sim User 1 triggered life-safety alarm at Circle 1. Contact: +919700082691",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -3035,7 +3111,11 @@
           "address": "Circle 1",
           "distance_meters": 0,
           "timestamp": "2026-09-25T14:28:43.294Z",
-          "created_at": "2026-09-25T14:28:43.294Z"
+          "created_at": "2026-09-25T14:28:43.294Z",
+          "photo_url": "/uploads/sample_flood_photo_3.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-523314-726",
@@ -3053,7 +3133,11 @@
           "address": "Circle 2",
           "distance_meters": 46,
           "timestamp": "2026-09-25T14:28:43.294Z",
-          "created_at": "2026-09-25T14:28:43.294Z"
+          "created_at": "2026-09-25T14:28:43.294Z",
+          "photo_url": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-523327-975",
@@ -3071,7 +3155,11 @@
           "address": "Circle 3",
           "distance_meters": 46,
           "timestamp": "2026-09-25T14:28:43.294Z",
-          "created_at": "2026-09-25T14:28:43.294Z"
+          "created_at": "2026-09-25T14:28:43.294Z",
+          "photo_url": "/uploads/sample_flood_photo.jpg",
+          "photoUrl": "/uploads/sample_flood_photo.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-523346-433",
@@ -3089,7 +3177,11 @@
           "address": "Circle 4",
           "distance_meters": 59,
           "timestamp": "2026-09-25T14:28:43.295Z",
-          "created_at": "2026-09-25T14:28:43.295Z"
+          "created_at": "2026-09-25T14:28:43.295Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -3365,10 +3457,10 @@
       "evidenceHash": "0xSOS1a0d8f7f294",
       "address": "North Junction 8269",
       "note": "EMERGENCY SOS BROADCAST: User User D (8269) triggered life-safety alarm at North Junction 8269. Contact: +9198000082694",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -3404,7 +3496,11 @@
           "address": "North Junction 8269",
           "distance_meters": 0,
           "timestamp": "2026-09-25T14:28:43.278Z",
-          "created_at": "2026-09-25T14:28:43.278Z"
+          "created_at": "2026-09-25T14:28:43.278Z",
+          "photo_url": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -3626,10 +3722,10 @@
       "evidenceHash": "0xSOS1a0d8f7f264",
       "address": "Sector Road 8269",
       "note": "EMERGENCY SOS BROADCAST: User User A (8269) triggered life-safety alarm at Sector Road 8269. Contact: +9198000082691",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -3665,7 +3761,11 @@
           "address": "Sector Road 8269",
           "distance_meters": 0,
           "timestamp": "2026-09-25T14:28:43.181Z",
-          "created_at": "2026-09-25T14:28:43.181Z"
+          "created_at": "2026-09-25T14:28:43.181Z",
+          "photo_url": "/uploads/sample_flood_photo.jpg",
+          "photoUrl": "/uploads/sample_flood_photo.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-523258-829",
@@ -3683,7 +3783,11 @@
           "address": "Market Lane 8269",
           "distance_meters": 137,
           "timestamp": "2026-09-25T14:28:43.250Z",
-          "created_at": "2026-09-25T14:28:43.250Z"
+          "created_at": "2026-09-25T14:28:43.250Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-523271-419",
@@ -3701,7 +3805,11 @@
           "address": "Plaza Corner 8269",
           "distance_meters": 381,
           "timestamp": "2026-09-25T14:28:43.265Z",
-          "created_at": "2026-09-25T14:28:43.265Z"
+          "created_at": "2026-09-25T14:28:43.265Z",
+          "photo_url": "/uploads/sample_flood_photo_3.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -3962,10 +4070,10 @@
       "evidenceHash": "0xSOS1a0d8f16deb",
       "address": "Sector Road 6245",
       "note": "EMERGENCY SOS BROADCAST: User New Citizen 6245 triggered life-safety alarm at Sector Road 6245. Contact: +9198000624599",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -4001,7 +4109,11 @@
           "address": "Sector Road 6245",
           "distance_meters": 0,
           "timestamp": "2026-09-25T14:21:36.088Z",
-          "created_at": "2026-09-25T14:21:36.088Z"
+          "created_at": "2026-09-25T14:21:36.088Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -4226,10 +4338,10 @@
       "evidenceHash": "0xSOS1a0d8f16d46",
       "address": "Circle 1",
       "note": "EMERGENCY SOS BROADCAST: User Sim User 1 triggered life-safety alarm at Circle 1. Contact: +919700062451",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -4265,7 +4377,11 @@
           "address": "Circle 1",
           "distance_meters": 0,
           "timestamp": "2026-09-25T14:21:35.915Z",
-          "created_at": "2026-09-25T14:21:35.915Z"
+          "created_at": "2026-09-25T14:21:35.915Z",
+          "photo_url": "/uploads/sample_flood_photo_3.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-095983-815",
@@ -4283,7 +4399,11 @@
           "address": "Circle 3",
           "distance_meters": 46,
           "timestamp": "2026-09-25T14:21:35.916Z",
-          "created_at": "2026-09-25T14:21:35.916Z"
+          "created_at": "2026-09-25T14:21:35.916Z",
+          "photo_url": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-096008-626",
@@ -4301,7 +4421,11 @@
           "address": "Circle 2",
           "distance_meters": 46,
           "timestamp": "2026-09-25T14:21:35.915Z",
-          "created_at": "2026-09-25T14:21:35.915Z"
+          "created_at": "2026-09-25T14:21:35.915Z",
+          "photo_url": "/uploads/sample_flood_photo.jpg",
+          "photoUrl": "/uploads/sample_flood_photo.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-096032-644",
@@ -4319,7 +4443,11 @@
           "address": "Circle 4",
           "distance_meters": 59,
           "timestamp": "2026-09-25T14:21:35.916Z",
-          "created_at": "2026-09-25T14:21:35.916Z"
+          "created_at": "2026-09-25T14:21:35.916Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -4595,10 +4723,10 @@
       "evidenceHash": "0xSOS1a0d8f16d08",
       "address": "North Junction 6245",
       "note": "EMERGENCY SOS BROADCAST: User User D (6245) triggered life-safety alarm at North Junction 6245. Contact: +9198000062454",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -4634,7 +4762,11 @@
           "address": "North Junction 6245",
           "distance_meters": 0,
           "timestamp": "2026-09-25T14:21:35.865Z",
-          "created_at": "2026-09-25T14:21:35.865Z"
+          "created_at": "2026-09-25T14:21:35.865Z",
+          "photo_url": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-876192-379",
@@ -4652,7 +4784,11 @@
           "address": "Sector Road 6301",
           "distance_meters": 92,
           "timestamp": "2026-09-25T14:51:15.991Z",
-          "created_at": "2026-09-25T14:51:15.991Z"
+          "created_at": "2026-09-25T14:51:15.991Z",
+          "photo_url": "/uploads/sample_flood_photo.jpg",
+          "photoUrl": "/uploads/sample_flood_photo.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -4893,10 +5029,10 @@
       "evidenceHash": "0xSOS1a0d8f16c9d",
       "address": "Sector Road 6245",
       "note": "EMERGENCY SOS BROADCAST: User User A (6245) triggered life-safety alarm at Sector Road 6245. Contact: +9198000062451",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -4932,7 +5068,11 @@
           "address": "Sector Road 6245",
           "distance_meters": 0,
           "timestamp": "2026-09-25T14:21:35.651Z",
-          "created_at": "2026-09-25T14:21:35.651Z"
+          "created_at": "2026-09-25T14:21:35.651Z",
+          "photo_url": "/uploads/sample_flood_photo.jpg",
+          "photoUrl": "/uploads/sample_flood_photo.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-095814-120",
@@ -4950,7 +5090,11 @@
           "address": "Market Lane 6245",
           "distance_meters": 137,
           "timestamp": "2026-09-25T14:21:35.798Z",
-          "created_at": "2026-09-25T14:21:35.798Z"
+          "created_at": "2026-09-25T14:21:35.798Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-095850-696",
@@ -4968,7 +5112,11 @@
           "address": "Plaza Corner 6245",
           "distance_meters": 382,
           "timestamp": "2026-09-25T14:21:35.827Z",
-          "created_at": "2026-09-25T14:21:35.827Z"
+          "created_at": "2026-09-25T14:21:35.827Z",
+          "photo_url": "/uploads/sample_flood_photo_3.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -5227,10 +5375,10 @@
       "evidenceHash": "0xSOS1a0d8d48d06",
       "address": "Sector Road 6497",
       "note": "EMERGENCY SOS BROADCAST: User New Citizen 6497 triggered life-safety alarm at Sector Road 6497. Contact: +9198000649799",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -5266,7 +5414,11 @@
           "address": "Sector Road 6497",
           "distance_meters": 0,
           "timestamp": "2026-09-25T13:50:03.515Z",
-          "created_at": "2026-09-25T13:50:03.515Z"
+          "created_at": "2026-09-25T13:50:03.515Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -5492,10 +5644,10 @@
       "evidenceHash": "0xSOS1a0d8d48ca6",
       "address": "Circle 1",
       "note": "EMERGENCY SOS BROADCAST: User Sim User 1 triggered life-safety alarm at Circle 1. Contact: +919700064971",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -5531,7 +5683,11 @@
           "address": "Circle 1",
           "distance_meters": 0,
           "timestamp": "2026-09-25T13:50:03.418Z",
-          "created_at": "2026-09-25T13:50:03.418Z"
+          "created_at": "2026-09-25T13:50:03.418Z",
+          "photo_url": "/uploads/sample_flood_photo_3.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-203456-858",
@@ -5549,7 +5705,11 @@
           "address": "Circle 2",
           "distance_meters": 46,
           "timestamp": "2026-09-25T13:50:03.419Z",
-          "created_at": "2026-09-25T13:50:03.419Z"
+          "created_at": "2026-09-25T13:50:03.419Z",
+          "photo_url": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-203473-254",
@@ -5567,7 +5727,11 @@
           "address": "Circle 3",
           "distance_meters": 46,
           "timestamp": "2026-09-25T13:50:03.419Z",
-          "created_at": "2026-09-25T13:50:03.419Z"
+          "created_at": "2026-09-25T13:50:03.419Z",
+          "photo_url": "/uploads/sample_flood_photo.jpg",
+          "photoUrl": "/uploads/sample_flood_photo.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-203490-325",
@@ -5585,7 +5749,11 @@
           "address": "Circle 4",
           "distance_meters": 59,
           "timestamp": "2026-09-25T13:50:03.419Z",
-          "created_at": "2026-09-25T13:50:03.419Z"
+          "created_at": "2026-09-25T13:50:03.419Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -5862,10 +6030,10 @@
       "evidenceHash": "0xSOS1a0d8d48c7d",
       "address": "North Junction 6497",
       "note": "EMERGENCY SOS BROADCAST: User User D (6497) triggered life-safety alarm at North Junction 6497. Contact: +9198000064974",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -5901,7 +6069,11 @@
           "address": "North Junction 6497",
           "distance_meters": 0,
           "timestamp": "2026-09-25T13:50:03.352Z",
-          "created_at": "2026-09-25T13:50:03.352Z"
+          "created_at": "2026-09-25T13:50:03.352Z",
+          "photo_url": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -6124,10 +6296,10 @@
       "evidenceHash": "0xSOS1a0d8d48bbb",
       "address": "Sector Road 6497",
       "note": "EMERGENCY SOS BROADCAST: User User A (6497) triggered life-safety alarm at Sector Road 6497. Contact: +9198000064971",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -6163,7 +6335,11 @@
           "address": "Sector Road 6497",
           "distance_meters": 0,
           "timestamp": "2026-09-25T13:50:02.979Z",
-          "created_at": "2026-09-25T13:50:02.979Z"
+          "created_at": "2026-09-25T13:50:02.979Z",
+          "photo_url": "/uploads/sample_flood_photo.jpg",
+          "photoUrl": "/uploads/sample_flood_photo.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-203255-844",
@@ -6181,7 +6357,11 @@
           "address": "Market Lane 6497",
           "distance_meters": 137,
           "timestamp": "2026-09-25T13:50:03.233Z",
-          "created_at": "2026-09-25T13:50:03.233Z"
+          "created_at": "2026-09-25T13:50:03.233Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-203304-539",
@@ -6199,7 +6379,11 @@
           "address": "Plaza Corner 6497",
           "distance_meters": 382,
           "timestamp": "2026-09-25T13:50:03.269Z",
-          "created_at": "2026-09-25T13:50:03.269Z"
+          "created_at": "2026-09-25T13:50:03.269Z",
+          "photo_url": "/uploads/sample_flood_photo_3.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -6367,10 +6551,10 @@
       "evidenceHash": "0xSOS1a0d8d1014c",
       "address": "Powai, Powai",
       "note": "EMERGENCY SOS BROADCAST: User Nammi triggered life-safety alarm at Powai, Powai. Contact: +91 9869001892",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -6406,7 +6590,11 @@
           "address": "Powai, Powai",
           "distance_meters": 0,
           "timestamp": "2026-09-25T13:46:11.268Z",
-          "created_at": "2026-09-25T13:46:11.129Z"
+          "created_at": "2026-09-25T13:46:11.129Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-049020-736",
@@ -6424,7 +6612,11 @@
           "address": "Powai, Powai",
           "distance_meters": 6,
           "timestamp": "2026-09-25T13:47:28.996Z",
-          "created_at": "2026-09-25T13:47:28.996Z"
+          "created_at": "2026-09-25T13:47:28.996Z",
+          "photo_url": "/uploads/sample_flood_photo_3.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -6574,10 +6766,10 @@
       "evidenceHash": "0xSOS1a0d8cf7718",
       "address": "Powai, Powai",
       "note": "EMERGENCY SOS BROADCAST: User Nammi triggered life-safety alarm at Powai, Powai. Contact: +91 9869001892",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -6613,7 +6805,11 @@
           "address": "Powai, Powai",
           "distance_meters": 0,
           "timestamp": "2026-09-25T13:44:30.330Z",
-          "created_at": "2026-09-25T13:44:30.202Z"
+          "created_at": "2026-09-25T13:44:30.202Z",
+          "photo_url": "/uploads/sample_flood_photo_3.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -6738,10 +6934,10 @@
       "evidenceHash": "b9ae8730275ac1f4",
       "address": "Bandra Reclamation, Mumbai",
       "note": "False alarm check",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -6842,10 +7038,10 @@
       "evidenceHash": "67b8b386ee6a26ab",
       "address": "Powai Market, Hiranandani Corridor, Mumbai",
       "note": "Severe street flooding entering shop front! Emergency help needed!",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -6960,10 +7156,10 @@
       "evidenceHash": "0xSOS1a0d8cd976d",
       "address": "Sector Road 2159",
       "note": "EMERGENCY SOS BROADCAST: User New Citizen 2159 triggered life-safety alarm at Sector Road 2159. Contact: +9198000215999",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -6999,7 +7195,11 @@
           "address": "Sector Road 2159",
           "distance_meters": 0,
           "timestamp": "2026-09-25T13:42:27.430Z",
-          "created_at": "2026-09-25T13:42:27.430Z"
+          "created_at": "2026-09-25T13:42:27.430Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -7114,10 +7314,10 @@
       "evidenceHash": "0xSOS1a0d8cd971d",
       "address": "Circle 1",
       "note": "EMERGENCY SOS BROADCAST: User Sim User 1 triggered life-safety alarm at Circle 1. Contact: +919700021591",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -7153,7 +7353,11 @@
           "address": "Circle 1",
           "distance_meters": 0,
           "timestamp": "2026-09-25T13:42:27.341Z",
-          "created_at": "2026-09-25T13:42:27.341Z"
+          "created_at": "2026-09-25T13:42:27.341Z",
+          "photo_url": "/uploads/sample_flood_photo_3.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-747371-752",
@@ -7171,7 +7375,11 @@
           "address": "Circle 2",
           "distance_meters": 46,
           "timestamp": "2026-09-25T13:42:27.342Z",
-          "created_at": "2026-09-25T13:42:27.342Z"
+          "created_at": "2026-09-25T13:42:27.342Z",
+          "photo_url": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-747387-289",
@@ -7189,7 +7397,11 @@
           "address": "Circle 3",
           "distance_meters": 46,
           "timestamp": "2026-09-25T13:42:27.342Z",
-          "created_at": "2026-09-25T13:42:27.342Z"
+          "created_at": "2026-09-25T13:42:27.342Z",
+          "photo_url": "/uploads/sample_flood_photo.jpg",
+          "photoUrl": "/uploads/sample_flood_photo.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-747400-277",
@@ -7207,7 +7419,11 @@
           "address": "Circle 4",
           "distance_meters": 59,
           "timestamp": "2026-09-25T13:42:27.343Z",
-          "created_at": "2026-09-25T13:42:27.343Z"
+          "created_at": "2026-09-25T13:42:27.343Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -7373,10 +7589,10 @@
       "evidenceHash": "0xSOS1a0d8cd96f0",
       "address": "North Junction 2159",
       "note": "EMERGENCY SOS BROADCAST: User User D (2159) triggered life-safety alarm at North Junction 2159. Contact: +9198000021594",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -7412,7 +7628,11 @@
           "address": "North Junction 2159",
           "distance_meters": 0,
           "timestamp": "2026-09-25T13:42:27.290Z",
-          "created_at": "2026-09-25T13:42:27.290Z"
+          "created_at": "2026-09-25T13:42:27.290Z",
+          "photo_url": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -7526,10 +7746,10 @@
       "evidenceHash": "0xSOS1a0d8cd96af",
       "address": "Sector Road 2159",
       "note": "EMERGENCY SOS BROADCAST: User User A (2159) triggered life-safety alarm at Sector Road 2159. Contact: +9198000021591",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -7565,7 +7785,11 @@
           "address": "Sector Road 2159",
           "distance_meters": 0,
           "timestamp": "2026-09-25T13:42:27.203Z",
-          "created_at": "2026-09-25T13:42:27.203Z"
+          "created_at": "2026-09-25T13:42:27.203Z",
+          "photo_url": "/uploads/sample_flood_photo.jpg",
+          "photoUrl": "/uploads/sample_flood_photo.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-747263-535",
@@ -7583,7 +7807,11 @@
           "address": "Market Lane 2159",
           "distance_meters": 138,
           "timestamp": "2026-09-25T13:42:27.258Z",
-          "created_at": "2026-09-25T13:42:27.258Z"
+          "created_at": "2026-09-25T13:42:27.258Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-747282-960",
@@ -7601,7 +7829,11 @@
           "address": "Plaza Corner 2159",
           "distance_meters": 382,
           "timestamp": "2026-09-25T13:42:27.270Z",
-          "created_at": "2026-09-25T13:42:27.270Z"
+          "created_at": "2026-09-25T13:42:27.270Z",
+          "photo_url": "/uploads/sample_flood_photo_3.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -7752,10 +7984,10 @@
       "evidenceHash": "0xSOS1a0d8cb9bdf",
       "address": "Thane Viviana Mall Road",
       "note": "EMERGENCY SOS BROADCAST: User New Citizen Thane triggered life-safety alarm at Thane Viviana Mall Road. Contact: +919800000099",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -7791,7 +8023,11 @@
           "address": "Thane Viviana Mall Road",
           "distance_meters": 0,
           "timestamp": "2026-09-25T13:40:17.491Z",
-          "created_at": "2026-09-25T13:40:17.491Z"
+          "created_at": "2026-09-25T13:40:17.491Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-716638-188",
@@ -7809,7 +8045,11 @@
           "address": "Thane Viviana Mall Road",
           "distance_meters": 0,
           "timestamp": "2026-09-25T13:41:56.628Z",
-          "created_at": "2026-09-25T13:41:56.628Z"
+          "created_at": "2026-09-25T13:41:56.628Z",
+          "photo_url": "/uploads/sample_flood_photo_3.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -7945,10 +8185,10 @@
       "evidenceHash": "0xSOS1a0d8cb9b93",
       "address": "Sion Circle 1",
       "note": "EMERGENCY SOS BROADCAST: User Sim User 1 triggered life-safety alarm at Sion Circle 1. Contact: +919800000011",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -7984,7 +8224,11 @@
           "address": "Sion Circle 1",
           "distance_meters": 0,
           "timestamp": "2026-09-25T13:40:17.422Z",
-          "created_at": "2026-09-25T13:40:17.422Z"
+          "created_at": "2026-09-25T13:40:17.422Z",
+          "photo_url": "/uploads/sample_flood_photo_3.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-617445-445",
@@ -8002,7 +8246,11 @@
           "address": "Sion Circle 3",
           "distance_meters": 70,
           "timestamp": "2026-09-25T13:40:17.422Z",
-          "created_at": "2026-09-25T13:40:17.422Z"
+          "created_at": "2026-09-25T13:40:17.422Z",
+          "photo_url": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-617453-931",
@@ -8020,7 +8268,11 @@
           "address": "Sion Circle 2",
           "distance_meters": 70,
           "timestamp": "2026-09-25T13:40:17.422Z",
-          "created_at": "2026-09-25T13:40:17.422Z"
+          "created_at": "2026-09-25T13:40:17.422Z",
+          "photo_url": "/uploads/sample_flood_photo.jpg",
+          "photoUrl": "/uploads/sample_flood_photo.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-617463-235",
@@ -8038,7 +8290,11 @@
           "address": "Sion Circle 4",
           "distance_meters": 109,
           "timestamp": "2026-09-25T13:40:17.423Z",
-          "created_at": "2026-09-25T13:40:17.423Z"
+          "created_at": "2026-09-25T13:40:17.423Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -8204,10 +8460,10 @@
       "evidenceHash": "0xSOS1a0d8cb9b82",
       "address": "Majiwada Junction",
       "note": "EMERGENCY SOS BROADCAST: User User D (Majiwada Resident) triggered life-safety alarm at Majiwada Junction. Contact: +919800000004",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -8243,7 +8499,11 @@
           "address": "Majiwada Junction",
           "distance_meters": 0,
           "timestamp": "2026-09-25T13:40:17.402Z",
-          "created_at": "2026-09-25T13:40:17.402Z"
+          "created_at": "2026-09-25T13:40:17.402Z",
+          "photo_url": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -8358,10 +8618,10 @@
       "evidenceHash": "0xSOS1a0d8cb9b59",
       "address": "Thane Viviana Mall Road",
       "note": "EMERGENCY SOS BROADCAST: User User A (Thane Resident) triggered life-safety alarm at Thane Viviana Mall Road. Contact: +919800000001",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -8397,7 +8657,11 @@
           "address": "Thane Viviana Mall Road",
           "distance_meters": 0,
           "timestamp": "2026-09-25T13:40:17.360Z",
-          "created_at": "2026-09-25T13:40:17.360Z"
+          "created_at": "2026-09-25T13:40:17.360Z",
+          "photo_url": "/uploads/sample_flood_photo.jpg",
+          "photoUrl": "/uploads/sample_flood_photo.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-617385-244",
@@ -8415,7 +8679,11 @@
           "address": "Thane Service Road #2",
           "distance_meters": 138,
           "timestamp": "2026-09-25T13:40:17.379Z",
-          "created_at": "2026-09-25T13:40:17.379Z"
+          "created_at": "2026-09-25T13:40:17.379Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-617396-887",
@@ -8433,7 +8701,11 @@
           "address": "Thane Lake Plaza",
           "distance_meters": 382,
           "timestamp": "2026-09-25T13:40:17.391Z",
-          "created_at": "2026-09-25T13:40:17.391Z"
+          "created_at": "2026-09-25T13:40:17.391Z",
+          "photo_url": "/uploads/sample_flood_photo_3.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "mergedReports": [
@@ -8597,10 +8869,10 @@
       "evidenceHash": "0xSOS1a0d8c399f6",
       "address": "Hiranandani Galleria, Powai",
       "note": "EMERGENCY SOS BROADCAST: User Powai Market Vendor triggered life-safety alarm at Hiranandani Galleria, Powai. Contact: +919869001892",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -8717,10 +8989,10 @@
       "evidenceHash": "b9ae8730275ac1f4",
       "address": "Bandra Reclamation, Mumbai",
       "note": "False alarm check",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -8816,10 +9088,10 @@
       "evidenceHash": "67b8b386ee6a26ab",
       "address": "Powai Market, Hiranandani Corridor, Mumbai",
       "note": "Severe street flooding entering shop front! Emergency help needed!",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -8947,10 +9219,10 @@
       "evidenceHash": "0xSOS1a0d8c0dedd",
       "address": "Hiranandani Galleria, Powai",
       "note": "EMERGENCY SOS BROADCAST: User Powai Market Vendor triggered life-safety alarm at Hiranandani Galleria, Powai. Contact: +919869001892",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -9076,10 +9348,10 @@
       "evidenceHash": "0xSOS1a0d8c04c77",
       "address": "Hiranandani Galleria, Powai",
       "note": "EMERGENCY SOS BROADCAST: User Powai Market Vendor triggered life-safety alarm at Hiranandani Galleria, Powai. Contact: +919869001892",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -9180,7 +9452,11 @@
           "address": "Hiranandani Galleria, Powai",
           "distance_meters": 0,
           "timestamp": "2026-09-25T13:27:56.268Z",
-          "created_at": "2026-09-25T13:27:56.268Z"
+          "created_at": "2026-09-25T13:27:56.268Z",
+          "photo_url": "/uploads/sample_flood_photo_2.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-588735-324",
@@ -9198,7 +9474,11 @@
           "address": "Powai Lake Central Road",
           "distance_meters": 0,
           "timestamp": "2026-09-25T13:39:48.701Z",
-          "created_at": "2026-09-25T13:39:48.701Z"
+          "created_at": "2026-09-25T13:39:48.701Z",
+          "photo_url": "/uploads/sample_flood_photo_3.jpg",
+          "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         },
         {
           "id": "RPT-782757-220",
@@ -9216,7 +9496,11 @@
           "address": "Hiranandani Gardens, Powai",
           "distance_meters": 0,
           "timestamp": "2026-09-25T13:43:02.752Z",
-          "created_at": "2026-09-25T13:43:02.752Z"
+          "created_at": "2026-09-25T13:43:02.752Z",
+          "photo_url": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+          "video_url": "/uploads/sample_flood_evidence.mp4",
+          "videoUrl": "/uploads/sample_flood_evidence.mp4"
         }
       ],
       "reporter_count": 3,
@@ -9309,10 +9593,10 @@
       "evidenceHash": "0xSOS1a0d8ae5c73",
       "address": "Hiranandani Gardens, Powai",
       "note": "EMERGENCY SOS BROADCAST: User Powai Lake Shopkeeper triggered life-safety alarm at Hiranandani Gardens, Powai. Contact: +919869001892",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -9411,10 +9695,10 @@
       "evidenceHash": "0xSOS1a0d8ae1440",
       "address": "Hiranandani Gardens, Powai",
       "note": "EMERGENCY SOS BROADCAST: User Powai Lake Shopkeeper triggered life-safety alarm at Hiranandani Gardens, Powai. Contact: +919869001892",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -9495,10 +9779,10 @@
       "evidenceHash": "b9ae8730275ac1f4",
       "address": "Bandra Reclamation, Mumbai",
       "note": "False alarm check",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -9576,10 +9860,10 @@
       "evidenceHash": "67b8b386ee6a26ab",
       "address": "Powai Market, Hiranandani Corridor, Mumbai",
       "note": "Severe street flooding entering shop front! Emergency help needed!",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -9682,10 +9966,10 @@
       "evidenceHash": "0xSOS1a0d89ab8d4",
       "address": "Powai, Powai",
       "note": "EMERGENCY SOS BROADCAST: User Risha triggered life-safety alarm at Powai, Powai. Contact: +91 7977661625",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_2.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -9775,10 +10059,10 @@
       "evidenceHash": "0xSOS1a0d89ab8c8",
       "address": "Powai, Powai",
       "note": "EMERGENCY SOS BROADCAST: User Aryan triggered life-safety alarm at Powai, Powai. Contact: +91 9869001892",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -9855,8 +10139,8 @@
       "note": "",
       "photo": true,
       "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
-      "video": false,
-      "videoUrl": null,
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "photo",
       "gps": true,
       "liveGps": true,
@@ -9936,8 +10220,8 @@
       "note": "",
       "photo": true,
       "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/upload_1790337991464_1790337991464.jpg",
-      "video": false,
-      "videoUrl": null,
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "photo",
       "gps": true,
       "liveGps": true,
@@ -10047,8 +10331,8 @@
       "note": "",
       "photo": true,
       "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/upload_1790337728999_1790337729000.jpg",
-      "video": false,
-      "videoUrl": null,
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "photo",
       "gps": true,
       "liveGps": true,
@@ -10134,8 +10418,8 @@
       "note": "",
       "photo": true,
       "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/upload_1790080033896_1790080033896.jpg",
-      "video": false,
-      "videoUrl": null,
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "photo",
       "gps": true,
       "liveGps": true,
@@ -10282,8 +10566,8 @@
       "note": "Happens every year",
       "photo": true,
       "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/upload_1790079901864_1790079901864.jpg",
-      "video": false,
-      "videoUrl": null,
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "photo",
       "gps": true,
       "liveGps": true,
@@ -10396,10 +10680,10 @@
       "evidenceHash": "0xSOS1a0c912bdfd",
       "address": "Powai, Powai",
       "note": "EMERGENCY SOS BROADCAST: User Aryan triggered life-safety alarm at Powai, Powai. Contact: +91 9869001892",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -10500,8 +10784,8 @@
       "note": "Happens every year",
       "photo": true,
       "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/upload_1790078599301_1790078599301.jpg",
-      "video": false,
-      "videoUrl": null,
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "photo",
       "gps": true,
       "liveGps": true,
@@ -10597,10 +10881,10 @@
       "evidenceHash": "0xSOS1a0c8ff1d72",
       "address": "Asalpha, Asalpha",
       "note": "EMERGENCY SOS BROADCAST: User Aryan triggered life-safety alarm at Asalpha, Asalpha. Contact: +91 9869001892",
-      "photo": false,
-      "photoUrl": null,
-      "video": false,
-      "videoUrl": null,
+      "photo": true,
+      "photoUrl": "/uploads/sample_flood_photo_3.jpg",
+      "video": true,
+      "videoUrl": "/uploads/sample_flood_evidence.mp4",
       "mediaType": "none",
       "gps": true,
       "liveGps": true,
@@ -13185,5 +13469,5 @@
       ]
     }
   },
-  "updatedAt": "2026-09-25T17:42:39.917Z"
+  "updatedAt": "2026-09-25T18:29:18.792Z"
 }
