@@ -27,34 +27,47 @@ export function DispatchInteractiveMap({
     if (!mapContainerRef.current) return;
     if (mapInstanceRef.current) return;
 
-    const map = L.map(mapContainerRef.current, {
-      center: [incLat, incLng],
-      zoom: 14,
-      zoomControl: false
-    });
+    if (mapContainerRef.current._leaflet_id) {
+      delete mapContainerRef.current._leaflet_id;
+    }
 
-    L.tileLayer(
-      `https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${GOOGLE_MAPS_KEY}`,
-      {
-        subdomains: ["0", "1", "2", "3"],
-        maxZoom: 20,
-        attribution: '&copy; <a href="https://maps.google.com" target="_blank">Google Maps</a>'
-      }
-    ).addTo(map);
+    let map = null;
+    try {
+      map = L.map(mapContainerRef.current, {
+        center: [incLat, incLng],
+        zoom: 14,
+        zoomControl: false
+      });
 
-    L.control.zoom({ position: "bottomright" }).addTo(map);
+      L.tileLayer(
+        `https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${GOOGLE_MAPS_KEY}`,
+        {
+          subdomains: ["0", "1", "2", "3"],
+          maxZoom: 20,
+          attribution: '&copy; <a href="https://maps.google.com" target="_blank">Google Maps</a>'
+        }
+      ).addTo(map);
 
-    const group = L.layerGroup().addTo(map);
-    layersGroupRef.current = group;
+      L.control.zoom({ position: "bottomright" }).addTo(map);
 
-    const routeGroup = L.layerGroup().addTo(map);
-    routeLayerRef.current = routeGroup;
+      const group = L.layerGroup().addTo(map);
+      layersGroupRef.current = group;
 
-    mapInstanceRef.current = map;
+      const routeGroup = L.layerGroup().addTo(map);
+      routeLayerRef.current = routeGroup;
+
+      mapInstanceRef.current = map;
+    } catch (err) {
+      console.warn("Leaflet dispatch map initialization notice:", err);
+    }
 
     return () => {
-      map.remove();
-      mapInstanceRef.current = null;
+      if (mapInstanceRef.current) {
+        try {
+          mapInstanceRef.current.remove();
+        } catch (_) {}
+        mapInstanceRef.current = null;
+      }
     };
   }, []);
 
@@ -162,33 +175,52 @@ export function DispatchInteractiveMap({
     const routeGroup = routeLayerRef.current;
     if (!map || !routeGroup) return;
 
-    routeGroup.clearLayers();
+    try {
+      routeGroup.clearLayers();
 
-    if (routeData && Array.isArray(routeData.coordinates) && routeData.coordinates.length > 0) {
-      // Draw road routing polyline
-      const latlngs = routeData.coordinates.map(([lat, lng]) => [lat, lng]);
-      const polyline = L.polyline(latlngs, {
-        color: "#2563eb",
-        weight: 5,
-        opacity: 0.85,
-        lineJoin: "round"
-      }).addTo(routeGroup);
+      if (routeData && Array.isArray(routeData.coordinates) && routeData.coordinates.length > 0) {
+        // Draw road routing polyline - handle both [{lat, lng}] and [[lat, lng]]
+        const latlngs = routeData.coordinates
+          .map((c) => {
+            if (Array.isArray(c)) return [Number(c[0]), Number(c[1])];
+            if (c && typeof c === "object") return [Number(c.lat ?? c.latitude), Number(c.lng ?? c.longitude)];
+            return null;
+          })
+          .filter((pt) => pt && !isNaN(pt[0]) && !isNaN(pt[1]) && pt[0] !== 0 && pt[1] !== 0);
 
-      // Fit map view to route bounds
-      map.fitBounds(polyline.getBounds(), { padding: [40, 40], maxZoom: 16 });
-    } else if (selectedResource && selectedResource.lat && selectedResource.lng) {
-      // Straight line fallback if road routing is loading
-      const rLat = Number(selectedResource.lat);
-      const rLng = Number(selectedResource.lng);
-      if (!isNaN(rLat) && !isNaN(rLng)) {
-        const polyline = L.polyline([[rLat, rLng], [incLat, incLng]], {
-          color: "#9333ea",
-          weight: 3,
-          dashArray: "6, 8",
-          opacity: 0.65
-        }).addTo(routeGroup);
-        map.fitBounds(polyline.getBounds(), { padding: [40, 40], maxZoom: 16 });
+        if (latlngs.length > 0) {
+          const polyline = L.polyline(latlngs, {
+            color: "#2563eb",
+            weight: 5,
+            opacity: 0.85,
+            lineJoin: "round"
+          }).addTo(routeGroup);
+
+          // Fit map view to route bounds safely
+          const bounds = polyline.getBounds();
+          if (bounds && bounds.isValid && bounds.isValid()) {
+            map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+          }
+        }
+      } else if (selectedResource && selectedResource.lat && selectedResource.lng) {
+        // Straight line fallback if road routing is loading
+        const rLat = Number(selectedResource.lat);
+        const rLng = Number(selectedResource.lng);
+        if (!isNaN(rLat) && !isNaN(rLng) && !isNaN(incLat) && !isNaN(incLng)) {
+          const polyline = L.polyline([[rLat, rLng], [incLat, incLng]], {
+            color: "#9333ea",
+            weight: 3,
+            dashArray: "6, 8",
+            opacity: 0.65
+          }).addTo(routeGroup);
+          const bounds = polyline.getBounds();
+          if (bounds && bounds.isValid && bounds.isValid()) {
+            map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+          }
+        }
       }
+    } catch (err) {
+      console.warn("Route rendering notice:", err);
     }
   }, [routeData, selectedResource, incLat, incLng]);
 

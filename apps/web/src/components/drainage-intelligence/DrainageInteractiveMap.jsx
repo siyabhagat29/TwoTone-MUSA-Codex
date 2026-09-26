@@ -27,32 +27,45 @@ export default function DrainageInteractiveMap({
     if (!mapContainerRef.current) return;
     if (mapInstanceRef.current) return;
 
-    const map = L.map(mapContainerRef.current, {
-      center: [19.128, 72.848],
-      zoom: 13,
-      zoomControl: true
-    });
+    if (mapContainerRef.current._leaflet_id) {
+      delete mapContainerRef.current._leaflet_id;
+    }
 
-    const GOOGLE_MAPS_KEY =
-      import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyA5U1kvO3XeQxEGkQfuNyiMBvcik27VvKQ";
+    let map = null;
+    try {
+      map = L.map(mapContainerRef.current, {
+        center: [19.128, 72.848],
+        zoom: 13,
+        zoomControl: true
+      });
 
-    L.tileLayer(
-      `https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${GOOGLE_MAPS_KEY}`,
-      {
-        subdomains: ["0", "1", "2", "3"],
-        maxZoom: 20,
-        attribution:
-          '&copy; <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer">Google Maps</a> | VarshaRaksha SWD'
-      }
-    ).addTo(map);
+      const GOOGLE_MAPS_KEY =
+        import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyA5U1kvO3XeQxEGkQfuNyiMBvcik27VvKQ";
 
-    const layerGroup = L.layerGroup().addTo(map);
-    layerGroupRef.current = layerGroup;
-    mapInstanceRef.current = map;
+      L.tileLayer(
+        `https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${GOOGLE_MAPS_KEY}`,
+        {
+          subdomains: ["0", "1", "2", "3"],
+          maxZoom: 20,
+          attribution:
+            '&copy; <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer">Google Maps</a> | VarshaRaksha SWD'
+        }
+      ).addTo(map);
+
+      const layerGroup = L.layerGroup().addTo(map);
+      layerGroupRef.current = layerGroup;
+      mapInstanceRef.current = map;
+    } catch (err) {
+      console.warn("Leaflet drainage map initialization notice:", err);
+    }
 
     return () => {
-      map.remove();
-      mapInstanceRef.current = null;
+      if (mapInstanceRef.current) {
+        try {
+          mapInstanceRef.current.remove();
+        } catch (_) {}
+        mapInstanceRef.current = null;
+      }
     };
   }, []);
 

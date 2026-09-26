@@ -24,63 +24,76 @@ export function ResourceMap({
     if (!mapContainerRef.current) return;
     if (mapInstanceRef.current) return;
 
-    const map = L.map(mapContainerRef.current, {
-      center: [Number(userLat) || 19.132, Number(userLng) || 72.848],
-      zoom: 13,
-      zoomControl: false
-    });
+    if (mapContainerRef.current._leaflet_id) {
+      delete mapContainerRef.current._leaflet_id;
+    }
 
-    L.tileLayer(
-      `https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${GOOGLE_MAPS_KEY}`,
-      {
-        subdomains: ["0", "1", "2", "3"],
-        maxZoom: 20,
-        attribution: '&copy; <a href="https://maps.google.com" target="_blank">Google Maps</a>'
-      }
-    ).addTo(map);
+    let map = null;
+    try {
+      map = L.map(mapContainerRef.current, {
+        center: [Number(userLat) || 19.132, Number(userLng) || 72.848],
+        zoom: 13,
+        zoomControl: false
+      });
 
-    L.control.zoom({ position: "bottomright" }).addTo(map);
+      L.tileLayer(
+        `https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${GOOGLE_MAPS_KEY}`,
+        {
+          subdomains: ["0", "1", "2", "3"],
+          maxZoom: 20,
+          attribution: '&copy; <a href="https://maps.google.com" target="_blank">Google Maps</a>'
+        }
+      ).addTo(map);
 
-    // Command Center Marker
-    const commandIcon = L.divIcon({
-      className: "custom-command-center-marker",
-      html: `
-        <div style="
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          background: #0B1B3A;
-          border: 3px solid #ffffff;
-          box-shadow: 0 0 12px rgba(11, 27, 58, 0.4);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 15px;
-          color: #ffffff;
-        ">
-          🏛️
-        </div>
-      `,
-      iconSize: [32, 32],
-      iconAnchor: [16, 16]
-    });
+      L.control.zoom({ position: "bottomright" }).addTo(map);
 
-    L.marker([Number(userLat) || 19.132, Number(userLng) || 72.848], { icon: commandIcon })
-      .addTo(map)
-      .bindPopup(`
-        <div style="font-family: inherit; font-size: 12px; line-height: 1.4;">
-          <b style="color: #0B1B3A; font-size: 13px;">Authority Command Center</b><br/>
-          <span style="color: #64748b;">GPS Operational Datum (${Number(userLat).toFixed(4)}, ${Number(userLng).toFixed(4)})</span>
-        </div>
-      `);
+      // Command Center Marker
+      const commandIcon = L.divIcon({
+        className: "custom-command-center-marker",
+        html: `
+          <div style="
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #0B1B3A;
+            border: 3px solid #ffffff;
+            box-shadow: 0 0 12px rgba(11, 27, 58, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            color: #ffffff;
+          ">
+            🏛️
+          </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
 
-    const markersGroup = L.layerGroup().addTo(map);
-    markersLayerRef.current = markersGroup;
-    mapInstanceRef.current = map;
+      L.marker([Number(userLat) || 19.132, Number(userLng) || 72.848], { icon: commandIcon })
+        .addTo(map)
+        .bindPopup(`
+          <div style="font-family: inherit; font-size: 12px; line-height: 1.4;">
+            <b style="color: #0B1B3A; font-size: 13px;">Authority Command Center</b><br/>
+            <span style="color: #64748b;">GPS Operational Datum (${Number(userLat).toFixed(4)}, ${Number(userLng).toFixed(4)})</span>
+          </div>
+        `);
+
+      const markersGroup = L.layerGroup().addTo(map);
+      markersLayerRef.current = markersGroup;
+      mapInstanceRef.current = map;
+    } catch (err) {
+      console.warn("Leaflet resource map initialization notice:", err);
+    }
 
     return () => {
-      map.remove();
-      mapInstanceRef.current = null;
+      if (mapInstanceRef.current) {
+        try {
+          mapInstanceRef.current.remove();
+        } catch (_) {}
+        mapInstanceRef.current = null;
+      }
     };
   }, [userLat, userLng]);
 

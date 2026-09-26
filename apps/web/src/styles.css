@@ -2762,6 +2762,62 @@ nav a, .sidebar-bottom > a {
   100% { transform: scale(1.18); }
 }
 
+/* Ambulance Siren Flashing Beacon & Strobe Rings for Active SOS Location */
+.custom-sos-siren-wrapper {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.custom-sos-siren-pulse {
+  position: absolute;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.65) 0%, rgba(220, 38, 38, 0) 75%);
+  animation: sirenPulseStrobe 0.9s infinite ease-out;
+  pointer-events: none;
+}
+
+@keyframes sirenPulseStrobe {
+  0% { transform: scale(0.5); opacity: 1; box-shadow: 0 0 12px #ef4444; }
+  50% { opacity: 0.85; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+.custom-sos-siren-beacon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ff2222 20%, #dc2626 70%, #991b1b 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  border: 3.5px solid #ffffff;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.95), 0 0 40px rgba(220, 38, 38, 0.7);
+  animation: ambulanceSirenFlash 0.6s infinite alternate ease-in-out;
+  cursor: pointer;
+  z-index: 2;
+}
+
+@keyframes ambulanceSirenFlash {
+  0% {
+    transform: scale(1);
+    background: radial-gradient(circle, #ff2222 20%, #dc2626 70%, #991b1b 100%);
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.85), 0 0 28px rgba(220, 38, 38, 0.5);
+  }
+  100% {
+    transform: scale(1.18);
+    background: radial-gradient(circle, #ff4d4d 30%, #ef4444 80%, #b91c1c 100%);
+    box-shadow: 0 0 28px rgba(255, 0, 0, 1), 0 0 55px rgba(239, 68, 68, 0.95);
+  }
+}
+
 .custom-team-marker {
   display: flex;
   align-items: center;

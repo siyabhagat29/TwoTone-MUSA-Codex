@@ -1725,8 +1725,7 @@ export default function App() {
           if (unread.length > 0) {
             const latest = unread[0];
             setIncomingWarning(latest);
-            Alert.alert(latest.title, latest.body);
-            // Mark as read so alert doesn't fire repeatedly
+            // Mark as read on the backend
             fetchWithTimeout(`${apiUrl}/users/${encodeURIComponent(currentUserId)}/notifications/${latest.id}/read`, {
               method: "POST"
             }).catch(() => {});
@@ -2037,40 +2036,132 @@ export default function App() {
         </View>
       </Modal>
 
-      {/* Realtime Flood Buddy Warning Popup Modal */}
+      {/* High-Impact Realtime Flood Buddy Emergency Pop-Out Modal */}
       {incomingWarning && (
-        <Modal visible={!!incomingWarning} transparent animationType="fade">
-          <View style={s.modalBack}>
-            <View style={[s.modal, { borderColor: RED, borderWidth: 2.5, backgroundColor: "#FFF", elevation: 10 }]}>
-              <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: "#FEE2E2", alignItems: "center", justifyContent: "center", alignSelf: "center", marginBottom: 10 }}>
-                <Ionicons name="notifications-circle" size={38} color={RED} />
+        <Modal visible={!!incomingWarning} transparent animationType="slide" onRequestClose={() => setIncomingWarning(null)}>
+          <View style={[s.modalBack, { backgroundColor: "rgba(7, 26, 58, 0.85)", justifyContent: "center", padding: 16 }]}>
+            <View style={[s.modal, {
+              borderColor: "#DC2626",
+              borderWidth: 3,
+              backgroundColor: "#FFFFFF",
+              borderRadius: 20,
+              padding: 20,
+              elevation: 24,
+              shadowColor: "#DC2626",
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.6,
+              shadowRadius: 24,
+              maxWidth: 440,
+              width: "100%"
+            }]}>
+              {/* Emergency Flashing Siren Beacon */}
+              <View style={{ alignItems: "center", marginBottom: 12 }}>
+                <View style={{
+                  width: 72,
+                  height: 72,
+                  borderRadius: 36,
+                  backgroundColor: "#FEE2E2",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 3,
+                  borderColor: "#FECACA"
+                }}>
+                  <Ionicons name="warning" size={42} color="#DC2626" />
+                </View>
+                <View style={{
+                  backgroundColor: "#DC2626",
+                  paddingVertical: 4,
+                  paddingHorizontal: 12,
+                  borderRadius: 20,
+                  marginTop: -12,
+                  borderWidth: 2,
+                  borderColor: "#FFFFFF"
+                }}>
+                  <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase" }}>
+                    🚨 FLOOD BUDDY DISTRESS ALERT
+                  </Text>
+                </View>
               </View>
-              <Text style={[s.modalTitle, { color: RED, textAlign: "center", fontSize: 16 }]}>
-                {incomingWarning.title || "🚨 Nearby Shop Warning!"}
+
+              {/* Title */}
+              <Text style={{ fontSize: 18, fontWeight: "900", color: "#0F172A", textAlign: "center", letterSpacing: -0.3, marginTop: 4 }}>
+                {incomingWarning.title || "Urgent Waterlogging Warning!"}
               </Text>
-              <Text style={{ fontSize: 12, color: NAVY, fontWeight: "700", textAlign: "center", marginTop: 8, lineHeight: 18 }}>
-                {incomingWarning.body}
-              </Text>
-              <View style={{ backgroundColor: "#FEF2F2", borderRadius: 10, padding: 10, marginTop: 12, borderWidth: 1, borderColor: "#FECACA" }}>
-                <Text style={{ fontSize: 10, color: "#991B1B", fontWeight: "800", textAlign: "center" }}>
-                  ⚠️ Flood warning from {incomingWarning.sender_name || "Neighboring Shopkeeper"} ({incomingWarning.sender_role || "Shop Owner"})
+
+              {/* Sender Highlight Card */}
+              <View style={{
+                backgroundColor: "#FEF2F2",
+                borderColor: "#FECACA",
+                borderWidth: 1.5,
+                borderRadius: 12,
+                padding: 12,
+                marginTop: 12,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 10
+              }}>
+                <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "#DC2626", alignItems: "center", justifyContent: "center" }}>
+                  <Ionicons name="person" size={20} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13, fontWeight: "900", color: "#991B1B" }}>
+                    {incomingWarning.sender_name || "Nearby Citizen / Shopkeeper"}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: "#7F1D1D", fontWeight: "700", marginTop: 1 }}>
+                    🏷️ Role: {incomingWarning.sender_role || "Shop Owner"} • Nearby Geofence Sector
+                  </Text>
+                </View>
+              </View>
+
+              {/* Detailed Alert Message */}
+              <View style={{
+                backgroundColor: "#F8FAFC",
+                borderColor: "#E2E8F0",
+                borderWidth: 1,
+                borderRadius: 12,
+                padding: 14,
+                marginTop: 10
+              }}>
+                <Text style={{ fontSize: 13, color: "#1E293B", fontWeight: "700", lineHeight: 20 }}>
+                  "{incomingWarning.body}"
+                </Text>
+                <Text style={{ fontSize: 10, color: "#64748B", fontWeight: "600", marginTop: 6 }}>
+                  ⏱️ Received: {new Date(incomingWarning.created_at || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </Text>
               </View>
-              <View style={{ flexDirection: "row", gap: 10, marginTop: 16 }}>
+
+              {/* Action Buttons Suite */}
+              <View style={{ marginTop: 16, gap: 8 }}>
                 <TouchableOpacity
-                  style={[s.primary, { flex: 1, backgroundColor: BLUE }]}
+                  style={[s.primary, { backgroundColor: "#0284C7", paddingVertical: 12, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }]}
                   onPress={() => {
                     setIncomingWarning(null);
                     setTab("Buddy");
                   }}
+                  activeOpacity={0.8}
                 >
-                  <Text style={s.primaryText}>👥 View Flood Buddy</Text>
+                  <Ionicons name="people" size={18} color="#FFFFFF" />
+                  <Text style={{ color: "#FFFFFF", fontSize: 13, fontWeight: "900" }}>👥 VIEW FLOOD BUDDY (NEARBY SHOPS)</Text>
                 </TouchableOpacity>
+
                 <TouchableOpacity
-                  style={[s.primary, { flex: 1, backgroundColor: NAVY }]}
-                  onPress={() => setIncomingWarning(null)}
+                  style={[s.primary, { backgroundColor: "#DC2626", paddingVertical: 12, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }]}
+                  onPress={() => {
+                    setIncomingWarning(null);
+                    handleTriggerSos();
+                  }}
+                  activeOpacity={0.8}
                 >
-                  <Text style={s.primaryText}>Acknowledge</Text>
+                  <Ionicons name="radio" size={18} color="#FFFFFF" />
+                  <Text style={{ color: "#FFFFFF", fontSize: 13, fontWeight: "900" }}>🚨 TRIGGER 1-TAP EMERGENCY SOS</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{ paddingVertical: 10, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "#F1F5F9" }}
+                  onPress={() => setIncomingWarning(null)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ color: "#475569", fontSize: 12, fontWeight: "800" }}>✓ I Am Safe · Acknowledge & Dismiss</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -2913,19 +3004,20 @@ function Home({
         </View>
       )}
 
-      {/* 2. Large Circular Red Emergency SOS Button */}
+      {/* 2. Large Circular Emergency SOS Button */}
       <View style={s.sosCircularContainer}>
         <View style={s.sosOuterPulseRing} />
+        <View style={s.sosInnerPulseRing} />
         <TouchableOpacity
-          style={[s.sosCircularBtn, sosCooldown > 0 && { opacity: 0.65 }]}
+          style={[s.sosCircularBtn, sosCooldown > 0 && { opacity: 0.65, backgroundColor: "#991B1B" }]}
           onPress={onTriggerSos}
           disabled={sosCooldown > 0}
-          activeOpacity={0.8}
+          activeOpacity={0.82}
         >
-          <Ionicons name="radio" size={32} color="#fff" />
+          <Text style={{ fontSize: 32, marginBottom: 2 }}>⚠️</Text>
           <Text style={s.sosCircularTitle}>SOS</Text>
           <Text style={s.sosCircularSub}>
-            {sosCooldown > 0 ? `${sosCooldown}s COOLDOWN` : "Tap for Help"}
+            {sosCooldown > 0 ? `${sosCooldown}s Cooldown` : "Tap for help"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -5827,48 +5919,57 @@ const s = StyleSheet.create({
   sosCircularContainer: {
     alignItems: "center",
     justifyContent: "center",
-    marginVertical: 18,
+    marginVertical: 22,
     position: "relative"
   },
   sosOuterPulseRing: {
     position: "absolute",
-    width: 196,
-    height: 196,
-    borderRadius: 98,
-    backgroundColor: "rgba(232, 72, 72, 0.12)",
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "rgba(220, 38, 38, 0.12)",
     borderWidth: 2,
-    borderColor: "rgba(232, 72, 72, 0.3)"
+    borderColor: "rgba(220, 38, 38, 0.25)"
+  },
+  sosInnerPulseRing: {
+    position: "absolute",
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    backgroundColor: "rgba(220, 38, 38, 0.2)",
+    borderWidth: 2,
+    borderColor: "rgba(220, 38, 38, 0.45)"
   },
   sosCircularBtn: {
-    width: 156,
-    height: 156,
-    borderRadius: 78,
-    backgroundColor: RED,
+    width: 164,
+    height: 164,
+    borderRadius: 82,
+    backgroundColor: "#DC2626",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 5,
     borderColor: "#FECACA",
-    elevation: 12,
-    shadowColor: RED,
+    elevation: 16,
+    shadowColor: "#DC2626",
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12
+    shadowOpacity: 0.6,
+    shadowRadius: 16
   },
   sosCircularTitle: {
-    color: "#fff",
-    fontSize: 28,
+    color: "#ffffff",
+    fontSize: 26,
     fontWeight: "900",
     letterSpacing: 2,
-    marginTop: 2
+    marginTop: 1,
+    textAlign: "center"
   },
   sosCircularSub: {
-    color: "rgba(255,255,255,0.9)",
-    fontSize: 8,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    marginTop: 2,
+    color: "rgba(255,255,255,0.92)",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 3,
     textAlign: "center",
-    paddingHorizontal: 8
+    paddingHorizontal: 10
   },
 
   sosActiveBanner: {

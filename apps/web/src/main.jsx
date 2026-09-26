@@ -528,27 +528,28 @@ function LeafletMap({
     }
   }, [center?.[0], center?.[1], activeRoute, zoom]);
 
-  // 5. USER / SHOP LOCATION PIN LAYER (In-place update: does not destroy marker on GPS updates)
+  // 5. USER / SHOP / EMERGENCY SOS LOCATION PIN LAYER (In-place update: does not destroy marker on GPS updates)
   useEffect(() => {
     const userLayer = layersRef.current.user;
     if (!userLayer) return;
 
     if (userLocation && userLocation.length === 2 && userLocation[0] && userLocation[1]) {
-      const userIcon = getCachedDivIcon("user-location-marker", {
-        className: "custom-user-marker",
-        html: `<div style="background:#2563eb;color:#fff;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:18px;border:3px solid #fff;box-shadow:0 0 0 6px rgba(37,99,235,0.3), 0 3px 10px rgba(0,0,0,0.4);" title="${userLocationName || "Your Active Location"}">🏪</div>`,
-        iconSize: [34, 34],
-        iconAnchor: [17, 17]
+      const userIcon = getCachedDivIcon("user-location-sos-siren", {
+        className: "custom-sos-siren-marker",
+        html: `<div class="custom-sos-siren-wrapper"><div class="custom-sos-siren-pulse"></div><div class="custom-sos-siren-beacon" title="🚨 SOS Active Location: ${userLocationName || "Your Active Emergency GPS"}">🚨</div></div>`,
+        iconSize: [44, 44],
+        iconAnchor: [22, 22]
       });
 
-      const popupHtml = `<b>🏪 Your Active Location</b><br/>${userLocationName || "Active Location"}<br/><small style="color:#64748b;">Coordinates: ${userLocation[0].toFixed(4)}, ${userLocation[1].toFixed(4)}</small>`;
+      const popupHtml = `<b>🚨 ACTIVE SOS LOCATION</b><br/>${userLocationName || "Active Distress GPS"}<br/><small style="color:#dc2626;font-weight:700;">Coordinates: ${userLocation[0].toFixed(4)}, ${userLocation[1].toFixed(4)}</small>`;
 
       if (!userMarkerRef.current) {
-        const marker = L.marker(userLocation, { icon: userIcon, zIndexOffset: 900 });
+        const marker = L.marker(userLocation, { icon: userIcon, zIndexOffset: 950 });
         marker.bindPopup(popupHtml);
         marker.addTo(userLayer);
         userMarkerRef.current = marker;
       } else {
+        userMarkerRef.current.setIcon(userIcon);
         userMarkerRef.current.setLatLng(userLocation);
         userMarkerRef.current.setPopupContent(popupHtml);
       }
@@ -937,11 +938,6 @@ function LeafletMap({
       const existing = teamMarkersRef.current.get(teamId);
 
       // Connecting dispatch polyline calculation
-      let targetInc = null;
-      if (team.currentIncidentId && isEnRoute) {
-        targetInc = incidents.find((i) => i.id === team.currentIncidentId);
-      }
-
       if (existing) {
         if (existing.hash !== hash) {
           existing.marker.setLatLng([tLat, tLng]);
@@ -949,30 +945,7 @@ function LeafletMap({
           existing.marker.setPopupContent(getTeamPopupHtml(team, isEnRoute, isOnScene, catUpper));
           existing.hash = hash;
         }
-
-        // Manage dispatch line
-        if (targetInc && targetInc.lat && targetInc.lng) {
-          const dist = calcDistanceKm(tLat, tLng, targetInc.lat, targetInc.lng);
-          if (dist != null && dist < 12) {
-            if (existing.line) {
-              existing.line.setLatLngs([[tLat, tLng], [targetInc.lat, targetInc.lng]]);
-              existing.line.setStyle({ color: isOnScene ? "#10b981" : "#f59e0b", dashArray: isOnScene ? undefined : "6, 6" });
-            } else {
-              const line = L.polyline([[tLat, tLng], [targetInc.lat, targetInc.lng]], {
-                color: isOnScene ? "#10b981" : "#f59e0b",
-                weight: 3,
-                opacity: 0.85,
-                dashArray: isOnScene ? undefined : "6, 6"
-              });
-              line.bindTooltip(`🚒 <b>${team.name}</b> &rarr; <b>${targetInc.id}</b> (${isOnScene ? "Reached Site" : `En Route · ETA ~${team.eta || "5 min"}`})`, { sticky: true });
-              line.addTo(teamLayer);
-              existing.line = line;
-            }
-          } else if (existing.line) {
-            teamLayer.removeLayer(existing.line);
-            existing.line = null;
-          }
-        } else if (existing.line) {
+        if (existing.line) {
           teamLayer.removeLayer(existing.line);
           existing.line = null;
         }
@@ -981,22 +954,7 @@ function LeafletMap({
         marker.bindPopup(getTeamPopupHtml(team, isEnRoute, isOnScene, catUpper));
         marker.addTo(teamLayer);
 
-        let line = null;
-        if (targetInc && targetInc.lat && targetInc.lng) {
-          const dist = calcDistanceKm(tLat, tLng, targetInc.lat, targetInc.lng);
-          if (dist != null && dist < 12) {
-            line = L.polyline([[tLat, tLng], [targetInc.lat, targetInc.lng]], {
-              color: isOnScene ? "#10b981" : "#f59e0b",
-              weight: 3,
-              opacity: 0.85,
-              dashArray: isOnScene ? undefined : "6, 6"
-            });
-            line.bindTooltip(`🚒 <b>${team.name}</b> &rarr; <b>${targetInc.id}</b>`, { sticky: true });
-            line.addTo(teamLayer);
-          }
-        }
-
-        teamMarkersRef.current.set(teamId, { marker, line, hash });
+        teamMarkersRef.current.set(teamId, { marker, line: null, hash });
       }
     });
 
@@ -8880,6 +8838,7 @@ function App() {
   const [notification, setNotification] = useState(null);
   const [overrideIncident, setOverrideIncident] = useState(null);
   const [photoModal, setPhotoModal] = useState(null);
+  const [floodBuddyPopout, setFloodBuddyPopout] = useState(null);
 
   const shelterReqIdRef = useRef(0);
 
@@ -9205,6 +9164,16 @@ function App() {
         try {
           const d = JSON.parse(e.data);
           if (d.zones) setZones(d.zones);
+        } catch {}
+      });
+
+      es.addEventListener("flood_buddy:notified", (evt) => {
+        try {
+          const d = JSON.parse(evt.data);
+          if (d) {
+            setFloodBuddyPopout(d);
+            playSosEmergencyChime();
+          }
         } catch {}
       });
     } catch {
@@ -9641,6 +9610,56 @@ function App() {
           isVideo={photoModal.isVideo}
           onClose={() => setPhotoModal(null)}
         />
+      )}
+
+      {/* Flood Buddy Urgent Distress Pop-Out Dialog */}
+      {floodBuddyPopout && (
+        <div className="modal-backdrop" style={{ zIndex: 999999, background: "rgba(11,27,58,0.85)", display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setFloodBuddyPopout(null)}>
+          <div className="modal-box" style={{ maxWidth: "480px", border: "3px solid #dc2626", borderRadius: "16px", padding: "24px", boxShadow: "0 10px 40px rgba(220,38,38,0.5)" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ textAlign: "center", marginBottom: "12px" }}>
+              <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "#fee2e2", display: "inline-flex", alignItems: "center", justifyContent: "center", border: "3px solid #fecaca", fontSize: "32px", animation: "ambulanceSirenFlash 0.7s infinite alternate" }}>
+                🚨
+              </div>
+              <div style={{ background: "#dc2626", color: "#fff", display: "inline-block", padding: "3px 12px", borderRadius: "20px", fontSize: "11px", fontWeight: "900", letterSpacing: "1px", textTransform: "uppercase", marginTop: "8px" }}>
+                FLOOD BUDDY DISTRESS POP-OUT
+              </div>
+            </div>
+
+            <h3 style={{ fontSize: "18px", fontWeight: "800", color: "#0f172a", textAlign: "center", margin: "8px 0" }}>
+              {floodBuddyPopout.title || "Urgent Waterlogging Warning"}
+            </h3>
+
+            <div style={{ background: "#fef2f2", border: "1.5px solid #fecaca", borderRadius: "10px", padding: "12px", margin: "12px 0" }}>
+              <div style={{ fontWeight: "800", color: "#991b1b", fontSize: "13px" }}>
+                👤 Sender: {floodBuddyPopout.sender_name || "Nearby Citizen / Shopkeeper"}
+              </div>
+              <div style={{ fontSize: "11px", color: "#7f1d1d", fontWeight: "600", marginTop: "2px" }}>
+                🏷️ Role: {floodBuddyPopout.sender_role || "Shop Owner"} • Hyperlocal Warning Network
+              </div>
+            </div>
+
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "14px", color: "#1e293b", fontSize: "13px", fontWeight: "600", lineHeight: "1.5" }}>
+              "{floodBuddyPopout.body}"
+            </div>
+
+            <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+              <button
+                className="primary"
+                style={{ flex: 1, background: "#0284c7", borderColor: "#0284c7", padding: "10px", fontWeight: "700" }}
+                onClick={() => setFloodBuddyPopout(null)}
+              >
+                👥 View Incident Telemetry
+              </button>
+              <button
+                className="ghost"
+                style={{ flex: 1, padding: "10px", fontWeight: "700" }}
+                onClick={() => setFloodBuddyPopout(null)}
+              >
+                ✓ Acknowledge
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
