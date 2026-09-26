@@ -3368,44 +3368,46 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
         )}
       </div>
 
-      {/* 4. Prominent AI Authenticity Verdict (REAL vs FAKE/REVIEW) */}
-      <div style={{
-        background: aiVerdict.bg,
-        border: `1.5px solid ${aiVerdict.border}`,
-        borderRadius: "8px",
-        padding: "8px 12px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "4px"
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
-          <span style={{
-            color: aiVerdict.color,
-            fontSize: "12px",
-            fontWeight: "800",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "5px",
-            letterSpacing: "0.2px"
-          }}>
-            {aiVerdict.badgeText}
-          </span>
-          <span style={{
-            fontSize: "10px",
-            fontWeight: "700",
-            background: "#ffffff",
-            color: aiVerdict.color,
-            padding: "2px 7px",
-            borderRadius: "4px",
-            border: `1px solid ${aiVerdict.border}`
-          }}>
-            {aiVerdict.isReal ? "✓ AI CONFIRMED AUTHENTIC" : "⚠️ REQUIRES AUDIT / FAKE"}
-          </span>
+      {/* 4. Prominent AI Authenticity Verdict (REAL vs FAKE/REVIEW) - Only for citizen uploaded flood reports */}
+      {!isSos && (
+        <div style={{
+          background: aiVerdict.bg,
+          border: `1.5px solid ${aiVerdict.border}`,
+          borderRadius: "8px",
+          padding: "8px 12px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "4px"
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
+            <span style={{
+              color: aiVerdict.color,
+              fontSize: "12px",
+              fontWeight: "800",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "5px",
+              letterSpacing: "0.2px"
+            }}>
+              {aiVerdict.badgeText}
+            </span>
+            <span style={{
+              fontSize: "10px",
+              fontWeight: "700",
+              background: "#ffffff",
+              color: aiVerdict.color,
+              padding: "2px 7px",
+              borderRadius: "4px",
+              border: `1px solid ${aiVerdict.border}`
+            }}>
+              {aiVerdict.isReal ? "✓ AI CONFIRMED AUTHENTIC" : "⚠️ REQUIRES AUDIT / FAKE"}
+            </span>
+          </div>
+          <div style={{ fontSize: "11px", color: "#334155", lineHeight: "1.3" }}>
+            🤖 <b>AI Diagnostics:</b> {aiVerdict.explanation}
+          </div>
         </div>
-        <div style={{ fontSize: "11px", color: "#334155", lineHeight: "1.3" }}>
-          🤖 <b>AI Diagnostics:</b> {aiVerdict.explanation}
-        </div>
-      </div>
+      )}
 
       {/* 5. Disaster Classification, Depth & Drain Observation */}
       <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", fontSize: "11px" }}>
@@ -4108,8 +4110,8 @@ function MediaLightboxModal({ mediaUrl, incident, isVideo, onClose }) {
             </div>
           )}
 
-          {/* AI Authenticity & Vision Verification Details Card */}
-          {(() => {
+          {/* AI Authenticity & Vision Verification Details Card - Only for citizen uploaded flood reports */}
+          {!incident?.isSos && incident?.type !== "SOS" && incident?.status !== "ACTIVE_SOS" && incident?.incident_type !== "ACTIVE_SOS" && (() => {
             const modalVerdict = getAiAuthenticityVerdict(incident);
             return (
               <div style={{ background: modalVerdict.bg, border: `1.5px solid ${modalVerdict.border}`, borderRadius: "8px", padding: "10px 14px", textAlign: "left", fontSize: "11px", display: "flex", flexDirection: "column", gap: "6px" }}>
