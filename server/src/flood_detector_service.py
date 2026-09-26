@@ -97,24 +97,39 @@ def evaluate_image_array(img_rgb: np.ndarray) -> Dict[str, Any]:
     batch_preprocessed = preprocess_input(batch)
     
     preds = model.predict(batch_preprocessed, verbose=0)[0]
-    flood_score = float(preds[0])
-    normal_score = float(preds[1])
+    p0 = float(preds[0])  # Class 0: Flooding
+    p1 = float(preds[1])  # Class 1: No Flooding
     
-    # Classification rule: Sigmoid probability >= threshold
-    is_flood = bool(flood_score >= FRAME_FLOOD_THRESHOLD)
-    confidence = flood_score if is_flood else normal_score
+    # Softmax normalization over the 2 class outputs
+    exp_p = np.exp(preds - np.max(preds))
+    probs = exp_p / np.sum(exp_p)
+    flood_prob = float(probs[0])
+    normal_prob = float(probs[1])
+    
+    # Keras MobileNet binary classification rule: class 0 (Flooding) vs class 1 (No Flooding)
+    is_flood = bool(p0 > p1 and flood_prob >= 0.50)
+    confidence = flood_prob if is_flood else normal_prob
+    
+    label = "Flooding" if is_flood else "No Flooding"
+    reason = (
+        f"Keras MobileNet model verified Flooding with {round(confidence * 100, 1)}% confidence (flood: {round(p0, 3)}, normal: {round(p1, 3)})"
+        if is_flood
+        else f"Keras MobileNet model verified No Flooding with {round(confidence * 100, 1)}% confidence (flood: {round(p0, 3)}, normal: {round(p1, 3)})"
+    )
 
     return {
         "type": "image",
         "media_type": "image",
-        "result": "Flooding" if is_flood else "No Flooding",
-        "label": "Flooding" if is_flood else "No Flooding",
+        "result": label,
+        "label": label,
         "is_flooding": is_flood,
         "flood_detected": is_flood,
         "confidence": round(confidence, 4),
-        "flood_score": round(flood_score, 4),
-        "normal_score": round(normal_score, 4),
-        "reason": "Visible water accumulation/flooding detected" if is_flood else "No visible waterlogging or flood accumulation detected"
+        "flood_score": round(flood_prob, 4),
+        "normal_score": round(normal_prob, 4),
+        "p0_raw": round(p0, 4),
+        "p1_raw": round(p1, 4),
+        "reason": reason
     }
 
 def find_longest_consecutive_run(scores: list, threshold: float):
@@ -229,39 +244,47 @@ def evaluate_video_file(video_path: str) -> Dict[str, Any]:
     batch_preprocessed = preprocess_input(batch)
     batch_preds = model.predict(batch_preprocessed, verbose=0)
 
-    flood_scores = [float(p[0]) for p in batch_preds]
-    normal_scores = [float(p[1]) for p in batch_preds]
+    # Frame-by-frame softmax probabilities
+    frame_flood_scores = []
+    frame_normal_scores = []
+    for p in batch_preds:
+        p0 = float(p[0])
+        p1 = float(p[1])
+        exp_p = np.exp(p - np.max(p))
+        probs = exp_p / np.sum(exp_p)
+        flood_prob = float(probs[0])
+        # Score is flood probability if p0 > p1, else reduced
+        frame_flood_scores.append(flood_prob if p0 > p1 else float(probs[0]) * 0.3)
+        frame_normal_scores.append(float(probs[1]))
 
-    # 1. Total positive frame counts and overall ratio
-    flood_positive_frames = sum(1 for f_score in flood_scores if f_score >= FRAME_FLOOD_THRESHOLD)
+    # 1. Total positive frame counts and overall ratio (p0 > p1 and flood_prob >= 0.50)
+    flood_positive_frames = sum(1 for p, f_score in zip(batch_preds, frame_flood_scores) if p[0] > p[1] and f_score >= 0.50)
     flood_ratio = flood_positive_frames / frames_analyzed if frames_analyzed > 0 else 0.0
 
     # 2. Temporal contiguity: Longest consecutive run of positive frames
-    longest_run_len, longest_run_avg, longest_indices = find_longest_consecutive_run(flood_scores, FRAME_FLOOD_THRESHOLD)
+    longest_run_len, longest_run_avg, longest_indices = find_longest_consecutive_run(frame_flood_scores, 0.50)
 
     # 3. Decision criteria: Temporal Contiguity + High Sustained Confidence
     #    - Requires a sustained consecutive run of >= MIN_CONSECUTIVE_FRAMES (5 frames)
-    #    - Requires the average confidence within that run to be >= MIN_RUN_AVG_CONFIDENCE (0.75)
-    #    This accurately detects both full-length floods and rapid transitions without false-negative ratio penalties.
+    #    - Requires the average confidence within that run to be >= 0.55
     has_qualifying_run = bool(longest_run_len >= MIN_CONSECUTIVE_FRAMES)
-    meets_avg_confidence = bool(longest_run_avg >= MIN_RUN_AVG_CONFIDENCE)
+    meets_avg_confidence = bool(longest_run_avg >= 0.55)
     is_flood = bool(has_qualifying_run and meets_avg_confidence)
 
     # 4. Continuous confidence score (for Divergence Engine integration)
-    #    Average confidence of qualifying run if qualified, or 0.0 if not qualified
     confidence_score = round(longest_run_avg, 4) if is_flood else 0.0
 
-    # 5. Backward compatible confidence score
+    # 5. Calibrated confidence score
     if is_flood:
         confidence = float(longest_run_avg)
-    elif normal_scores:
-        confidence = float(np.mean(normal_scores))
+    elif frame_normal_scores:
+        confidence = float(np.mean(frame_normal_scores))
     else:
         confidence = 0.50
     confidence = min(max(confidence, 0.50), 0.99)
 
-    max_flood_score = max(flood_scores) if flood_scores else 0.0
-    avg_flood_score = float(np.mean(flood_scores)) if flood_scores else 0.0
+    max_flood_score = max(frame_flood_scores) if frame_flood_scores else 0.0
+    avg_flood_score = float(np.mean(frame_flood_scores)) if frame_flood_scores else 0.0
 
     result_label = "Flooding" if is_flood else "No Flooding"
     print(f"[VIDEO] Results: Longest run = {longest_run_len} frames (Avg conf: {round(longest_run_avg * 100, 1)}%) | Total positive = {flood_positive_frames}/{frames_analyzed} ({round(flood_ratio * 100, 1)}%) -> {result_label} (Confidence Score: {confidence_score})")

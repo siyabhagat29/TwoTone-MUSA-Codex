@@ -3168,14 +3168,44 @@ export function getAiAuthenticityVerdict(inc) {
     };
   }
 
-  const conf = inc.cvConfidence || (inc.aiFloodConfidence ? Math.round(inc.aiFloodConfidence * 100) : (inc.aiVerification?.confidence ? Math.round(inc.aiVerification.confidence * 100) : (inc.aiVerified ? 95 : 68)));
+  // Explicit Keras AI MobileNet Model Verification Check
+  if (inc.aiVerification) {
+    const isModelFlood = inc.aiVerification.is_flooding === true || inc.aiVerification.flood_detected === true || inc.aiVerification.label === "Flooding";
+    const modelConf = Math.round((inc.aiVerification.confidence_score ?? inc.aiVerification.confidence ?? (isModelFlood ? 0.95 : 0.85)) * 100);
 
-  if (inc.aiVerified || (inc.aiVerification?.is_flooding === true && conf >= 70) || conf >= 75) {
+    if (isModelFlood) {
+      return {
+        status: "REAL FLOODING",
+        isReal: true,
+        badgeText: `✅ REAL FLOOD EVIDENCE (${modelConf}% CONFIDENCE)`,
+        explanation: inc.aiVerification.reason || "Keras MobileNet model verified standing floodwaters and street submersion.",
+        color: "#166534",
+        bg: "#f0fdf4",
+        border: "#86efac",
+        confidence: modelConf
+      };
+    } else {
+      return {
+        status: "NO FLOOD / SUSPECTED FAKE",
+        isReal: false,
+        badgeText: `⚠️ NO FLOOD DETECTED / SUSPECTED FAKE (${modelConf}% CONFIDENCE)`,
+        explanation: inc.aiVerification.reason || "Keras MobileNet model verified no visible waterlogging or flood accumulation in the uploaded image. Flagged for review.",
+        color: "#c2410c",
+        bg: "#fff7ed",
+        border: "#fed7aa",
+        confidence: modelConf
+      };
+    }
+  }
+
+  const conf = inc.cvConfidence || (inc.aiFloodConfidence ? Math.round(inc.aiFloodConfidence * 100) : (inc.aiVerified ? 92 : 55));
+
+  if (inc.aiVerified === true || (inc.aiVerified !== false && conf >= 80)) {
     return {
       status: "REAL FLOODING",
       isReal: true,
       badgeText: `✅ REAL FLOOD EVIDENCE (${conf}% CONFIDENCE)`,
-      explanation: "AI Computer Vision confirmed standing water pixels, road submersion, and surface reflection.",
+      explanation: "AI Computer Vision verified water depth and flood risk.",
       color: "#166534",
       bg: "#f0fdf4",
       border: "#86efac",
@@ -3188,7 +3218,7 @@ export function getAiAuthenticityVerdict(inc) {
     status: "SUSPECTED FAKE / REVIEW NEEDED",
     isReal: false,
     badgeText: `⚠️ SUSPECTED FAKE / REVIEW NEEDED (${conf}% CONFIDENCE)`,
-    explanation: "Low AI visual confidence (<70%) or anomalous frames detected. Human verification required.",
+    explanation: "Low AI visual confidence or anomalous frames detected. Human verification required.",
     color: "#c2410c",
     bg: "#fff7ed",
     border: "#fed7aa",
