@@ -9,6 +9,7 @@ import os
 import sys
 import io
 import time
+import base64
 import tempfile
 import numpy as np
 from pathlib import Path
@@ -87,48 +88,98 @@ app.add_middleware(
 
 class PredictPathRequest(BaseModel):
     filePath: Optional[str] = None
+    file_path: Optional[str] = None
     url: Optional[str] = None
+    incidentId: Optional[str] = None
+    incident_id: Optional[str] = None
 
-def evaluate_image_array(img_rgb: np.ndarray) -> Dict[str, Any]:
+def evaluate_image_array(
+    img_rgb: np.ndarray,
+    source_name: str = "image",
+    incident_id: str = "N/A",
+    source_type: str = "LOCAL",
+    source_preview: str = ""
+) -> Dict[str, Any]:
     """Preprocesses a 224x224 RGB image array and runs MobileNet flood inference."""
+    h, w = img_rgb.shape[:2]
+    c = img_rgb.shape[2] if len(img_rgb.shape) > 2 else 1
+    
     img_resized = cv2.resize(img_rgb, (224, 224))
     img_float = img_resized.astype(np.float32)
     batch = np.expand_dims(img_float, axis=0)
     batch_preprocessed = preprocess_input(batch)
     
-    preds = model.predict(batch_preprocessed, verbose=0)[0]
-    p0 = float(preds[0])  # Class 0: No Flooding / Normal
-    p1 = float(preds[1])  # Class 1: Flooding
+    p_min = float(np.min(batch_preprocessed))
+    p_max = float(np.max(batch_preprocessed))
+    p_mean = float(np.mean(batch_preprocessed))
     
-    # Softmax normalization over the 2 class outputs
-    exp_p = np.exp(preds - np.max(preds))
-    probs = exp_p / np.sum(exp_p)
-    normal_prob = float(probs[0])
-    flood_prob = float(probs[1])
+    raw_preds = model.predict(batch_preprocessed, verbose=0)
+    preds = raw_preds[0]
     
-    # Keras MobileNet binary classification rule: class 1 (Flooding) vs class 0 (No Flooding)
-    is_flood = bool(p1 > p0 and flood_prob >= 0.50)
-    confidence = flood_prob if is_flood else normal_prob
+    # Model Output Units (Dense 2 with sigmoid activation):
+    # Index 0: Flooding (Flood score)
+    # Index 1: No Flooding (Normal score)
+    raw_flood_score = float(preds[0])
+    raw_normal_score = float(preds[1])
     
+    # Classification Decision:
+    # flood_probability > normal_probability means FLOOD, otherwise NO_FLOOD
+    is_flood = bool(raw_flood_score > raw_normal_score)
+    classification = "FLOOD" if is_flood else "NO_FLOOD"
     label = "Flooding" if is_flood else "No Flooding"
+    
+    # Selected class confidence corresponding to the predicted class
+    selected_confidence = raw_flood_score if is_flood else raw_normal_score
+    selected_confidence = float(min(max(selected_confidence, 0.50), 0.9999))
+    
+    # Precise format requested for verification debugging
+    print("\n" + "="*50)
+    print("INCIDENT ID:")
+    print(incident_id)
+    print("\nIMAGE SOURCE TYPE:")
+    print(source_type)
+    print("\nIMAGE SOURCE:")
+    print(source_preview if source_preview else source_name)
+    print("\nDECODED IMAGE:")
+    print(f"width={w}")
+    print(f"height={h}")
+    print(f"channels={c}")
+    print("\nPREPROCESSING:")
+    print(f"min={p_min:.4f}")
+    print(f"max={p_max:.4f}")
+    print(f"mean={p_mean:.4f}")
+    print("\nMODEL RAW OUTPUT:")
+    print(f"[{raw_flood_score:.4f}, {raw_normal_score:.4f}]")
+    print("\nFLOOD SCORE:")
+    print(f"{raw_flood_score:.4f}")
+    print("\nNORMAL SCORE:")
+    print(f"{raw_normal_score:.4f}")
+    print("\nFINAL CLASSIFICATION:")
+    print(classification)
+    print("="*50 + "\n")
+    
     reason = (
-        f"Keras MobileNet model verified Flooding with {round(confidence * 100, 1)}% confidence (flood: {round(p1, 3)}, normal: {round(p0, 3)})"
+        f"AI model verified standing floodwaters and street submersion (Flood: {round(raw_flood_score * 100, 1)}%, Normal: {round(raw_normal_score * 100, 1)}%)"
         if is_flood
-        else f"Keras MobileNet model verified No Flooding with {round(confidence * 100, 1)}% confidence (normal: {round(p0, 3)}, flood: {round(p1, 3)})"
+        else f"AI model verified no standing water or flood accumulation (Normal: {round(raw_normal_score * 100, 1)}%, Flood: {round(raw_flood_score * 100, 1)}%)"
     )
 
     return {
         "type": "image",
         "media_type": "image",
+        "classification": classification,
         "result": label,
         "label": label,
+        "is_flood": is_flood,
         "is_flooding": is_flood,
         "flood_detected": is_flood,
-        "confidence": round(confidence, 4),
-        "flood_score": round(flood_prob, 4),
-        "normal_score": round(normal_prob, 4),
-        "p0_raw": round(p0, 4),
-        "p1_raw": round(p1, 4),
+        "confidence": round(selected_confidence, 4),
+        "flood_probability": round(raw_flood_score, 4),
+        "normal_probability": round(raw_normal_score, 4),
+        "flood_score": round(raw_flood_score, 4),
+        "normal_score": round(raw_normal_score, 4),
+        "raw_index_0_flood": round(raw_flood_score, 4),
+        "raw_index_1_normal": round(raw_normal_score, 4),
         "reason": reason
     }
 
@@ -178,11 +229,10 @@ def evaluate_video_file(video_path: str) -> Dict[str, Any]:
     Complete video ingestion pipeline:
     1. Probes input video for total frame count, FPS, and duration.
     2. Dynamically calculates uniform sample points to extract up to 120 frames across the entire duration.
-    3. Runs batched MobileNet inference.
-    4. Evaluates each frame against FRAME_FLOOD_THRESHOLD (>= 0.70).
+    3. Runs batched MobileNet flood inference.
+    4. Evaluates each frame: Index 0 (Flood) vs Index 1 (Normal).
     5. Checks temporal contiguity: finds longest consecutive run of flood-positive frames (>= 5 frames required).
-    6. Calculates average confidence score across the longest consecutive run (>= 0.75 required).
-    7. Returns both binary decision and continuous confidence_score for Divergence Engine integration.
+    6. Returns binary decision, classification, and confidence.
     """
     filename = Path(video_path).name
     file_size = os.path.getsize(video_path) if os.path.exists(video_path) else 0
@@ -244,33 +294,22 @@ def evaluate_video_file(video_path: str) -> Dict[str, Any]:
     batch_preprocessed = preprocess_input(batch)
     batch_preds = model.predict(batch_preprocessed, verbose=0)
 
-    # Frame-by-frame softmax probabilities
-    frame_flood_scores = []
-    frame_normal_scores = []
-    for p in batch_preds:
-        p0 = float(p[0])  # Normal
-        p1 = float(p[1])  # Flooding
-        exp_p = np.exp(p - np.max(p))
-        probs = exp_p / np.sum(exp_p)
-        normal_prob = float(probs[0])
-        flood_prob = float(probs[1])
-        # Score is flood probability if p1 > p0, else reduced
-        frame_flood_scores.append(flood_prob if p1 > p0 else float(probs[1]) * 0.3)
-        frame_normal_scores.append(normal_prob)
+    # Frame-by-frame scores: Index 0 is Flooding, Index 1 is Normal
+    frame_flood_scores = [float(p[0]) for p in batch_preds]
+    frame_normal_scores = [float(p[1]) for p in batch_preds]
 
-    # 1. Total positive frame counts and overall ratio (p1 > p0 and flood_prob >= 0.50)
-    flood_positive_frames = sum(1 for p, f_score in zip(batch_preds, frame_flood_scores) if p[1] > p[0] and f_score >= 0.50)
+    # 1. Total positive frame counts (where flood score > normal score and flood score >= 0.60)
+    flood_positive_frames = sum(1 for f_score, n_score in zip(frame_flood_scores, frame_normal_scores) if f_score > n_score and f_score >= 0.60)
     flood_ratio = flood_positive_frames / frames_analyzed if frames_analyzed > 0 else 0.0
 
     # 2. Temporal contiguity: Longest consecutive run of positive frames
-    longest_run_len, longest_run_avg, longest_indices = find_longest_consecutive_run(frame_flood_scores, 0.50)
+    longest_run_len, longest_run_avg, longest_indices = find_longest_consecutive_run(frame_flood_scores, 0.60)
 
     # 3. Decision criteria: Temporal Contiguity + High Sustained Confidence
-    #    - Requires a sustained consecutive run of >= MIN_CONSECUTIVE_FRAMES (5 frames)
-    #    - Requires the average confidence within that run to be >= 0.55
     has_qualifying_run = bool(longest_run_len >= MIN_CONSECUTIVE_FRAMES)
-    meets_avg_confidence = bool(longest_run_avg >= 0.55)
+    meets_avg_confidence = bool(longest_run_avg >= 0.70)
     is_flood = bool(has_qualifying_run and meets_avg_confidence)
+    classification = "FLOOD" if is_flood else "NO_FLOOD"
 
     # 4. Continuous confidence score (for Divergence Engine integration)
     confidence_score = round(longest_run_avg, 4) if is_flood else 0.0
@@ -282,10 +321,11 @@ def evaluate_video_file(video_path: str) -> Dict[str, Any]:
         confidence = float(np.mean(frame_normal_scores))
     else:
         confidence = 0.50
-    confidence = min(max(confidence, 0.50), 0.99)
+    confidence = min(max(confidence, 0.50), 0.9999)
 
     max_flood_score = max(frame_flood_scores) if frame_flood_scores else 0.0
     avg_flood_score = float(np.mean(frame_flood_scores)) if frame_flood_scores else 0.0
+    avg_normal_score = float(np.mean(frame_normal_scores)) if frame_normal_scores else 0.0
 
     result_label = "Flooding" if is_flood else "No Flooding"
     print(f"[VIDEO] Results: Longest run = {longest_run_len} frames (Avg conf: {round(longest_run_avg * 100, 1)}%) | Total positive = {flood_positive_frames}/{frames_analyzed} ({round(flood_ratio * 100, 1)}%) -> {result_label} (Confidence Score: {confidence_score})")
@@ -305,8 +345,10 @@ def evaluate_video_file(video_path: str) -> Dict[str, Any]:
     return {
         "type": "video",
         "media_type": "video",
+        "classification": classification,
         "result": result_label,
         "label": result_label,
+        "is_flood": is_flood,
         "is_flooding": is_flood,
         "flood_detected": is_flood,
         "confidence_score": confidence_score,
@@ -323,6 +365,8 @@ def evaluate_video_file(video_path: str) -> Dict[str, Any]:
         "effective_fps": effective_sample_fps,
         "flood_score": round(max_flood_score, 4),
         "avg_flood_score": round(avg_flood_score, 4),
+        "flood_probability": round(avg_flood_score, 4),
+        "normal_probability": round(avg_normal_score, 4),
         "reason": reason
     }
 
@@ -334,81 +378,188 @@ def health():
         "model_path": str(MODEL_PATH)
     }
 
+def decode_image_bytes(image_bytes: bytes) -> np.ndarray:
+    """Decodes raw image bytes into an RGB numpy array."""
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    img_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if img_bgr is None:
+        # Fallback to PIL in case of exotic formats
+        pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        return np.array(pil_img)
+    return cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+
 @app.post("/predict-path")
 def predict_from_path(req: PredictPathRequest):
     if model is None:
         raise HTTPException(status_code=503, detail="Flood model is not loaded")
     
-    target_path = None
-    if req.filePath:
-        p = Path(req.filePath)
-        if not p.is_absolute():
-            p = (WORKSPACE_ROOT / req.filePath).resolve()
-        if p.exists():
-            target_path = str(p)
+    raw_source = req.url or req.filePath or req.file_path
+    if not raw_source:
+        raise HTTPException(status_code=400, detail="Must provide 'url' or 'filePath'")
     
-    is_temp_download = False
-    if not target_path and req.url:
-        url = req.url
-        if "/uploads/" in url:
-            upload_name = url.split("/uploads/")[-1].split("?")[0]
-            local_candidate = WORKSPACE_ROOT / "server" / "public" / "uploads" / upload_name
-            if local_candidate.exists():
-                target_path = str(local_candidate)
-        elif url.startswith("file://"):
-            local_candidate = Path(url.replace("file://", ""))
-            if local_candidate.exists():
-                target_path = str(local_candidate)
-        elif url.startswith("http://") or url.startswith("https://"):
+    incident_id = req.incidentId or req.incident_id or "N/A"
+    raw_source_str = str(raw_source).strip()
+    start_time = time.time()
+    
+    # -------------------------------------------------------------
+    # CASE 1: Base64 DATA URL (e.g. data:image/jpeg;base64,/9j/...)
+    # -------------------------------------------------------------
+    if raw_source_str.startswith("data:image/") or raw_source_str.startswith("data:video/") or ";base64," in raw_source_str:
+        try:
+            mime_type = "image/jpeg"
+            if "," in raw_source_str:
+                header, encoded_data = raw_source_str.split(",", 1)
+                if ":" in header and ";" in header:
+                    mime_type = header.split(":")[1].split(";")[0]
+            else:
+                encoded_data = raw_source_str
+
+            # Handle possible URL-encoding in the base64 string
+            if "%" in encoded_data:
+                import urllib.parse
+                encoded_data = urllib.parse.unquote(encoded_data)
+
+            decoded_bytes = base64.b64decode(encoded_data)
+            is_video = "video" in mime_type.lower()
+            source_preview = raw_source_str[:35] + "..." if len(raw_source_str) > 40 else raw_source_str
+            
+            if is_video:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
+                    tmp.write(decoded_bytes)
+                    temp_vid_path = tmp.name
+                try:
+                    result = evaluate_video_file(temp_vid_path)
+                    result["media_type"] = "video"
+                    result["inference_seconds"] = round(time.time() - start_time, 3)
+                    return result
+                finally:
+                    if os.path.exists(temp_vid_path):
+                        try: os.remove(temp_vid_path)
+                        except Exception: pass
+            else:
+                img_rgb = decode_image_bytes(decoded_bytes)
+                result = evaluate_image_array(
+                    img_rgb,
+                    source_name="base64_data_url",
+                    incident_id=incident_id,
+                    source_type="BASE64",
+                    source_preview=source_preview
+                )
+                result["media_type"] = "image"
+                result["inference_seconds"] = round(time.time() - start_time, 3)
+                return result
+        except Exception as b64_err:
+            print(f"❌ [FloodAI Base64 Decode Error]: {b64_err}")
+            raise HTTPException(status_code=400, detail=f"Invalid Base64 image payload: {b64_err}")
+
+    # -------------------------------------------------------------
+    # CASE 2: Remote HTTP / HTTPS URL
+    # -------------------------------------------------------------
+    elif raw_source_str.startswith("http://") or raw_source_str.startswith("https://"):
+        url = raw_source_str
+        url_filename = url.split("/")[-1].split("?")[0]
+        # Check local cache first
+        local_candidate = WORKSPACE_ROOT / "server" / "public" / "uploads" / url_filename
+        if local_candidate.exists():
+            target_path = str(local_candidate)
+            source_type = "HTTP"
+        else:
             try:
-                import urllib.request
-                suffix = ".mp4" if any(ext in url.lower() for ext in [".mp4", ".mov", ".avi"]) else ".jpg"
+                import urllib.request, ssl
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                is_video = any(ext in url.lower() for ext in [".mp4", ".mov", ".avi", ".webm"])
+                suffix = ".mp4" if is_video else ".jpg"
                 with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                    req_dl = urllib.request.Request(url, headers={"User-Agent": "VarshaRaksha-AI/1.0"})
-                    with urllib.request.urlopen(req_dl, timeout=10) as resp:
+                    req_dl = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 VarshaRaksha/1.0"})
+                    with urllib.request.urlopen(req_dl, context=ctx, timeout=12) as resp:
                         tmp.write(resp.read())
                     target_path = tmp.name
-                    is_temp_download = True
+                source_type = "HTTP"
             except Exception as dl_err:
-                print(f"⚠️ [FloodAI Remote Fetch Warning]: {dl_err}")
+                print(f"❌ [FloodAI Remote Fetch Error]: {dl_err}")
+                raise HTTPException(status_code=404, detail=f"File could not be found locally or downloaded: {url}")
+
+        try:
+            is_video = any(target_path.lower().endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv", ".webm"])
+            if is_video:
+                result = evaluate_video_file(target_path)
+                result["media_type"] = "video"
+            else:
+                img_bgr = cv2.imread(target_path)
+                if img_bgr is None:
+                    pil_img = Image.open(target_path).convert("RGB")
+                    img_rgb = np.array(pil_img)
+                else:
+                    img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+                result = evaluate_image_array(
+                    img_rgb,
+                    source_name=Path(target_path).name,
+                    incident_id=incident_id,
+                    source_type=source_type,
+                    source_preview=url
+                )
+                result["media_type"] = "image"
+            
+            result["inference_seconds"] = round(time.time() - start_time, 3)
+            return result
+        finally:
+            if "tmp" in target_path.lower() and os.path.exists(target_path):
+                try: os.remove(target_path)
+                except Exception: pass
+
+    # -------------------------------------------------------------
+    # CASE 3: Local Filesystem Path (relative or absolute)
+    # -------------------------------------------------------------
+    else:
+        target_path = None
+        candidate = Path(raw_source_str)
+        if candidate.exists():
+            target_path = str(candidate)
         else:
-            local_candidate = WORKSPACE_ROOT / "server" / "public" / "uploads" / url
-            if local_candidate.exists():
-                target_path = str(local_candidate)
+            if raw_source_str.startswith("file://"):
+                candidate = Path(raw_source_str.replace("file://", ""))
+                if candidate.exists():
+                    target_path = str(candidate)
+            elif "/uploads/" in raw_source_str:
+                fname = raw_source_str.split("/uploads/")[-1].split("?")[0]
+                candidate = WORKSPACE_ROOT / "server" / "public" / "uploads" / fname
+                if candidate.exists():
+                    target_path = str(candidate)
+            else:
+                cand1 = (WORKSPACE_ROOT / raw_source_str).resolve()
+                cand2 = (WORKSPACE_ROOT / "server" / "public" / "uploads" / raw_source_str).resolve()
+                if cand1.exists():
+                    target_path = str(cand1)
+                elif cand2.exists():
+                    target_path = str(cand2)
 
-    if not target_path or not os.path.exists(target_path):
-        raise HTTPException(status_code=404, detail=f"File could not be found locally or downloaded: {req.filePath or req.url}")
+        if not target_path or not os.path.exists(target_path):
+            raise HTTPException(status_code=404, detail=f"File could not be found locally or downloaded: {raw_source_str}")
 
-    start_time = time.time()
-    filename = Path(target_path).name.lower()
-    is_video = any(filename.endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv", ".webm"])
-    media_type = "video" if is_video else "image"
-
-    try:
-        if media_type == "video":
+        is_video = any(target_path.lower().endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv", ".webm"])
+        if is_video:
             result = evaluate_video_file(target_path)
+            result["media_type"] = "video"
         else:
-            pil_img = Image.open(target_path).convert("RGB")
-            img_np = np.array(pil_img)
-            result = evaluate_image_array(img_np)
-        
-        elapsed = round(time.time() - start_time, 3)
-        result["media_type"] = media_type
-        result["inference_seconds"] = elapsed
-        print(f"🔍 [FloodAI PredictPath] {media_type.upper()} {Path(target_path).name} -> {result['label']} (conf: {result['confidence']}, elapsed: {elapsed}s)")
+            img_bgr = cv2.imread(target_path)
+            if img_bgr is None:
+                pil_img = Image.open(target_path).convert("RGB")
+                img_rgb = np.array(pil_img)
+            else:
+                img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+            result = evaluate_image_array(
+                img_rgb,
+                source_name=Path(target_path).name,
+                incident_id=incident_id,
+                source_type="LOCAL",
+                source_preview=raw_source_str
+            )
+            result["media_type"] = "image"
+
+        result["inference_seconds"] = round(time.time() - start_time, 3)
         return result
-    except ValueError as ve:
-        print(f"⚠️ [FloodAI Decode Notice]: {ve}")
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        print(f"❌ [FloodAI Error]: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        if is_temp_download and target_path and os.path.exists(target_path):
-            try:
-                os.remove(target_path)
-            except Exception:
-                pass
 
 @app.post("/predict")
 async def predict_media(file: Optional[UploadFile] = File(None)):
@@ -436,12 +587,12 @@ async def predict_media(file: Optional[UploadFile] = File(None)):
         else:
             pil_img = Image.open(temp_file).convert("RGB")
             img_np = np.array(pil_img)
-            result = evaluate_image_array(img_np)
+            result = evaluate_image_array(img_np, source_name=file.filename or "uploaded_file")
 
         elapsed = round(time.time() - start_time, 3)
         result["media_type"] = media_type
         result["inference_seconds"] = elapsed
-        print(f"🔍 [FloodAI Predict] {media_type.upper()} -> {result['label']} (conf: {result['confidence']}, elapsed: {elapsed}s)")
+        print(f"🔍 [FloodAI Predict] {media_type.upper()} {file.filename} -> {result['label']} (conf: {result['confidence']}, elapsed: {elapsed}s)")
         return result
 
     except HTTPException:

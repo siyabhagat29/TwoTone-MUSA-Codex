@@ -1031,7 +1031,7 @@ function ensureFloodAiProcess() {
 ensureFloodAiProcess();
 setInterval(ensureFloodAiProcess, 30000);
 
-async function checkFloodAiMedia({ filePath, url }) {
+async function checkFloodAiMedia({ filePath, url, incidentId }) {
   const urls = [FLOOD_AI_URL, "http://127.0.0.1:5003", "http://localhost:5003", "http://127.0.0.1:5002", "http://localhost:5002"];
   const uniqueUrls = [...new Set(urls)];
 
@@ -1040,21 +1040,38 @@ async function checkFloodAiMedia({ filePath, url }) {
       const res = await fetch(`${baseUrl}/predict-path`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filePath, url })
+        body: JSON.stringify({ filePath, url, incidentId })
       });
       if (res.ok) {
-        return await res.json();
+        const data = await res.json();
+        console.log("\nAPI RESPONSE:\n" + JSON.stringify(data, null, 2) + "\n");
+        return data;
       } else {
         const errJson = await res.json().catch(() => ({}));
         console.warn(`[Flood AI HTTP ${res.status}]:`, errJson.detail || "Inference error");
-        return { error: errJson.detail || `AI service returned HTTP ${res.status}`, status: res.status };
+        const errResult = {
+          classification: "AI_UNAVAILABLE",
+          is_flood: null,
+          confidence: null,
+          error: errJson.detail || `AI service returned HTTP ${res.status}`,
+          status: res.status
+        };
+        console.log("\nAPI RESPONSE:\n" + JSON.stringify(errResult, null, 2) + "\n");
+        return errResult;
       }
     } catch (err) {
       // try next URL
     }
   }
-  console.warn("[Flood AI notice]: Could not reach Python AI service on port 5002.");
-  return null;
+  console.warn("[Flood AI notice]: Could not reach Python AI service.");
+  const unavailableResult = {
+    classification: "AI_UNAVAILABLE",
+    is_flood: null,
+    confidence: null,
+    error: "AI service unavailable or not reachable"
+  };
+  console.log("\nAPI RESPONSE:\n" + JSON.stringify(unavailableResult, null, 2) + "\n");
+  return unavailableResult;
 }
 
 // Dedicated Media Upload Endpoint for Videos & Photos (Multipart binary streaming + AI Flood Model Verification)
@@ -1081,7 +1098,7 @@ app.post("/api/upload-media", upload.single("media"), async (req, res) => {
       console.warn("[upload-media AI check notice]:", aiErr.message);
     }
 
-    if (aiVerification && aiVerification.error) {
+    if (aiVerification && aiVerification.error && aiVerification.classification !== "AI_UNAVAILABLE") {
       return res.status(400).json({
         success: false,
         error: "DECODE_ERROR",
@@ -1103,15 +1120,7 @@ app.post("/api/upload-media", upload.single("media"), async (req, res) => {
       url: finalUrl,
       filename,
       mediaType: isVideo ? "video" : "photo",
-      aiVerification: aiVerification || {
-        type: isVideo ? "video" : "image",
-        media_type: isVideo ? "video" : "photo",
-        is_flooding: false,
-        flood_detected: false,
-        confidence: 0.50,
-        label: "Pending Verification",
-        reason: "Flood AI verification in progress"
-      }
+      aiVerification: aiVerification || null
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1121,14 +1130,25 @@ app.post("/api/upload-media", upload.single("media"), async (req, res) => {
 // Dedicated flood verification endpoint for explicit pre-checks
 app.post("/api/verify-flood-evidence", async (req, res) => {
   try {
-    const { filePath, url } = req.body;
-    const aiVerification = await checkFloodAiMedia({ filePath, url });
-    if (!aiVerification) {
-      return res.status(503).json({ success: false, error: "AI service unavailable" });
+    const { filePath, url, incidentId } = req.body;
+    const aiVerification = await checkFloodAiMedia({ filePath, url, incidentId });
+    if (!aiVerification || aiVerification.classification === "AI_UNAVAILABLE") {
+      return res.status(200).json({
+        success: false,
+        classification: "AI_UNAVAILABLE",
+        is_flood: null,
+        confidence: null,
+        error: aiVerification?.error || "AI service unavailable"
+      });
     }
     res.json({ success: true, ...aiVerification });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      classification: "AI_UNAVAILABLE",
+      is_flood: null,
+      confidence: null,
+      error: err.message
+    });
   }
 });
 

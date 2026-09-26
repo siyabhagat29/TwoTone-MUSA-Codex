@@ -3126,6 +3126,15 @@ export function getAiAuthenticityVerdict(inc) {
     };
   }
 
+  // Debug logging immediately before rendering AI badge
+  console.log(
+    `INCIDENT ID:\n${inc.id || "N/A"}\n\n` +
+    `RECEIVED aiVerification:\n${JSON.stringify(inc.aiVerification, null, 2)}\n\n` +
+    `classification:\n${inc.aiVerification?.classification ?? "N/A"}\n\n` +
+    `is_flood:\n${inc.aiVerification?.is_flood ?? "N/A"}\n\n` +
+    `confidence:\n${inc.aiVerification?.confidence ?? "N/A"}`
+  );
+
   const isQuarantined = inc.isQuarantined || String(inc.status || "").toLowerCase().includes("quarantined");
   if (isQuarantined) {
     return {
@@ -3170,14 +3179,30 @@ export function getAiAuthenticityVerdict(inc) {
 
   // Explicit Keras AI MobileNet Model Verification Check
   if (inc.aiVerification) {
-    const isModelFlood = inc.aiVerification.is_flooding === true || inc.aiVerification.flood_detected === true || inc.aiVerification.label === "Flooding";
-    const modelConf = Math.round((inc.aiVerification.confidence_score ?? inc.aiVerification.confidence ?? (isModelFlood ? 0.95 : 0.85)) * 100);
+    if (inc.aiVerification.error || inc.aiVerification.classification === "AI_UNAVAILABLE") {
+      return {
+        status: "AI VERIFICATION UNAVAILABLE",
+        isReal: false,
+        isUnavailable: true,
+        badgeText: "⚠️ AI VERIFICATION UNAVAILABLE",
+        explanation: `AI verification service was unable to analyze this media: ${inc.aiVerification.error || "Inference error"}. Manual verification required.`,
+        color: "#64748b",
+        bg: "#f8fafc",
+        border: "#cbd5e1",
+        confidence: null
+      };
+    }
+
+    const isModelFlood = inc.aiVerification.is_flood === true || inc.aiVerification.classification === "FLOOD" || inc.aiVerification.is_flooding === true || inc.aiVerification.label === "Flooding";
+    const rawConf = inc.aiVerification.confidence ?? (isModelFlood ? inc.aiVerification.flood_probability : inc.aiVerification.normal_probability);
+    const modelConf = rawConf != null ? Math.round(rawConf * 100) : null;
+    const confSuffix = modelConf != null ? ` (${modelConf}% CONFIDENCE)` : "";
 
     if (isModelFlood) {
       return {
-        status: "REAL FLOODING",
+        status: "REAL FLOOD EVIDENCE",
         isReal: true,
-        badgeText: `✅ REAL FLOOD EVIDENCE (${modelConf}% CONFIDENCE)`,
+        badgeText: `✅ REAL FLOOD EVIDENCE${confSuffix}`,
         explanation: inc.aiVerification.reason || "Keras MobileNet model verified standing floodwaters and street submersion.",
         color: "#166534",
         bg: "#f0fdf4",
@@ -3186,10 +3211,10 @@ export function getAiAuthenticityVerdict(inc) {
       };
     } else {
       return {
-        status: "NO FLOOD / SUSPECTED FAKE",
+        status: "NO FLOOD DETECTED",
         isReal: false,
-        badgeText: `⚠️ NO FLOOD DETECTED / SUSPECTED FAKE (${modelConf}% CONFIDENCE)`,
-        explanation: inc.aiVerification.reason || "Keras MobileNet model verified no visible waterlogging or flood accumulation in the uploaded image. Flagged for review.",
+        badgeText: `⚠️ NO FLOOD DETECTED${confSuffix}`,
+        explanation: inc.aiVerification.reason || "Keras MobileNet model verified no visible waterlogging or flood accumulation.",
         color: "#c2410c",
         bg: "#fff7ed",
         border: "#fed7aa",
@@ -3198,31 +3223,31 @@ export function getAiAuthenticityVerdict(inc) {
     }
   }
 
-  const conf = inc.cvConfidence || (inc.aiFloodConfidence ? Math.round(inc.aiFloodConfidence * 100) : (inc.aiVerified ? 92 : 55));
-
-  if (inc.aiVerified === true || (inc.aiVerified !== false && conf >= 80)) {
+  // No AI verification completed yet
+  const hasMedia = Boolean(inc.photoUrl || inc.videoUrl || inc.photo || inc.video);
+  if (hasMedia) {
     return {
-      status: "REAL FLOODING",
-      isReal: true,
-      badgeText: `✅ REAL FLOOD EVIDENCE (${conf}% CONFIDENCE)`,
-      explanation: "AI Computer Vision verified water depth and flood risk.",
-      color: "#166534",
-      bg: "#f0fdf4",
-      border: "#86efac",
-      confidence: conf
+      status: "AI_VERIFYING",
+      isReal: false,
+      isPending: true,
+      badgeText: "⏳ AI VERIFICATION IN PROGRESS",
+      explanation: "Awaiting automated Keras MobileNet flood classification.",
+      color: "#64748b",
+      bg: "#f8fafc",
+      border: "#cbd5e1",
+      confidence: null
     };
   }
 
-  // Low confidence / uncorroborated anomaly
   return {
-    status: "SUSPECTED FAKE / REVIEW NEEDED",
+    status: "NO_MEDIA",
     isReal: false,
-    badgeText: `⚠️ SUSPECTED FAKE / REVIEW NEEDED (${conf}% CONFIDENCE)`,
-    explanation: "Low AI visual confidence or anomalous frames detected. Human verification required.",
-    color: "#c2410c",
-    bg: "#fff7ed",
-    border: "#fed7aa",
-    confidence: conf
+    badgeText: "ℹ️ NO MEDIA EVIDENCE",
+    explanation: "Citizen incident report without attached media.",
+    color: "#64748b",
+    bg: "#f8fafc",
+    border: "#cbd5e1",
+    confidence: null
   };
 }
 
@@ -3430,7 +3455,7 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
               borderRadius: "4px",
               border: `1px solid ${aiVerdict.border}`
             }}>
-              {aiVerdict.isReal ? "✓ AI CONFIRMED AUTHENTIC" : "⚠️ REQUIRES AUDIT / FAKE"}
+              {aiVerdict.isUnavailable ? "⏳ MANUAL AUDIT NEEDED" : aiVerdict.isReal ? "✓ AI CONFIRMED AUTHENTIC" : "⚠️ REQUIRES AUDIT / FAKE"}
             </span>
           </div>
           <div style={{ fontSize: "11px", color: "#334155", lineHeight: "1.3" }}>

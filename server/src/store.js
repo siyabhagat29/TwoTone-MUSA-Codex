@@ -916,13 +916,10 @@ class Store {
           inc1008.createdAt = "2026-09-20T07:58:00.000Z";
           inc1008.updatedAt = "2026-09-20T07:58:00.000Z";
           if (inc1008.liveLocation) inc1008.liveLocation.capturedAt = "2026-09-20T07:58:00.000Z";
-          this.save();
         }
       } catch (err) {
         console.error("[store] Error loading db.json:", err.message);
       }
-    } else {
-      this.save();
     }
   }
 
@@ -987,7 +984,12 @@ class Store {
     return this.zones;
   }
 
+  load() {
+    this.init();
+  }
+
   getIncidents() {
+    this.init();
     return [...this.incidents].sort((a, b) => {
       const timeA = new Date(a.userTimestamp || a.updatedAt || a.createdAt || a.time || 0).getTime();
       const timeB = new Date(b.userTimestamp || b.updatedAt || b.createdAt || b.time || 0).getTime();
@@ -1003,6 +1005,7 @@ class Store {
   }
 
   getIncidentById(id) {
+    this.init();
     const inc = this.incidents.find((i) => i.id === id);
     if (!inc) return null;
     return inc;
