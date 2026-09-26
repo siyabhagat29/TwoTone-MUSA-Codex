@@ -97,24 +97,24 @@ def evaluate_image_array(img_rgb: np.ndarray) -> Dict[str, Any]:
     batch_preprocessed = preprocess_input(batch)
     
     preds = model.predict(batch_preprocessed, verbose=0)[0]
-    p0 = float(preds[0])  # Class 0: Flooding
-    p1 = float(preds[1])  # Class 1: No Flooding
+    p0 = float(preds[0])  # Class 0: No Flooding / Normal
+    p1 = float(preds[1])  # Class 1: Flooding
     
     # Softmax normalization over the 2 class outputs
     exp_p = np.exp(preds - np.max(preds))
     probs = exp_p / np.sum(exp_p)
-    flood_prob = float(probs[0])
-    normal_prob = float(probs[1])
+    normal_prob = float(probs[0])
+    flood_prob = float(probs[1])
     
-    # Keras MobileNet binary classification rule: class 0 (Flooding) vs class 1 (No Flooding)
-    is_flood = bool(p0 > p1 and flood_prob >= 0.50)
+    # Keras MobileNet binary classification rule: class 1 (Flooding) vs class 0 (No Flooding)
+    is_flood = bool(p1 > p0 and flood_prob >= 0.50)
     confidence = flood_prob if is_flood else normal_prob
     
     label = "Flooding" if is_flood else "No Flooding"
     reason = (
-        f"Keras MobileNet model verified Flooding with {round(confidence * 100, 1)}% confidence (flood: {round(p0, 3)}, normal: {round(p1, 3)})"
+        f"Keras MobileNet model verified Flooding with {round(confidence * 100, 1)}% confidence (flood: {round(p1, 3)}, normal: {round(p0, 3)})"
         if is_flood
-        else f"Keras MobileNet model verified No Flooding with {round(confidence * 100, 1)}% confidence (flood: {round(p0, 3)}, normal: {round(p1, 3)})"
+        else f"Keras MobileNet model verified No Flooding with {round(confidence * 100, 1)}% confidence (normal: {round(p0, 3)}, flood: {round(p1, 3)})"
     )
 
     return {
@@ -248,17 +248,18 @@ def evaluate_video_file(video_path: str) -> Dict[str, Any]:
     frame_flood_scores = []
     frame_normal_scores = []
     for p in batch_preds:
-        p0 = float(p[0])
-        p1 = float(p[1])
+        p0 = float(p[0])  # Normal
+        p1 = float(p[1])  # Flooding
         exp_p = np.exp(p - np.max(p))
         probs = exp_p / np.sum(exp_p)
-        flood_prob = float(probs[0])
-        # Score is flood probability if p0 > p1, else reduced
-        frame_flood_scores.append(flood_prob if p0 > p1 else float(probs[0]) * 0.3)
-        frame_normal_scores.append(float(probs[1]))
+        normal_prob = float(probs[0])
+        flood_prob = float(probs[1])
+        # Score is flood probability if p1 > p0, else reduced
+        frame_flood_scores.append(flood_prob if p1 > p0 else float(probs[1]) * 0.3)
+        frame_normal_scores.append(normal_prob)
 
-    # 1. Total positive frame counts and overall ratio (p0 > p1 and flood_prob >= 0.50)
-    flood_positive_frames = sum(1 for p, f_score in zip(batch_preds, frame_flood_scores) if p[0] > p[1] and f_score >= 0.50)
+    # 1. Total positive frame counts and overall ratio (p1 > p0 and flood_prob >= 0.50)
+    flood_positive_frames = sum(1 for p, f_score in zip(batch_preds, frame_flood_scores) if p[1] > p[0] and f_score >= 0.50)
     flood_ratio = flood_positive_frames / frames_analyzed if frames_analyzed > 0 else 0.0
 
     # 2. Temporal contiguity: Longest consecutive run of positive frames
@@ -346,6 +347,7 @@ def predict_from_path(req: PredictPathRequest):
         if p.exists():
             target_path = str(p)
     
+    is_temp_download = False
     if not target_path and req.url:
         url = req.url
         if "/uploads/" in url:
@@ -357,13 +359,25 @@ def predict_from_path(req: PredictPathRequest):
             local_candidate = Path(url.replace("file://", ""))
             if local_candidate.exists():
                 target_path = str(local_candidate)
+        elif url.startswith("http://") or url.startswith("https://"):
+            try:
+                import urllib.request
+                suffix = ".mp4" if any(ext in url.lower() for ext in [".mp4", ".mov", ".avi"]) else ".jpg"
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                    req_dl = urllib.request.Request(url, headers={"User-Agent": "VarshaRaksha-AI/1.0"})
+                    with urllib.request.urlopen(req_dl, timeout=10) as resp:
+                        tmp.write(resp.read())
+                    target_path = tmp.name
+                    is_temp_download = True
+            except Exception as dl_err:
+                print(f"⚠️ [FloodAI Remote Fetch Warning]: {dl_err}")
         else:
             local_candidate = WORKSPACE_ROOT / "server" / "public" / "uploads" / url
             if local_candidate.exists():
                 target_path = str(local_candidate)
 
     if not target_path or not os.path.exists(target_path):
-        raise HTTPException(status_code=404, detail=f"File could not be found locally: {req.filePath or req.url}")
+        raise HTTPException(status_code=404, detail=f"File could not be found locally or downloaded: {req.filePath or req.url}")
 
     start_time = time.time()
     filename = Path(target_path).name.lower()
@@ -389,6 +403,12 @@ def predict_from_path(req: PredictPathRequest):
     except Exception as e:
         print(f"❌ [FloodAI Error]: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if is_temp_download and target_path and os.path.exists(target_path):
+            try:
+                os.remove(target_path)
+            except Exception:
+                pass
 
 @app.post("/predict")
 async def predict_media(file: Optional[UploadFile] = File(None)):
@@ -440,6 +460,6 @@ async def predict_media(file: Optional[UploadFile] = File(None)):
                 pass
 
 if __name__ == "__main__":
-    port = int(os.environ.get("FLOOD_AI_PORT", 5002))
+    port = int(os.environ.get("FLOOD_AI_PORT", 5003))
     print(f"🚀 Starting Flood Detection AI microservice on port {port}...")
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")

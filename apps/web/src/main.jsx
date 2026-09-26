@@ -5674,16 +5674,13 @@ function IncidentDetailPage({ incidents, resources = [], notify, onReload, onAut
   const subReportVideo = inc.reports?.find((r) => r.video_url || r.videoUrl || (typeof r.video === "string" && r.video.length > 5))?.video_url || inc.reports?.find((r) => r.videoUrl)?.videoUrl || null;
   const resolvedVideo = customVideo || subReportVideo || null;
 
-  // Curated deterministic fallback so ground truth visual evidence is always visible on ANY incident
-  const photoHash = Math.abs((inc.id || "INC-1000").split("").reduce((acc, c) => acc + c.charCodeAt(0), 0));
-  const photoIndex = photoHash % FALLBACK_FLOOD_PHOTOS.length;
-  const finalPhotoUrl = resolveMediaUrl(resolvedPhoto || FALLBACK_FLOOD_PHOTOS[photoIndex]);
-  const finalVideoUrl = resolveMediaUrl(resolvedVideo || FALLBACK_FLOOD_VIDEOS[0]);
+  const hasPhoto = Boolean(resolvedPhoto);
+  const hasVideo = Boolean(resolvedVideo);
+  const finalPhotoUrl = hasPhoto ? resolveMediaUrl(resolvedPhoto) : null;
+  const finalVideoUrl = hasVideo ? resolveMediaUrl(resolvedVideo) : null;
 
-  const isUserUploadedPhoto = Boolean(resolvedPhoto);
-  const isUserUploadedVideo = Boolean(resolvedVideo);
-  const hasVideo = Boolean(finalVideoUrl);
-  const hasPhoto = Boolean(finalPhotoUrl);
+  const isUserUploadedPhoto = hasPhoto;
+  const isUserUploadedVideo = hasVideo;
 
   // Pipeline Stepper Progress Index
   // 0: Received, 1: Verified, 2: Resource Allocated, 3: En Route, 4: Reached Site, 5: Resolved
@@ -5987,8 +5984,9 @@ function IncidentDetailPage({ incidents, resources = [], notify, onReload, onAut
         </div>
 
         {/* Panel Body: Photo & Video Side-by-Side Grid */}
-        <div style={{ padding: "16px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "16px" }}>
+        <div style={{ padding: "16px", display: "grid", gridTemplateColumns: (hasPhoto && hasVideo) ? "repeat(auto-fit, minmax(320px, 1fr))" : "1fr", gap: "16px" }}>
           {/* Column 1: Citizen Photo Evidence */}
+          {hasPhoto && (
           <div
             style={{
               border: "1px solid #e2e8f0",
@@ -6133,8 +6131,10 @@ function IncidentDetailPage({ incidents, resources = [], notify, onReload, onAut
               </div>
             </div>
           </div>
+          )}
 
           {/* Column 2: Citizen Video Evidence */}
+          {hasVideo && (
           <div
             style={{
               border: "1px solid #e2e8f0",
@@ -6257,6 +6257,18 @@ function IncidentDetailPage({ incidents, resources = [], notify, onReload, onAut
               </div>
             </div>
           </div>
+          )}
+
+          {/* Fallback when neither photo nor video was attached */}
+          {!hasPhoto && !hasVideo && (
+            <div style={{ padding: "32px 16px", textAlign: "center", color: "#64748b", background: "#f8fafc", borderRadius: "8px", border: "1px dashed #cbd5e1" }}>
+              <div style={{ fontSize: "24px", marginBottom: "8px" }}>📭</div>
+              <b>No Photo or Video Media Attached</b>
+              <div style={{ fontSize: "12px", marginTop: "4px", color: "#94a3b8" }}>
+                This incident report was filed via direct sensor or live GPS emergency dispatch.
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Clustered Sub-Reports Media Gallery (if multiple reports exist) */}
