@@ -3112,16 +3112,16 @@ export function isHumanInterventionNeeded(inc) {
   return false;
 }
 
-// Professional Minimal Incident & Emergency Response Card
+// Professional Incident & Emergency Response Card
 function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFalseAlarm, onDismiss, onResolve, onOpenOverride, onViewPhoto, onResetReputation }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const inc = incident;
-  const isSos = Boolean(inc.isSos || inc.type === "SOS" || inc.status === "ACTIVE_SOS" || inc.causeCode === "SOS_EMERGENCY");
-  const isDispatched = inc.status === "Dispatched";
-  const isFalseAlarm = inc.status === "False Alarm" || inc.status === "FALSE_ALARM" || inc.falseAlarmAt != null || Boolean(inc.isDismissed);
-  const isResolved = inc.status === "Resolved" || inc.status === "RESOLVED" || inc.resolvedAt != null;
+  const isSos = Boolean(inc.isSos || inc.type === "SOS" || inc.incident_type === "ACTIVE_SOS" || inc.status === "ACTIVE_SOS" || inc.causeCode === "SOS_EMERGENCY");
+  const isDispatched = String(inc.status || "").toLowerCase() === "dispatched" || inc.dispatched || Boolean(inc.assignedTeam);
+  const isFalseAlarm = String(inc.status || "").toLowerCase().includes("false") || inc.falseAlarmAt != null || Boolean(inc.isDismissed);
+  const isResolved = String(inc.status || "").toLowerCase() === "resolved" || inc.resolvedAt != null;
+  const isVerified = String(inc.status || "").toLowerCase() === "verified" || inc.aiVerified;
 
-  const causeCode = inc.causeCode || (inc.cause === "Blocked drain" ? "SUSPECTED_BLOCKED_DRAIN" : "RAINFALL_OVERLOAD");
   const hasVideo = Boolean((inc.videoUrl || inc.video) && inc.videoUrl !== "attached" && (inc.videoUrl?.startsWith("http") || inc.videoUrl?.startsWith("data:video") || inc.videoUrl?.startsWith("/uploads")));
   const hasPhoto = Boolean(inc.photoUrl && inc.photoUrl !== "attached" && (inc.photoUrl.startsWith("http") || inc.photoUrl.startsWith("data:image") || inc.photoUrl.startsWith("/uploads")));
 
@@ -3134,8 +3134,10 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
     : null);
 
   const repCount = inc.reporter_count || (Array.isArray(inc.reports) ? inc.reports.length : (inc.reports_length || 1));
-  const nearestDist = (nearestResource?.distKm ?? nearestResource?.distanceKm ?? 0.8);
-  const nearestEta = Math.max(2, Math.round(Number(nearestDist) * 4));
+  const nearestDist = (nearestResource?.distKm ?? nearestResource?.distanceKm ?? (isSos ? 5.6 : 0.8));
+  const nearestDistNum = typeof nearestDist === "number" ? nearestDist : parseFloat(nearestDist) || 0.8;
+  const nearestEta = Math.max(2, Math.round(nearestDistNum * 3.5 + 1));
+  const nearestUnitName = inc.assignedTeam || nearestResource?.name || (isSos ? "Heavy JCB & Silt Extraction Crew" : "Municipal Dewatering Crew");
 
   const borderLeftColor = isSos
     ? "#dc2626"
@@ -3145,117 +3147,146 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
     ? "#16a34a"
     : isFalseAlarm
     ? "#94a3b8"
+    : isResolved
+    ? "#059669"
     : "#f59e0b";
 
   return (
     <div
       className="incident-card"
       style={{
-        borderLeft: `4px solid ${borderLeftColor}`,
-        background: "#ffffff",
-        border: "1px solid #e2e8f0",
-        borderLeftWidth: "4px",
+        borderLeft: `5px solid ${borderLeftColor}`,
+        background: isSos ? "#fffdfd" : "#ffffff",
+        border: isSos ? "1.5px solid #fecaca" : "1px solid #e2e8f0",
+        borderLeftWidth: "5px",
         borderRadius: "12px",
         padding: "16px",
         marginBottom: "12px",
-        boxShadow: isSos ? "0 2px 8px rgba(220, 38, 38, 0.07)" : "0 1px 3px rgba(0, 0, 0, 0.04)",
+        boxShadow: isSos ? "0 4px 14px rgba(220, 38, 38, 0.12)" : "0 1px 4px rgba(0, 0, 0, 0.04)",
         display: "flex",
         flexDirection: "column",
         gap: "10px"
       }}
     >
-      {/* 1. Header: Status / SOS, Incident ID, Timestamp, Risk */}
+      {/* SOS Alert Banner */}
+      {isSos && (
+        <div style={{
+          background: "linear-gradient(90deg, #dc2626, #b91c1c)",
+          color: "#ffffff",
+          padding: "6px 12px",
+          borderRadius: "8px",
+          fontSize: "11px",
+          fontWeight: "800",
+          letterSpacing: "0.5px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}>
+          <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#fff", animation: "pulse-ring 1.5s infinite" }} />
+            ACTIVE LIFE-SAFETY SOS DISTRESS
+          </span>
+          <span style={{ background: "rgba(255,255,255,0.2)", padding: "2px 8px", borderRadius: "4px", fontSize: "10px" }}>
+            {repCount > 1 ? `${repCount} Reports in Zone` : "Single Priority"}
+          </span>
+        </div>
+      )}
+
+      {/* 1. Header: Type Badge, Incident ID, Status Badge, Timestamp & Risk */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          {isSos ? (
-            <span style={{
-              background: "#dc2626",
-              color: "#ffffff",
-              fontSize: "10px",
-              fontWeight: "800",
-              padding: "3px 8px",
-              borderRadius: "6px",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "5px",
-              letterSpacing: "0.4px"
-            }}>
-              <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#fff", display: "inline-block" }} />
-              ACTIVE SOS {repCount > 1 ? `(${repCount})` : ""}
-            </span>
-          ) : (
-            <span style={{
-              background: "#eff6ff",
-              color: "#1d4ed8",
-              border: "1px solid #bfdbfe",
-              fontSize: "10px",
-              fontWeight: "700",
-              padding: "3px 8px",
-              borderRadius: "6px",
-              textTransform: "uppercase"
-            }}>
-              {inc.type || "FLOOD REPORT"}
-            </span>
-          )}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+          <span style={{
+            background: isSos ? "#fee2e2" : "#eff6ff",
+            color: isSos ? "#b91c1c" : "#1d4ed8",
+            border: `1px solid ${isSos ? "#fca5a5" : "#bfdbfe"}`,
+            fontSize: "10px",
+            fontWeight: "800",
+            padding: "3px 8px",
+            borderRadius: "6px",
+            textTransform: "uppercase"
+          }}>
+            {inc.incident_type || inc.type || (isSos ? "ACTIVE_SOS" : "FLOOD_REPORT")}
+          </span>
 
           <NavLink
             to={`/incidents/${inc.id}`}
             style={{
               fontFamily: "ui-monospace, monospace",
-              fontSize: "11px",
-              fontWeight: "700",
-              color: "#475569",
+              fontSize: "12px",
+              fontWeight: "800",
+              color: "#1e293b",
               textDecoration: "none",
               background: "#f1f5f9",
-              padding: "2px 6px",
+              padding: "2px 8px",
               borderRadius: "4px",
-              border: "1px solid #e2e8f0"
+              border: "1px solid #cbd5e1"
             }}
             title="Incident details"
           >
             #{inc.id}
           </NavLink>
 
-          {/* Show non-redundant status badge */}
-          {!isSos && inc.status && (
-            <span className={`status ${inc.status?.toLowerCase().replace(" ", "-")}`} style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px" }}>
-              {inc.status}
-            </span>
-          )}
+          {/* Status Badge */}
+          <span style={{
+            fontSize: "10px",
+            fontWeight: "700",
+            padding: "2px 8px",
+            borderRadius: "6px",
+            background: isResolved ? "#dcfce7" : isFalseAlarm ? "#f1f5f9" : isDispatched ? "#eff6ff" : isVerified ? "#ecfdf5" : isSos ? "#fee2e2" : "#fffbeb",
+            color: isResolved ? "#166534" : isFalseAlarm ? "#475569" : isDispatched ? "#1d4ed8" : isVerified ? "#047857" : isSos ? "#b91c1c" : "#b45309",
+            border: `1px solid ${isResolved ? "#86efac" : isFalseAlarm ? "#cbd5e1" : isDispatched ? "#93c5fd" : isVerified ? "#6ee7b7" : isSos ? "#fca5a5" : "#fde68a"}`
+          }}>
+            {inc.status || (isSos ? "ACTIVE_SOS" : "Received")}
+          </span>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontSize: "11px", color: "#94a3b8", fontWeight: "500" }}>
+          <span style={{ fontSize: "11px", color: "#64748b", fontWeight: "600" }}>
             {inc.time || "Just now"}
           </span>
-          {!isSos && <RiskBadge score={inc.severity || 50} />}
+          <RiskBadge score={inc.severity || (isSos ? 95 : 50)} />
         </div>
       </div>
 
-      {/* 2. Citizen / Distress Title */}
+      {/* 2. Reporter Name & Role */}
       <div style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-        {isSos ? (
-          <span>Citizen Distress: <span style={{ color: "#b91c1c" }}>{inc.reporter || "Anonymous Citizen"}</span></span>
-        ) : (
-          <span>{inc.reporter || "Citizen Report"}</span>
-        )}
+        <span>{inc.reporter || (isSos ? "Aryan" : "Citizen")}</span>
         {inc.role && (
-          <span style={{ fontSize: "11px", fontWeight: "500", color: "#64748b" }}>
+          <span style={{ fontSize: "11px", fontWeight: "600", color: "#475569", background: "#f8fafc", padding: "1px 6px", borderRadius: "4px", border: "1px solid #e2e8f0" }}>
             ({inc.role})
+          </span>
+        )}
+        {inc.userPhone && (
+          <span style={{ fontSize: "11px", color: "#64748b" }}>
+            📞 {inc.userPhone}
           </span>
         )}
       </div>
 
-      {/* 3. Location */}
-      <div style={{ fontSize: "13px", color: "#334155", fontWeight: "500", display: "flex", alignItems: "center", gap: "5px" }}>
-        <MapPin size={13} style={{ color: "#2563eb", flexShrink: 0 }} />
-        <span>{inc.address || "Live Area, Ward 73"}</span>
+      {/* 3. Location & GPS Telemetry */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+        <div style={{ fontSize: "13px", color: "#1e293b", fontWeight: "600", display: "flex", alignItems: "center", gap: "5px" }}>
+          <MapPin size={14} style={{ color: isSos ? "#dc2626" : "#2563eb", flexShrink: 0 }} />
+          <span>{inc.address || "Powai, Powai"}</span>
+        </div>
+
+        {inc.lat && inc.lng && (
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "11px", color: "#64748b", marginLeft: "19px" }}>
+            <span>GPS: {Number(inc.lat).toFixed(4)}, {Number(inc.lng).toFixed(5)}</span>
+            {(inc.liveGps || inc.gps || inc.liveLocation) && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", color: "#16a34a", fontWeight: "700", background: "#f0fdf4", padding: "1px 6px", borderRadius: "4px", border: "1px solid #bbf7d0", fontSize: "10px" }}>
+                <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#16a34a", display: "inline-block" }} />
+                Live GPS Telemetry
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* 4. Emergency Type & Key Metrics */}
+      {/* 4. Disaster Classification, Depth, Drain Observation & AI Verification */}
       <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", fontSize: "11px" }}>
-        <span style={{ background: "#f8fafc", color: "#334155", padding: "3px 8px", borderRadius: "6px", fontWeight: "600", border: "1px solid #e2e8f0" }}>
-          {inc.cause || "Drainage Flooding"}
+        <span style={{ background: "#f8fafc", color: "#334155", padding: "3px 8px", borderRadius: "6px", fontWeight: "700", border: "1px solid #e2e8f0" }}>
+          {inc.cause || (isSos ? "Emergency Life-Safety SOS" : "Waterlogging")}
         </span>
 
         {inc.waterLevel != null && (
@@ -3264,59 +3295,116 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
           </span>
         )}
 
-        {inc.aiVerification?.is_flooding && (
-          <span style={{ background: "#f0fdf4", color: "#166534", padding: "3px 8px", borderRadius: "6px", fontWeight: "700", border: "1px solid #bbf7d0", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-            <CheckCircle2 size={11} /> AI Verified ({inc.aiVerification?.confidence ? `${Math.round(inc.aiVerification.confidence * 100)}%` : "High"})
+        {inc.drainObservation && (
+          <span style={{ background: "#fef3c7", color: "#92400e", padding: "3px 8px", borderRadius: "6px", fontWeight: "700", border: "1px solid #fde68a" }}>
+            Drain: {inc.drainObservation}
           </span>
         )}
+
+        {inc.aiVerified ? (
+          <span style={{ background: "#f0fdf4", color: "#166534", padding: "3px 8px", borderRadius: "6px", fontWeight: "700", border: "1px solid #bbf7d0", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+            <CheckCircle2 size={11} /> AI Verified ({inc.cvConfidence ? `${inc.cvConfidence}%` : inc.aiFloodConfidence ? `${Math.round(inc.aiFloodConfidence * 100)}%` : "High"})
+          </span>
+        ) : isHumanInterventionNeeded(inc) ? (
+          <span style={{ background: "#fff7ed", color: "#c2410c", padding: "3px 8px", borderRadius: "6px", fontWeight: "700", border: "1px solid #fed7aa", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+            <AlertCircle size={11} /> Review Needed ({inc.cvConfidence ? `${inc.cvConfidence}%` : "Low AI Conf"})
+          </span>
+        ) : null}
       </div>
 
-      {/* 5. Nearest Response Unit & ETA */}
-      {nearestResource && (
-        <div style={{
-          background: "#f8fafc",
-          border: "1px solid #e2e8f0",
-          borderRadius: "8px",
-          padding: "8px 12px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: "8px",
-          fontSize: "12px"
+      {/* 5. Nearest Response Unit & Distance */}
+      <div style={{
+        background: "#f8fafc",
+        border: "1px solid #e2e8f0",
+        borderRadius: "8px",
+        padding: "8px 12px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: "8px",
+        fontSize: "12px"
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+          <Truck size={14} style={{ color: "#2563eb", flexShrink: 0 }} />
+          <span style={{ color: "#64748b", fontSize: "11px" }}>Nearest Unit:</span>
+          <b style={{ color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {nearestUnitName}
+          </b>
+        </div>
+        <span style={{
+          color: "#166534",
+          fontWeight: "700",
+          fontSize: "11px",
+          background: "#f0fdf4",
+          border: "1px solid #bbf7d0",
+          padding: "2px 8px",
+          borderRadius: "5px",
+          flexShrink: 0
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
-            <Truck size={13} style={{ color: "#2563eb", flexShrink: 0 }} />
-            <span style={{ color: "#64748b", fontSize: "11px" }}>Nearest Unit:</span>
-            <b style={{ color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {nearestResource.name}
-            </b>
-          </div>
-          <span style={{
-            color: "#166534",
-            fontWeight: "700",
-            fontSize: "11px",
-            background: "#f0fdf4",
-            border: "1px solid #bbf7d0",
-            padding: "2px 7px",
-            borderRadius: "5px",
-            flexShrink: 0
-          }}>
-            ~{nearestEta} min ETA ({nearestDist.toFixed(1)} km)
-          </span>
+          {nearestDistNum.toFixed(1)} km away (~{nearestEta} min)
+        </span>
+      </div>
+
+      {/* Note / Broadcast summary */}
+      {inc.note && (
+        <div style={{ fontSize: "12px", color: "#334155", background: isSos ? "#fef2f2" : "#f8fafc", padding: "8px 10px", borderRadius: "6px", border: `1px solid ${isSos ? "#fecaca" : "#e2e8f0"}`, lineHeight: "1.4" }}>
+          <span style={{ fontWeight: "700" }}>"{inc.note}"</span>
         </div>
       )}
 
       {/* 6. Primary Action Buttons */}
-      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center", marginTop: "2px" }}>
-        {!isDispatched && !isFalseAlarm && (
+      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center", marginTop: "4px" }}>
+        {!isDispatched && !isFalseAlarm && !isResolved && (
           <button
             className="primary small"
             onClick={() => onAutoDispatch(inc)}
-            style={{ fontSize: "11px", padding: "6px 12px", borderRadius: "6px", fontWeight: "700", display: "inline-flex", alignItems: "center", gap: "5px" }}
+            style={{ fontSize: "11px", padding: "6px 12px", borderRadius: "6px", fontWeight: "700", display: "inline-flex", alignItems: "center", gap: "5px", background: isSos ? "linear-gradient(135deg, #dc2626, #b91c1c)" : undefined }}
           >
-            <Zap size={12} /> Dispatch Unit
+            <Zap size={12} /> Auto-Dispatch: {isSos ? "Rapid Unit" : "Dispatch Unit"}
           </button>
         )}
+
+        {!isVerified && !isFalseAlarm && (
+          <button
+            className="ghost small"
+            onClick={() => onVerify(inc.id)}
+            style={{ fontSize: "11px", padding: "5px 10px", color: "#047857", borderColor: "#6ee7b7", background: "#ecfdf5", fontWeight: "700" }}
+            title="Mark incident as verified"
+          >
+            <CheckCircle2 size={12} /> Mark Verified
+          </button>
+        )}
+
+        {!isResolved && !isFalseAlarm && (
+          <button
+            className="ghost small"
+            onClick={() => (onResolve ? onResolve(inc.id || inc.sosId) : null)}
+            style={{ fontSize: "11px", padding: "5px 10px", color: "#16a34a", borderColor: "#bbf7d0", background: "#f0fdf4", fontWeight: "700" }}
+            title="Mark incident as resolved"
+          >
+            <CheckCircle2 size={12} /> Resolve
+          </button>
+        )}
+
+        {!isFalseAlarm && (
+          <button
+            className="ghost small"
+            onClick={() => (onFalseAlarm ? onFalseAlarm(inc.id || inc.sosId) : null)}
+            style={{ fontSize: "11px", padding: "5px 8px", color: "#b91c1c", borderColor: "#fecaca", background: "#fef2f2", fontWeight: "600" }}
+            title="Flag as false alarm"
+          >
+            <AlertTriangle size={12} /> False Alarm
+          </button>
+        )}
+
+        <button
+          className="ghost small"
+          onClick={() => onOpenOverride(inc)}
+          style={{ fontSize: "11px", padding: "5px 8px", color: "#475569", borderColor: "#cbd5e1" }}
+          title="Manual resource override"
+        >
+          <Sliders size={11} /> Override
+        </button>
 
         {(inc.lat && inc.lng) ? (
           <a
@@ -3327,7 +3415,7 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
               textDecoration: "none",
               background: "#ffffff",
               color: "#1e293b",
-              padding: "5px 10px",
+              padding: "5px 9px",
               borderRadius: "6px",
               fontSize: "11px",
               fontWeight: "600",
@@ -3340,35 +3428,6 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
             <Navigation size={11} style={{ color: "#2563eb" }} /> Track
           </a>
         ) : null}
-
-        {!isResolved && !isFalseAlarm && (
-          <>
-            <button
-              className="ghost small"
-              onClick={() => (onResolve ? onResolve(inc.id || inc.sosId) : onVerify(inc.id))}
-              style={{ fontSize: "11px", padding: "5px 10px", color: "#16a34a", borderColor: "#bbf7d0", background: "#f0fdf4", fontWeight: "700" }}
-              title="Mark incident as resolved"
-            >
-              <CheckCircle2 size={12} /> Resolve
-            </button>
-            <button
-              className="ghost small"
-              onClick={() => (onDismiss ? onDismiss(inc.id || inc.sosId) : onFalseAlarm(inc.id || inc.sosId))}
-              style={{ fontSize: "11px", padding: "5px 8px", color: "#475569", borderColor: "#cbd5e1", background: "#f8fafc" }}
-              title="Dismiss incident from active dashboard"
-            >
-              <X size={12} /> Dismiss
-            </button>
-            <button
-              className="ghost small"
-              onClick={() => (onFalseAlarm ? onFalseAlarm(inc.id || inc.sosId) : null)}
-              style={{ fontSize: "11px", padding: "5px 8px", color: "#b91c1c", borderColor: "#fecaca", background: "#fef2f2" }}
-              title="Flag as false alarm and remove from dashboard"
-            >
-              <AlertTriangle size={12} /> False Alarm
-            </button>
-          </>
-        )}
 
         <button
           onClick={() => setDetailsOpen(!detailsOpen)}
@@ -3386,19 +3445,15 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
             padding: "4px"
           }}
         >
-          {detailsOpen ? "Hide Details ▲" : "Details ▼"}
+          {detailsOpen ? "Hide Evidence ▲" : "Evidence & Media ▼"}
         </button>
       </div>
 
-      {/* Collapsible Details: Evidence, Telemetry & Sensor Breakdown */}
+      {/* Collapsible Details: Ground-truth Photo / Video Evidence & Diagnostics */}
       {detailsOpen && (
         <div style={{ marginTop: "6px", paddingTop: "10px", borderTop: "1px solid #f1f5f9", fontSize: "11px", color: "#475569" }}>
-          {inc.note && (
-            <p style={{ margin: "0 0 8px", fontStyle: "italic", color: "#334155" }}>"{inc.note}"</p>
-          )}
-
           {/* Video and Photo Evidence */}
-          {(hasVideo || hasPhoto) && (
+          {(hasVideo || hasPhoto) ? (
             <div style={{ marginBottom: "8px", display: "grid", gridTemplateColumns: hasVideo && hasPhoto ? "1fr 1fr" : "1fr", gap: "6px" }}>
               {hasPhoto && (
                 <div style={{ borderRadius: "6px", overflow: "hidden", border: "1px solid #cbd5e1", cursor: "pointer", background: "#0f172a" }} onClick={() => onViewPhoto && onViewPhoto(resolveMediaUrl(inc.photoUrl), inc, false)}>
@@ -3422,17 +3477,19 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
                 </div>
               )}
             </div>
+          ) : (
+            <div style={{ color: "#94a3b8", fontStyle: "italic", marginBottom: "6px" }}>
+              No photo/video media attached to this distress signal.
+            </div>
           )}
 
           <div style={{ display: "flex", justifyContent: "space-between", color: "#64748b", fontSize: "10px", flexWrap: "wrap", gap: "6px" }}>
-            {inc.lat && inc.lng && <span>GPS: {Number(inc.lat).toFixed(4)}, {Number(inc.lng).toFixed(4)}</span>}
+            {inc.lat && inc.lng && <span>GPS Anchor: {Number(inc.lat).toFixed(4)}, {Number(inc.lng).toFixed(4)}</span>}
             {inc.cvConfidence && <span>CV Confidence: {inc.cvConfidence}%</span>}
+            {inc.assignedTeamPhone && <span>Assigned Phone: {inc.assignedTeamPhone}</span>}
           </div>
 
           <div style={{ marginTop: "8px", display: "flex", gap: "6px", alignItems: "center" }}>
-            <button className="ghost small" onClick={() => onOpenOverride(inc)} style={{ fontSize: "10px" }}>
-              <Sliders size={11} /> Override
-            </button>
             <NavLink to={`/incidents/${inc.id}`} className="ghost small" style={{ fontSize: "10px", textDecoration: "none" }}>
               Full Profile ↗
             </NavLink>
@@ -4023,30 +4080,41 @@ function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch
     (a, b) => new Date(b.userTimestamp || b.updatedAt || b.createdAt || b.time || 0) - new Date(a.userTimestamp || a.updatedAt || a.createdAt || a.time || 0)
   );
 
-  const activeIncidents = sortedIncidents.filter(isActiveIncident);
-  const quarantinedCount = sortedIncidents.filter((i) => i.isQuarantined || i.status === "Quarantined Spam").length;
-  const humanInterventionCount = activeIncidents.filter((i) => isHumanInterventionNeeded(i)).length;
-  const aiVerifiedCount = activeIncidents.filter((i) => i.aiVerification?.is_flooding === true || i.aiVerified).length;
+  const allCount = sortedIncidents.length;
+  const humanInterventionCount = sortedIncidents.filter((i) => isHumanInterventionNeeded(i)).length;
+  const aiVerifiedCount = sortedIncidents.filter((i) => i.aiVerification?.is_flooding === true || i.aiVerified || String(i.cvStatus || "").toLowerCase() === "verified").length;
+  const receivedCount = sortedIncidents.filter((i) => {
+    const st = String(i.status || "").toLowerCase();
+    return st === "received" || st === "triaged" || st === "active_sos" || st === "active sos";
+  }).length;
+  const verifiedCount = sortedIncidents.filter((i) => String(i.status || "").toLowerCase() === "verified").length;
+  const dispatchedCount = sortedIncidents.filter((i) => String(i.status || "").toLowerCase() === "dispatched" || i.dispatched || Boolean(i.assignedTeam)).length;
+  const resolvedCount = sortedIncidents.filter((i) => String(i.status || "").toLowerCase() === "resolved" || i.resolvedAt != null).length;
+  const falseAlarmCount = sortedIncidents.filter((i) => String(i.status || "").toLowerCase().includes("false") || i.isDismissed || i.falseAlarmAt != null).length;
+  const quarantinedCount = sortedIncidents.filter((i) => i.isQuarantined || String(i.status || "").toLowerCase().includes("quarantined")).length;
 
   const filtered = filter === "All"
-    ? activeIncidents
+    ? sortedIncidents
     : filter === "ReviewNeeded"
-    ? activeIncidents.filter((i) => isHumanInterventionNeeded(i))
+    ? sortedIncidents.filter((i) => isHumanInterventionNeeded(i))
     : filter === "AiConfirmed"
-    ? activeIncidents.filter((i) => i.aiVerification?.is_flooding === true || i.aiVerified)
-    : filter === "Triaged"
-    ? activeIncidents.filter((i) => getIncidentExecutionStage(i) === "triaged")
-    : filter === "En Route"
-    ? activeIncidents.filter((i) => getIncidentExecutionStage(i) === "en_route")
-    : filter === "On Scene"
-    ? activeIncidents.filter((i) => getIncidentExecutionStage(i) === "on_scene")
+    ? sortedIncidents.filter((i) => i.aiVerification?.is_flooding === true || i.aiVerified || String(i.cvStatus || "").toLowerCase() === "verified")
+    : filter === "Received"
+    ? sortedIncidents.filter((i) => {
+        const st = String(i.status || "").toLowerCase();
+        return st === "received" || st === "triaged" || st === "active_sos" || st === "active sos";
+      })
+    : filter === "Verified"
+    ? sortedIncidents.filter((i) => String(i.status || "").toLowerCase() === "verified")
+    : filter === "Dispatched"
+    ? sortedIncidents.filter((i) => String(i.status || "").toLowerCase() === "dispatched" || i.dispatched || Boolean(i.assignedTeam))
     : filter === "Resolved"
-    ? sortedIncidents.filter((i) => getIncidentExecutionStage(i) === "mitigated")
+    ? sortedIncidents.filter((i) => String(i.status || "").toLowerCase() === "resolved" || i.resolvedAt != null)
     : filter === "False Alarm"
-    ? sortedIncidents.filter((i) => getIncidentExecutionStage(i) === "false_alarm")
+    ? sortedIncidents.filter((i) => String(i.status || "").toLowerCase().includes("false") || i.isDismissed || i.falseAlarmAt != null)
     : filter === "Quarantined"
-    ? sortedIncidents.filter((i) => i.isQuarantined || i.status === "Quarantined Spam")
-    : activeIncidents.filter((i) => i.role === filter || i.status === filter);
+    ? sortedIncidents.filter((i) => i.isQuarantined || String(i.status || "").toLowerCase().includes("quarantined"))
+    : sortedIncidents.filter((i) => i.role === filter || i.status === filter);
 
   return (
     <div className="content">
@@ -4058,7 +4126,7 @@ function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch
         <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
           <div className="segmented">
             <button className={filter === "All" ? "selected" : ""} onClick={() => setFilter("All")}>
-              All ({activeIncidents.length})
+              All ({allCount})
             </button>
             <button
               className={filter === "ReviewNeeded" ? "selected" : ""}
@@ -4074,11 +4142,21 @@ function Incidents({ incidents, resources = [], notify, onReload, onAutoDispatch
             >
               🌊 AI Verified ({aiVerifiedCount})
             </button>
-            {["Triaged", "En Route", "On Scene", "Resolved", "False Alarm"].map((x) => (
-              <button className={filter === x ? "selected" : ""} onClick={() => setFilter(x)} key={x}>
-                {x}
-              </button>
-            ))}
+            <button className={filter === "Received" ? "selected" : ""} onClick={() => setFilter("Received")}>
+              Received ({receivedCount})
+            </button>
+            <button className={filter === "Verified" ? "selected" : ""} onClick={() => setFilter("Verified")}>
+              Verified ({verifiedCount})
+            </button>
+            <button className={filter === "Dispatched" ? "selected" : ""} onClick={() => setFilter("Dispatched")}>
+              Dispatched ({dispatchedCount})
+            </button>
+            <button className={filter === "Resolved" ? "selected" : ""} onClick={() => setFilter("Resolved")}>
+              Resolved ({resolvedCount})
+            </button>
+            <button className={filter === "False Alarm" ? "selected" : ""} onClick={() => setFilter("False Alarm")}>
+              False Alarm ({falseAlarmCount})
+            </button>
             <button
               className={filter === "Quarantined" ? "selected" : ""}
               onClick={() => setFilter("Quarantined")}
@@ -9174,11 +9252,9 @@ function App() {
           ) {
             if (incPayload) {
               const newInc = incPayload;
-              if (newInc.status === "Resolved" || newInc.status === "False Alarm" || newInc.isQuarantined) {
-                setIncidents((prev) => prev.filter((i) => i.id !== newInc.id && i.sosId !== newInc.sosId));
+              setIncidents((prev) => [newInc, ...prev.filter((i) => i.id !== newInc.id && i.sosId !== newInc.id)]);
+              if (newInc.status === "Resolved" || newInc.status === "False Alarm") {
                 setAlerts((prev) => prev.filter((a) => a.incidentId !== newInc.id && a.sosId !== newInc.sosId && a.id !== newInc.id));
-              } else {
-                setIncidents((prev) => [newInc, ...prev.filter((i) => i.id !== newInc.id)]);
               }
             }
           }
@@ -9198,7 +9274,7 @@ function App() {
           const d = JSON.parse(evt.data);
           const newInc = d.payload?.incident || d.incident;
           if (newInc) {
-            setIncidents((prev) => [newInc, ...prev.filter((i) => i.id !== newInc.id)]);
+            setIncidents((prev) => [newInc, ...prev.filter((i) => i.id !== newInc.id && i.sosId !== newInc.id)]);
             if (newInc.isSos || newInc.type === "SOS" || newInc.status === "ACTIVE_SOS") {
               playSosEmergencyChime();
               setNotificationsOpen(true);
@@ -9214,7 +9290,7 @@ function App() {
           const sosInc = d.payload?.incident || d.incident;
           const sosAlt = d.payload?.alert || d.alert;
           if (sosInc) {
-            setIncidents((prev) => [sosInc, ...prev.filter((i) => i.id !== sosInc.id)]);
+            setIncidents((prev) => [sosInc, ...prev.filter((i) => i.id !== sosInc.id && i.sosId !== sosInc.id)]);
           }
           if (sosAlt) {
             setAlerts((prev) => [sosAlt, ...prev.filter((a) => a.id !== sosAlt.id)]);
@@ -9228,9 +9304,14 @@ function App() {
       es.addEventListener("incident:resolved", (evt) => {
         try {
           const d = JSON.parse(evt.data);
+          const inc = d.incident || d.payload?.incident;
           const incId = d.id || d.incident?.id || d.payload?.id || d.payload?.incident?.id;
+          if (inc) {
+            setIncidents((prev) => [inc, ...prev.filter((i) => i.id !== inc.id && i.sosId !== inc.id)]);
+          } else if (incId) {
+            setIncidents((prev) => prev.map((i) => (i.id === incId || i.sosId === incId ? { ...i, status: "Resolved", resolvedAt: new Date().toISOString() } : i)));
+          }
           if (incId) {
-            setIncidents((prev) => prev.filter((i) => i.id !== incId && i.sosId !== incId));
             setAlerts((prev) => prev.filter((a) => a.incidentId !== incId && a.sosId !== incId && a.id !== incId));
           }
         } catch {}
@@ -9241,11 +9322,9 @@ function App() {
           const d = JSON.parse(evt.data);
           const up = d.incident || d.payload?.incident;
           if (up) {
-            if (up.status === "Resolved" || up.status === "False Alarm" || up.isQuarantined) {
-              setIncidents((prev) => prev.filter((i) => i.id !== up.id && i.sosId !== up.sosId));
+            setIncidents((prev) => [up, ...prev.filter((i) => i.id !== up.id && i.sosId !== up.id)]);
+            if (up.status === "Resolved" || up.status === "False Alarm") {
               setAlerts((prev) => prev.filter((a) => a.incidentId !== up.id && a.sosId !== up.sosId && a.id !== up.id));
-            } else {
-              setIncidents((prev) => [up, ...prev.filter((i) => i.id !== up.id)]);
             }
           }
         } catch {}
@@ -9256,7 +9335,7 @@ function App() {
           const d = JSON.parse(evt.data);
           const inc = d.incident || d.payload?.incident;
           if (inc) {
-            setIncidents((prev) => [inc, ...prev.filter((i) => i.id !== inc.id)]);
+            setIncidents((prev) => [inc, ...prev.filter((i) => i.id !== inc.id && i.sosId !== inc.id)]);
           }
           const team = d.team || d.payload?.team;
           if (team) {
@@ -9270,7 +9349,7 @@ function App() {
           const d = JSON.parse(evt.data);
           const inc = d.incident || d.payload?.incident;
           if (inc) {
-            setIncidents((prev) => [inc, ...prev.filter((i) => i.id !== inc.id)]);
+            setIncidents((prev) => [inc, ...prev.filter((i) => i.id !== inc.id && i.sosId !== inc.id)]);
           }
         } catch {}
       });
@@ -9280,7 +9359,7 @@ function App() {
           const d = JSON.parse(evt.data);
           const inc = d.incident || d.payload?.incident;
           if (inc) {
-            setIncidents((prev) => [inc, ...prev.filter((i) => i.id !== inc.id)]);
+            setIncidents((prev) => [inc, ...prev.filter((i) => i.id !== inc.id && i.sosId !== inc.id)]);
           } else {
             loadInitialData();
           }
@@ -9314,7 +9393,7 @@ function App() {
           const d = JSON.parse(evt.data);
           const up = d.incident || d.payload?.incident;
           if (up) {
-            setIncidents((prev) => [up, ...prev.filter((i) => i.id !== up.id)]);
+            setIncidents((prev) => [up, ...prev.filter((i) => i.id !== up.id && i.sosId !== up.id)]);
             notify(`🚨 SOS CLUSTER UPDATED: Incident ${up.id} now has ${up.reporter_count || 2} reports in 500m zone.`);
           }
         } catch {}
@@ -9406,9 +9485,9 @@ function App() {
   };
 
   const handleFalseAlarm = async (id) => {
-    setIncidents((prev) => prev.filter((i) => i.id !== id && i.sosId !== id));
+    setIncidents((prev) => prev.map((i) => (i.id === id || i.sosId === id ? { ...i, status: "False Alarm", isDismissed: true, falseAlarmAt: new Date().toISOString() } : i)));
     setAlerts((prev) => prev.filter((a) => a.incidentId !== id && a.sosId !== id && a.id !== id));
-    notify(`Incident ${id} marked as False Alarm and removed from dashboard.`);
+    notify(`Incident ${id} marked as False Alarm.`);
     try {
       await apiFetch(`/incidents/${id}/false-alarm`, { method: "POST" });
       loadInitialData();
@@ -9419,9 +9498,9 @@ function App() {
   };
 
   const handleDismiss = async (id) => {
-    setIncidents((prev) => prev.filter((i) => i.id !== id && i.sosId !== id));
+    setIncidents((prev) => prev.map((i) => (i.id === id || i.sosId === id ? { ...i, status: "False Alarm", isDismissed: true, falseAlarmAt: new Date().toISOString() } : i)));
     setAlerts((prev) => prev.filter((a) => a.incidentId !== id && a.sosId !== id && a.id !== id));
-    notify(`Incident ${id} dismissed from active dashboard.`);
+    notify(`Incident ${id} dismissed.`);
     try {
       await apiFetch(`/incidents/${id}/false-alarm`, {
         method: "POST",
@@ -9436,9 +9515,9 @@ function App() {
   };
 
   const handleResolve = async (id) => {
-    setIncidents((prev) => prev.filter((i) => i.id !== id && i.sosId !== id));
+    setIncidents((prev) => prev.map((i) => (i.id === id || i.sosId === id ? { ...i, status: "Resolved", resolvedAt: new Date().toISOString() } : i)));
     setAlerts((prev) => prev.filter((a) => a.incidentId !== id && a.sosId !== id && a.id !== id));
-    notify(`Incident / SOS ${id} marked as RESOLVED and cleared from active map.`);
+    notify(`Incident / SOS ${id} marked as RESOLVED.`);
     try {
       await apiFetch(`/incidents/${id}/resolve`, { method: "POST" });
       loadInitialData();

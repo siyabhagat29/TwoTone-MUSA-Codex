@@ -166,6 +166,273 @@ const initialShelters = [
 // Dynamic real-world logged-in users only - NO hardcoded users
 const initialUsers = [];
 
+const initialIncidents = [
+  {
+    id: "INC-1000",
+    sosId: null,
+    type: "FLOOD_REPORT",
+    incident_type: "FLOOD_REPORT",
+    source: "CITIZEN_REPORT",
+    reporter: "Sanjay Gupta",
+    role: "Shop Owner",
+    userPhone: "+91 98200 12345",
+    time: "10:30 AM",
+    userTimestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
+    timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
+    createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
+    resolvedAt: new Date(Date.now() - 3600000 * 18).toISOString(),
+    status: "Resolved",
+    severity: 0,
+    originalSeverity: 65,
+    cause: "Suspected Blocked Drain",
+    causeCode: "SUSPECTED_BLOCKED_DRAIN",
+    causeDescription: "Roadside stormwater inlet blocked by plastic packaging debris outside hardware store.",
+    recommendedTeam: "Municipal Cleaning & Desilting Crew",
+    recommendedTeamId: "TEAM-01",
+    assignedTeam: "Municipal Cleaning & Desilting Crew",
+    assignedTeamPhone: "+91 98200 55663",
+    dispatched: true,
+    dispatchProgress: "resolved",
+    waterLevel: 22,
+    drainObservation: "Blocked",
+    onsetSpeed: "10–20 min",
+    recurrence: "Yes",
+    lat: 19.1197,
+    lng: 72.8988,
+    address: "Powai Plaza, Central Avenue, Powai",
+    note: "Water level cleared after municipal pump operated for 2 hours.",
+    photo: true,
+    photoUrl: "/uploads/sample_flood_photo.jpg",
+    video: false,
+    videoUrl: null,
+    mediaType: "photo",
+    gps: true,
+    liveGps: true,
+    cvConfidence: 92,
+    cvConfidenceDecimal: 0.92,
+    aiVerified: true,
+    aiFloodConfidence: 0.92,
+    cvModelLabel: "WATER_SURFACE_DETECTED",
+    cvStatus: "Verified",
+    reporter_count: 1
+  },
+  {
+    id: "INC-1001",
+    sosId: null,
+    type: "FLOOD_REPORT",
+    incident_type: "FLOOD_REPORT",
+    source: "CITIZEN_REPORT",
+    reporter: "Pooja Merchant",
+    role: "Area Resident",
+    userPhone: "+91 98190 22334",
+    time: "02:15 PM",
+    userTimestamp: new Date(Date.now() - 3600000 * 6).toISOString(),
+    timestamp: new Date(Date.now() - 3600000 * 6).toISOString(),
+    createdAt: new Date(Date.now() - 3600000 * 6).toISOString(),
+    status: "Verified",
+    severity: 74,
+    cause: "Surface Runoff Accumulation",
+    causeCode: "SURFACE_RUNOFF",
+    causeDescription: "Low-lying intersection accumulation following intense localized cloudburst.",
+    recommendedTeam: "High-Volume Dewatering Pump Unit",
+    recommendedTeamId: "TEAM-02",
+    waterLevel: 38,
+    drainObservation: "Unsure",
+    onsetSpeed: "<10 min",
+    recurrence: "Yes",
+    lat: 19.1320,
+    lng: 72.8480,
+    address: "S.V. Road Station Subway, Andheri West",
+    note: "Subway depth reaching 38cm, vehicles getting stuck.",
+    photo: true,
+    photoUrl: "/uploads/sample_flood_photo.jpg",
+    video: false,
+    videoUrl: null,
+    mediaType: "photo",
+    gps: true,
+    liveGps: true,
+    cvConfidence: 95,
+    cvConfidenceDecimal: 0.95,
+    aiVerified: true,
+    aiFloodConfidence: 0.95,
+    cvModelLabel: "HIGH_WATER_DEPTH_VERIFIED",
+    cvStatus: "Verified",
+    reporter_count: 2
+  },
+  {
+    id: "INC-1002",
+    sosId: null,
+    type: "FLOOD_REPORT",
+    incident_type: "FLOOD_REPORT",
+    source: "CITIZEN_REPORT",
+    reporter: "Vikram Sethi",
+    role: "Shop Owner",
+    userPhone: "+91 98205 66778",
+    time: "03:45 PM",
+    userTimestamp: new Date(Date.now() - 3600000 * 3).toISOString(),
+    timestamp: new Date(Date.now() - 3600000 * 3).toISOString(),
+    createdAt: new Date(Date.now() - 3600000 * 3).toISOString(),
+    status: "Dispatched",
+    severity: 82,
+    cause: "Culvert Overflow & Drain Choke",
+    causeCode: "CULVERT_OVERFLOW",
+    causeDescription: "Severe water stagnation outside market stalls requiring immediate excavator clearance.",
+    recommendedTeam: "Heavy JCB & Silt Extraction Crew",
+    recommendedTeamId: "TEAM-04",
+    assignedTeam: "Heavy JCB & Silt Extraction Crew",
+    assignedTeamPhone: "+91 98200 44552",
+    dispatched: true,
+    dispatchProgress: "en_route",
+    mitigationStatus: "Resource Allocated",
+    waterLevel: 45,
+    drainObservation: "Blocked",
+    onsetSpeed: "<10 min",
+    recurrence: "Yes",
+    lat: 19.1185,
+    lng: 72.8940,
+    address: "IIT Main Gate Commercial Complex, Powai",
+    note: "Water entering shops through shutter gap.",
+    photo: false,
+    video: true,
+    videoUrl: "/uploads/sample_flood_evidence.mp4",
+    mediaType: "video",
+    gps: true,
+    liveGps: true,
+    cvConfidence: 68,
+    cvConfidenceDecimal: 0.68,
+    aiVerified: false,
+    aiFloodConfidence: 0.68,
+    cvModelLabel: "HUMAN_INTERVENTION_RECOMMENDED",
+    cvStatus: "Review Needed",
+    reporter_count: 3
+  },
+  {
+    id: "INC-1003",
+    sosId: "SOS-2001",
+    type: "SOS",
+    incident_type: "ACTIVE_SOS",
+    source: "MOBILE_SOS",
+    isSos: true,
+    reporter: "Aryan",
+    role: "Shop Owner",
+    userPhone: "+91 98690 01892",
+    emergencyNumber: "+91 77381 22051",
+    time: "04:10 PM",
+    userTimestamp: new Date(Date.now() - 1800000).toISOString(),
+    timestamp: new Date(Date.now() - 1800000).toISOString(),
+    createdAt: new Date(Date.now() - 1800000).toISOString(),
+    status: "ACTIVE_SOS",
+    severity: 95,
+    cause: "🚨 Emergency Life-Safety SOS",
+    causeCode: "SOS_EMERGENCY",
+    causeDescription: "Immediate distress signal triggered by Aryan (Shop Owner). Rapid squad dispatched to active GPS distress coordinate.",
+    recommendedTeam: "Municipal Flood Rescue Fleet",
+    recommendedTeamId: "TEAM-05",
+    assignedTeam: "Municipal Flood Rescue Fleet",
+    assignedTeamPhone: "+91 98200 55663",
+    eta: "3 mins",
+    waterLevel: 55,
+    drainObservation: "Distress / Flooding",
+    onsetSpeed: "Immediate",
+    recurrence: "No",
+    lat: 19.1046,
+    lng: 72.8980,
+    address: "Powai, Powai",
+    note: "EMERGENCY SOS BROADCAST: User Aryan triggered life-safety alarm at Powai, Powai.",
+    photo: false,
+    video: false,
+    mediaType: "none",
+    gps: true,
+    liveGps: true,
+    liveLocation: {
+      latitude: 19.1046,
+      longitude: 72.8980,
+      address: "Powai, Powai",
+      capturedAt: new Date(Date.now() - 1800000).toISOString()
+    },
+    cvConfidence: 100,
+    cvConfidenceDecimal: 1.0,
+    aiVerified: true,
+    aiFloodConfidence: 1.0,
+    cvModelLabel: "EMERGENCY_SOS_DIRECT_DISPATCH",
+    cvStatus: "Verified",
+    reporter_count: 1,
+    reports: [
+      {
+        id: "RPT-1003-01",
+        incident_id: "INC-1003",
+        sos_id: "SOS-2001",
+        user_id: "USR-ARYAN-01",
+        user_name: "Aryan",
+        user_phone: "+91 98690 01892",
+        emergency_number: "+91 77381 22051",
+        role: "Shop Owner",
+        latitude: 19.1046,
+        longitude: 72.8980,
+        lat: 19.1046,
+        lng: 72.8980,
+        address: "Powai, Powai",
+        distance_meters: 0,
+        timestamp: new Date(Date.now() - 1800000).toISOString(),
+        created_at: new Date(Date.now() - 1800000).toISOString()
+      }
+    ]
+  },
+  {
+    id: "INC-1004",
+    sosId: null,
+    type: "FLOOD_REPORT",
+    incident_type: "FLOOD_REPORT",
+    source: "CITIZEN_REPORT",
+    reporter: "Anonymous User",
+    role: "Citizen",
+    time: "11:20 AM",
+    userTimestamp: new Date(Date.now() - 3600000 * 12).toISOString(),
+    timestamp: new Date(Date.now() - 3600000 * 12).toISOString(),
+    createdAt: new Date(Date.now() - 3600000 * 12).toISOString(),
+    status: "False Alarm",
+    isDismissed: true,
+    falseAlarmReason: "Flagged as False Alarm by Authority Admin — no standing water on camera inspection.",
+    falseAlarmAt: new Date(Date.now() - 3600000 * 12).toISOString(),
+    severity: 10,
+    lat: 19.1250,
+    lng: 72.8520,
+    address: "Market Lane East, Ward 72",
+    cause: "No Flooding Detected",
+    causeCode: "NORMAL_DRAINAGE",
+    causeDescription: "Report inspected and flagged as dry pavement.",
+    aiVerified: false,
+    cvStatus: "False Alarm",
+    reporter_count: 1
+  },
+  {
+    id: "INC-1005",
+    sosId: null,
+    type: "FLOOD_REPORT",
+    incident_type: "FLOOD_REPORT",
+    source: "CITIZEN_REPORT",
+    reporter: "Flagged Repeat User",
+    userPhone: "+91 99999 00000",
+    role: "Citizen",
+    time: "09:15 AM",
+    userTimestamp: new Date(Date.now() - 3600000 * 16).toISOString(),
+    timestamp: new Date(Date.now() - 3600000 * 16).toISOString(),
+    createdAt: new Date(Date.now() - 3600000 * 16).toISOString(),
+    status: "Quarantined Spam",
+    isQuarantined: true,
+    quarantineReason: "Exceeded false alarm threshold (3 prior false alarms). Automated dispatch suppressed.",
+    severity: 10,
+    lat: 19.1300,
+    lng: 72.8450,
+    address: "Station Road Subway Outskirts",
+    cause: "⚠️ Auto-Quarantined Spam Submission",
+    causeCode: "SOS_FLAGGED_USER",
+    causeDescription: "Distress signal from user with 3 prior false alarms. Automated SMS suppressed to protect emergency lines.",
+    aiVerified: false,
+    reporter_count: 1
+  }
+];
+
 const initialChronicBlockages = [
   {
     id: "BLK-01",
@@ -535,7 +802,16 @@ class Store {
         const raw = fs.readFileSync(DB_FILE, "utf-8");
         const data = JSON.parse(raw);
         this.zones = data.zones?.length ? data.zones : this.zones;
-        this.incidents = data.incidents || [];
+        if (data.incidents && data.incidents.length > 0) {
+          this.incidents = data.incidents;
+          for (const initInc of initialIncidents) {
+            if (!this.incidents.some((i) => i.id === initInc.id)) {
+              this.incidents.push({ ...initInc });
+            }
+          }
+        } else {
+          this.incidents = [...initialIncidents];
+        }
         this.alerts = data.alerts || [];
         this.dispatches = data.dispatches || [];
         this.resources = data.resources?.length ? data.resources : this.resources;
@@ -2044,7 +2320,17 @@ class Store {
   clearAllSosAlerts() {
     this.sosAlerts = [];
     this.alerts = (this.alerts || []).filter((a) => !a.isSos && a.type !== "SOS");
-    this.incidents = (this.incidents || []).filter((i) => !i.isSos && i.type !== "SOS");
+    // Mark any active SOS incidents as Resolved so they remain permanently in the persistent database history
+    for (const inc of this.incidents || []) {
+      if (inc.isSos || inc.type === "SOS" || inc.status === "ACTIVE_SOS") {
+        if (inc.status !== "Resolved" && inc.status !== "False Alarm") {
+          inc.status = "Resolved";
+          inc.resolvedAt = inc.resolvedAt || new Date().toISOString();
+          inc.originalSeverity = inc.originalSeverity || inc.severity;
+          inc.severity = 0;
+        }
+      }
+    }
     this.dispatches = [];
     if (this.resources) {
       for (const r of this.resources) {
