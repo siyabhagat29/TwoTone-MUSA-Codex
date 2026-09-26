@@ -3062,51 +3062,6 @@ function Home({
                 )}
               </View>
             </View>
-
-            {/* Nearby Discovered Emergency Resources for Active SOS */}
-            {Array.isArray(sosActiveData.nearbyResources || sosActiveData.nearby_resources || sosActiveData.incident?.nearbyResources) &&
-              (sosActiveData.nearbyResources || sosActiveData.nearby_resources || sosActiveData.incident?.nearbyResources).length > 0 && (
-                <View style={{ background: "#FEF2F2", borderColor: "#FCA5A5", borderWidth: 1, borderRadius: 10, padding: 10, marginTop: 4 }}>
-                  <Text style={{ fontSize: 11, fontWeight: "800", color: "#991B1B", marginBottom: 6 }}>
-                    📍 Nearby Emergency Resources Discovered Around SOS:
-                  </Text>
-                  {(sosActiveData.nearbyResources || sosActiveData.nearby_resources || sosActiveData.incident?.nearbyResources).slice(0, 3).map((res, rIdx) => {
-                    const navUrl = res.mapsUrl || res.navigateUrl || ((res.lat || res.latitude) && (res.lng || res.longitude) ? `https://www.google.com/maps/dir/?api=1&destination=${res.lat || res.latitude},${res.lng || res.longitude}&travelmode=driving` : null);
-                    return (
-                      <View key={res.id || rIdx} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 5, borderTopWidth: rIdx > 0 ? 0.5 : 0, borderColor: "#FECACA" }}>
-                        <View style={{ flex: 1, marginRight: 8 }}>
-                          <Text style={{ fontSize: 11, fontWeight: "700", color: "#1F2937" }} numberOfLines={1}>
-                            {res.icon || "🚒"} {res.name}
-                          </Text>
-                          <Text style={{ fontSize: 10, color: "#6B7280" }}>
-                            ⚡ {res.distanceKm != null ? `${res.distanceKm} km` : "~0.5 km"} · {res.category || "Emergency"}
-                          </Text>
-                        </View>
-                        <View style={{ flexDirection: "row", gap: 6 }}>
-                          {res.phone && (
-                            <TouchableOpacity
-                              onPress={() => Linking.openURL(`tel:${res.phone.split("/")[0].trim().replace(/\s+/g, "")}`).catch(() => null)}
-                              style={{ backgroundColor: "#DC2626", paddingVertical: 4, paddingHorizontal: 7, borderRadius: 5, flexDirection: "row", alignItems: "center", gap: 2 }}
-                            >
-                              <Ionicons name="call" size={10} color="#fff" />
-                              <Text style={{ fontSize: 10, color: "#fff", fontWeight: "700" }}>Call</Text>
-                            </TouchableOpacity>
-                          )}
-                          {navUrl && (
-                            <TouchableOpacity
-                              onPress={() => Linking.openURL(navUrl).catch(() => null)}
-                              style={{ backgroundColor: "#2563EB", paddingVertical: 4, paddingHorizontal: 7, borderRadius: 5, flexDirection: "row", alignItems: "center", gap: 2 }}
-                            >
-                              <Ionicons name="navigate" size={10} color="#fff" />
-                              <Text style={{ fontSize: 10, color: "#fff", fontWeight: "700" }}>Map</Text>
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
           </View>
         );
       })()}
