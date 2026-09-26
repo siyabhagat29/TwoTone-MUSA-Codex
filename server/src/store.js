@@ -13,7 +13,7 @@ import { fetchLiveWeather, fetchFloodMetrics, reverseGeocode } from "./weatherSe
 import { triggerPagerDutySos } from "./pagerdutyService.js";
 import { sendSosSms } from "./twilioService.js";
 import { uploadPhotoToSupabase, uploadVideoToSupabase, syncIncidentToSupabase, sendAuthorityIncidentEmail } from "./supabaseService.js";
-import { fetchLiveNearbyEmergencyServices } from "./googlePlacesService.js";
+import { fetchLiveNearbyEmergencyServices, fetchLiveNearbyShops } from "./googlePlacesService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -163,56 +163,8 @@ const initialShelters = [
   }
 ];
 
-const initialUsers = [
-  {
-    user_id: "USR-MUM-01",
-    display_name: "Rahul",
-    role: "Shop Owner",
-    phone: "+919820011001",
-    latitude: 19.1330,
-    longitude: 72.8490,
-    last_location_update: new Date().toISOString(),
-    location_sharing_enabled: true,
-    is_online: true,
-    push_token: null
-  },
-  {
-    user_id: "USR-MUM-02",
-    display_name: "Priya",
-    role: "Resident",
-    phone: "+919820011002",
-    latitude: 19.1365,
-    longitude: 72.8520,
-    last_location_update: new Date().toISOString(),
-    location_sharing_enabled: true,
-    is_online: true,
-    push_token: null
-  },
-  {
-    user_id: "USR-MUM-03",
-    display_name: "Karan",
-    role: "Shop Owner",
-    phone: "+919820011003",
-    latitude: 19.1280,
-    longitude: 72.8430,
-    last_location_update: new Date().toISOString(),
-    location_sharing_enabled: true,
-    is_online: true,
-    push_token: null
-  },
-  {
-    user_id: "USR-MUM-04",
-    display_name: "Anjali",
-    role: "Resident",
-    phone: "+919820011004",
-    latitude: 19.1410,
-    longitude: 72.8560,
-    last_location_update: new Date().toISOString(),
-    location_sharing_enabled: true,
-    is_online: true,
-    push_token: null
-  }
-];
+// Dynamic real-world logged-in users only - NO hardcoded users
+const initialUsers = [];
 
 const initialChronicBlockages = [
   {
@@ -1779,20 +1731,46 @@ class Store {
   }
 
   /**
-   * Dynamic Nearby Flood Buddies Discovery
-   * Filters out current user, applies configurable radius, checks location sharing,
-   * calculates distance from GPS, and attaches any active flood alert near each buddy.
+   * Dynamic Nearby Flood Buddies & Shops Discovery
+   * Combines active logged-in users and real-world live commercial shops
+   * fetched dynamically from Google Maps Places API & OpenStreetMap.
+   * Strictly non-hardcoded; filters by exact requested GPS radius.
    */
-  getNearbyFloodBuddies({ latitude, longitude, radius = 5000, currentUserId = null, maxAgeMinutes = 120 } = {}) {
+  async getNearbyFloodBuddies({
+    latitude,
+    longitude,
+    radius = 5000,
+    currentUserId = null,
+    currentUserName = null,
+    currentUserPhone = null,
+    maxAgeMinutes = 120
+  } = {}) {
     const currentLat = latitude != null ? Number(latitude) : 19.1320;
     const currentLng = longitude != null ? Number(longitude) : 72.8480;
     const radiusMeters = Number(radius) || 5000;
     const nowMs = Date.now();
     const buddies = [];
+    const seenIds = new Set();
 
+    const cleanCurrentId = currentUserId ? String(currentUserId).trim().toLowerCase() : "";
+    const cleanCurrentName = currentUserName ? String(currentUserName).trim().toLowerCase() : "";
+    const cleanCurrentPhone = currentUserPhone ? String(currentUserPhone).replace(/\D/g, "") : "";
+
+    const activeAlerts = (this.alerts || []).filter(a => a.status !== "Resolved" && a.status !== "False Alarm");
+
+    // 1. Process active registered users in system
     for (const u of (this.users || [])) {
-      // Exclude current user from their own list
-      if (currentUserId && (u.user_id === currentUserId || u.phone === currentUserId || (u.display_name && u.display_name === currentUserId))) {
+      const uId = String(u.user_id || u.id || "").trim().toLowerCase();
+      const uName = String(u.display_name || u.name || "").trim().toLowerCase();
+      const uPhone = String(u.phone || "").replace(/\D/g, "");
+
+      // 100% exclude self: by ID, display name, phone, or cross-match
+      const isSelf =
+        (cleanCurrentId && (uId === cleanCurrentId || uName === cleanCurrentId || (cleanCurrentPhone && uPhone === cleanCurrentPhone))) ||
+        (cleanCurrentName && (uName === cleanCurrentName || uId === cleanCurrentName || uName.includes(cleanCurrentName) || cleanCurrentName.includes(uName))) ||
+        (cleanCurrentPhone && cleanCurrentPhone.length >= 7 && uPhone && (uPhone.includes(cleanCurrentPhone) || cleanCurrentPhone.includes(uPhone)));
+
+      if (isSelf) {
         continue;
       }
 
@@ -1821,7 +1799,6 @@ class Store {
       // Determine active alerts affecting this buddy
       let nearbyAlert = null;
       let closestAlertDist = Infinity;
-      const activeAlerts = (this.alerts || []).filter(a => a.status !== "Resolved" && a.status !== "False Alarm");
       for (const alt of activeAlerts) {
         const aLat = alt.lat ?? alt.latitude;
         const aLng = alt.lng ?? alt.longitude;
@@ -1842,6 +1819,8 @@ class Store {
         }
       }
 
+      const buddyId = u.user_id;
+      seenIds.add(buddyId);
       buddies.push({
         user_id: u.user_id,
         display_name: u.display_name || u.name || "Citizen",
@@ -1858,6 +1837,68 @@ class Store {
         is_online: ageMinutes <= 15,
         nearby_alert: nearbyAlert
       });
+    }
+
+    // 2. Discover live nearby commercial shops from Google Maps & OpenStreetMap
+    try {
+      const radKm = radiusMeters / 1000;
+      const mapShops = await fetchLiveNearbyShops(currentLat, currentLng, radKm);
+      for (const shop of mapShops) {
+        const shopId = shop.user_id || shop.id;
+        if (seenIds.has(shopId)) continue;
+        if (currentUserId && (shopId === currentUserId || shop.display_name === currentUserId)) continue;
+
+        const sLat = shop.latitude ?? shop.lat;
+        const sLng = shop.longitude ?? shop.lng;
+        let nearbyAlert = null;
+        let closestAlertDist = Infinity;
+
+        if (sLat != null && sLng != null) {
+          for (const alt of activeAlerts) {
+            const aLat = alt.lat ?? alt.latitude;
+            const aLng = alt.lng ?? alt.longitude;
+            if (aLat != null && aLng != null && !isNaN(Number(aLat)) && !isNaN(Number(aLng))) {
+              const d = calcExactDistanceMeters(sLat, sLng, Number(aLat), Number(aLng));
+              if (d <= 3000 && d < closestAlertDist) {
+                closestAlertDist = d;
+                nearbyAlert = {
+                  id: alt.id,
+                  type: alt.type || alt.source || "FLOOD_RISK",
+                  title: alt.title || "Flood Risk Warning",
+                  severity: (alt.severity || alt.level || "HIGH").toUpperCase(),
+                  description: alt.description || alt.message || "Heavy rainfall and water accumulation detected near area.",
+                  distance_meters: Math.round(d),
+                  distance_km: Math.round(d / 100) / 10
+                };
+              }
+            }
+          }
+        }
+
+        seenIds.add(shopId);
+        buddies.push({
+          user_id: shopId,
+          display_name: shop.display_name || shop.name,
+          role: "Shop Owner",
+          shopType: shop.shopType || "Retail Store",
+          address: shop.address || "Local Area Store",
+          distance_meters: shop.distance_meters,
+          distance_km: shop.distance_km,
+          distanceM: shop.distance_meters,
+          name: shop.display_name || shop.name,
+          owner: shop.display_name || shop.name,
+          id: shopId,
+          location_updated_at: new Date(nowMs).toISOString(),
+          age_minutes: 0,
+          freshness_label: "Live Map",
+          is_online: true,
+          is_map_shop: true,
+          source: shop.source || "Google Maps",
+          nearby_alert: nearbyAlert
+        });
+      }
+    } catch (err) {
+      console.warn("[getNearbyFloodBuddies] Live map shop discovery notice:", err.message);
     }
 
     // Sort by proximity: nearest first
@@ -2193,6 +2234,8 @@ class Store {
       const nearbyUnitsForMerge = this.getEmergencyServices(lat, lng);
       targetInc.nearbyResources = nearbyUnitsForMerge;
       targetInc.nearbyServices = nearbyUnitsForMerge;
+      const designatedAuthority = targetInc.assignedTeam || targetInc.recommendedTeam || (nearbyUnitsForMerge[0] ? nearbyUnitsForMerge[0].name : "Municipal Emergency Rescue Squad");
+      const designatedPhone = targetInc.assignedTeamPhone || (nearbyUnitsForMerge[0] ? nearbyUnitsForMerge[0].phone : "+91 98200 55663");
 
       return {
         status: "merged",
@@ -2202,15 +2245,15 @@ class Store {
         reporter_count: targetInc.reporter_count,
         first_reported_at: targetInc.first_reported_at || targetInc.createdAt,
         last_reported_at: targetInc.last_reported_at || userTimestamp,
-        message: "Your emergency report has been added to an existing nearby emergency alert.",
+        message: `Single Authority Lock: ${designatedAuthority} is assigned to take action for all citizens in this 500m emergency sector.`,
         incident: targetInc,
         nearbyResources: nearbyUnitsForMerge,
         nearby_resources: nearbyUnitsForMerge,
         nearbyServices: nearbyUnitsForMerge,
         nearestResource: targetInc.nearestResource || nearbyUnitsForMerge[0],
         success: true,
-        assignedTeam: targetInc.assignedTeam || targetInc.recommendedTeam,
-        teamPhone: targetInc.assignedTeamPhone,
+        assignedTeam: designatedAuthority,
+        teamPhone: designatedPhone,
         eta: targetInc.eta || "4–6 min"
       };
     }
@@ -2300,6 +2343,10 @@ class Store {
         : `Immediate distress signal triggered by ${userName} (${role}). User Phone: ${userPhone} · Emergency Contact: ${emergencyNumber}`,
       recommendedTeam: rescueTeam.name,
       recommendedTeamId: rescueTeam.id,
+      assignedTeam: rescueTeam.name,
+      assignedTeamPhone: rescueTeam.phone,
+      assignedResource: rescueTeam,
+      eta: computedEta,
       nearestResource: rescueTeam,
       nearbyResources: nearbyUnits,
       nearbyServices: nearbyUnits,
@@ -2439,11 +2486,17 @@ class Store {
   sendFloodBuddyNotification({ recipientId, senderId, senderName, senderRole, alertId = null, customMessage = null }) {
     if (!recipientId) throw new Error("Recipient ID is required");
 
-    const recipient = (this.users || []).find(
+    let recipient = (this.users || []).find(
       u => u.user_id === recipientId || u.id === recipientId || u.phone === recipientId || u.display_name === recipientId
     );
     if (!recipient) {
-      throw new Error(`Recipient user not found (${recipientId})`);
+      const cleanName = recipientId.replace(/^SHOP-(?:OSM-)?/, "").replace(/_/g, " ");
+      recipient = {
+        user_id: recipientId,
+        display_name: cleanName || "Nearby Merchant / Shop",
+        role: "Shop Owner",
+        location_sharing_enabled: true
+      };
     }
 
     if (recipient.location_sharing_enabled === false) {
@@ -2470,15 +2523,16 @@ class Store {
     this.notificationCooldowns[cooldownKey] = now;
 
     const alert = alertId ? (this.alerts || []).find(a => a.id === alertId) : null;
-    const title = `🚨 ${actualSenderName} warned you`;
+    const title = `🚨 ${actualSenderName} is notifying you`;
     let body = customMessage || (alert
-      ? `${alert.title || "High flood risk"} has been detected near your area. Please be prepared.`
-      : `Flood risk has been detected near your area. Please be prepared.`);
+      ? `${alert.title || "Flood chance can arrive near your area"}. Please be prepared.`
+      : `Flood chance can arrive near your area! Please take precautions and secure your shop.`);
 
     const notification = {
       id: `NOTIF-${Date.now().toString().slice(-5)}`,
       recipient_user_id: recipient.user_id,
       recipient_name: recipient.display_name,
+      recipient_phone: recipient.phone || null,
       sender_user_id: senderId || "USR-ANON",
       sender_name: actualSenderName,
       sender_role: actualSenderRole,
@@ -2537,15 +2591,32 @@ class Store {
 
   getUserNotifications(userId) {
     if (!userId) return [];
-    return (this.notifications || []).filter(
-      n => n.recipient_user_id === userId || n.recipient_name === userId
-    );
+    const cleanId = String(userId).trim().toLowerCase();
+    return (this.notifications || []).filter(n => {
+      if (!n) return false;
+      const recId = String(n.recipient_user_id || "").toLowerCase();
+      const recName = String(n.recipient_name || "").toLowerCase();
+      const recPhone = String(n.recipient_phone || "").toLowerCase().replace(/\D/g, "");
+      const cleanDigits = cleanId.replace(/\D/g, "");
+
+      return recId === cleanId ||
+             recName === cleanId ||
+             (cleanDigits.length >= 7 && recPhone.includes(cleanDigits)) ||
+             recId.includes(cleanId) ||
+             cleanId.includes(recId) ||
+             recName.includes(cleanId) ||
+             cleanId.includes(recName);
+    });
   }
 
   markNotificationRead(userId, notifId) {
-    const notif = (this.notifications || []).find(
-      n => n.id === notifId && (n.recipient_user_id === userId || n.recipient_name === userId)
-    );
+    const cleanId = String(userId || "").trim().toLowerCase();
+    const notif = (this.notifications || []).find(n => {
+      if (n.id !== notifId) return false;
+      const recId = String(n.recipient_user_id || "").toLowerCase();
+      const recName = String(n.recipient_name || "").toLowerCase();
+      return !userId || recId === cleanId || recName === cleanId || recId.includes(cleanId) || cleanId.includes(recId);
+    });
     if (notif) {
       notif.read_at = new Date().toISOString();
       notif.status = "read";

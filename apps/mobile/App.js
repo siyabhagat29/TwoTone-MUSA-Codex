@@ -1445,6 +1445,9 @@ export default function App() {
   const [sosCooldown, setSosCooldown] = useState(0);
   const [sosActiveData, setSosActiveData] = useState(null);
 
+  // Incoming Realtime Flood Buddy Warning Popup Modal State
+  const [incomingWarning, setIncomingWarning] = useState(null);
+
   // Report Modal
   const [reportOpen, setReportOpen] = useState(false);
 
@@ -1606,6 +1609,23 @@ export default function App() {
         setFloodBuddies(bList);
       }
       if (lRes.ok) setLightning(await lRes.json());
+
+      // Keep active user presence & GPS location continuously fresh in DB for Flood Buddy discovery
+      if (userProfile && lat != null && lng != null) {
+        fetchWithTimeout(`${apiUrl}/users/location`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: userProfile.id || userProfile.phone || userProfile.name,
+            display_name: userProfile.name || "Citizen",
+            role: userProfile.role || role || "Shop Owner",
+            phone: userProfile.phone || null,
+            latitude: Number(lat),
+            longitude: Number(lng),
+            location_sharing_enabled: true
+          })
+        }, 2000).catch(() => {});
+      }
     } catch (err) {
       console.warn("[mobile] API fetch notice:", err.message);
     } finally {
@@ -1697,13 +1717,14 @@ export default function App() {
 
     const checkIncomingNotifications = async () => {
       try {
-        const res = await fetchWithTimeout(`${apiUrl}/users/${encodeURIComponent(currentUserId)}/notifications`, {}, 3000);
+        const res = await fetchWithTimeout(`${apiUrl}/users/${encodeURIComponent(currentUserId)}/notifications`, {}, 2500);
         if (res.ok) {
           const data = await res.json();
           const list = data.notifications || [];
           const unread = list.filter((n) => n.status === "unread");
           if (unread.length > 0) {
             const latest = unread[0];
+            setIncomingWarning(latest);
             Alert.alert(latest.title, latest.body);
             // Mark as read so alert doesn't fire repeatedly
             fetchWithTimeout(`${apiUrl}/users/${encodeURIComponent(currentUserId)}/notifications/${latest.id}/read`, {
@@ -1715,7 +1736,7 @@ export default function App() {
     };
 
     checkIncomingNotifications();
-    const interval = setInterval(checkIncomingNotifications, 5000);
+    const interval = setInterval(checkIncomingNotifications, 2500);
     return () => clearInterval(interval);
   }, [apiUrl, userProfile]);
 
@@ -2015,6 +2036,47 @@ export default function App() {
           </View>
         </View>
       </Modal>
+
+      {/* Realtime Flood Buddy Warning Popup Modal */}
+      {incomingWarning && (
+        <Modal visible={!!incomingWarning} transparent animationType="fade">
+          <View style={s.modalBack}>
+            <View style={[s.modal, { borderColor: RED, borderWidth: 2.5, backgroundColor: "#FFF", elevation: 10 }]}>
+              <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: "#FEE2E2", alignItems: "center", justifyContent: "center", alignSelf: "center", marginBottom: 10 }}>
+                <Ionicons name="notifications-circle" size={38} color={RED} />
+              </View>
+              <Text style={[s.modalTitle, { color: RED, textAlign: "center", fontSize: 16 }]}>
+                {incomingWarning.title || "🚨 Nearby Shop Warning!"}
+              </Text>
+              <Text style={{ fontSize: 12, color: NAVY, fontWeight: "700", textAlign: "center", marginTop: 8, lineHeight: 18 }}>
+                {incomingWarning.body}
+              </Text>
+              <View style={{ backgroundColor: "#FEF2F2", borderRadius: 10, padding: 10, marginTop: 12, borderWidth: 1, borderColor: "#FECACA" }}>
+                <Text style={{ fontSize: 10, color: "#991B1B", fontWeight: "800", textAlign: "center" }}>
+                  ⚠️ Flood warning from {incomingWarning.sender_name || "Neighboring Shopkeeper"} ({incomingWarning.sender_role || "Shop Owner"})
+                </Text>
+              </View>
+              <View style={{ flexDirection: "row", gap: 10, marginTop: 16 }}>
+                <TouchableOpacity
+                  style={[s.primary, { flex: 1, backgroundColor: BLUE }]}
+                  onPress={() => {
+                    setIncomingWarning(null);
+                    setTab("Buddy");
+                  }}
+                >
+                  <Text style={s.primaryText}>👥 View Flood Buddy</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[s.primary, { flex: 1, backgroundColor: NAVY }]}
+                  onPress={() => setIncomingWarning(null)}
+                >
+                  <Text style={s.primaryText}>Acknowledge</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
 
       {/* Location Selector Modal */}
       <LocationSelectorModal
@@ -4297,27 +4359,48 @@ function FloodBuddyScreen({
       </View>
 
       {/* Dynamic List or Clean Empty State */}
-      {localBuddies.length === 0 ? (
-        <View style={{ padding: 36, alignItems: "center", backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "#E2E8F0", marginTop: 6 }}>
-          <Text style={{ fontSize: 34, marginBottom: 8 }}>👥</Text>
-          <Text style={{ fontSize: 13, fontWeight: "800", color: NAVY, marginBottom: 4 }}>
-            No nearby Flood Buddies found.
-          </Text>
-          <Text style={{ fontSize: 11, color: MUTED, textAlign: "center", lineHeight: 16 }}>
-            Flood Buddy will show nearby users when they become available within {selectedRadius / 1000} km.
-          </Text>
-          <TouchableOpacity
-            onPress={() => fetchBuddies()}
-            style={{ marginTop: 14, backgroundColor: BLUE, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 6 }}
-          >
-            <Ionicons name="refresh" size={14} color="#fff" />
-            <Text style={{ color: "#fff", fontSize: 11, fontWeight: "800" }}>Refresh Discovery</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <View style={{ gap: 10 }}>
-          {localBuddies.map((buddy) => {
-            const buddyId = buddy.user_id || buddy.id;
+      {(() => {
+        const myId = String(userProfile?.id || "").trim().toLowerCase();
+        const myName = String(userProfile?.name || "").trim().toLowerCase();
+        const myPhone = String(userProfile?.phone || "").replace(/\D/g, "");
+
+        const displayBuddies = (localBuddies || []).filter((b) => {
+          if (!b) return false;
+          const bId = String(b.user_id || b.id || "").trim().toLowerCase();
+          const bName = String(b.display_name || b.name || "").trim().toLowerCase();
+          const bPhone = String(b.phone || "").replace(/\D/g, "");
+
+          if (myId && (bId === myId || bName === myId)) return false;
+          if (myName && (bName === myName || bId === myName || (myName.length >= 3 && (bName === myName || bName.startsWith(myName + " ") || bName.endsWith(" " + myName))))) return false;
+          if (myPhone && myPhone.length >= 7 && bPhone && (bPhone.includes(myPhone) || myPhone.includes(bPhone))) return false;
+          return true;
+        });
+
+        if (displayBuddies.length === 0) {
+          return (
+            <View style={{ padding: 36, alignItems: "center", backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "#E2E8F0", marginTop: 6 }}>
+              <Text style={{ fontSize: 34, marginBottom: 8 }}>👥</Text>
+              <Text style={{ fontSize: 13, fontWeight: "800", color: NAVY, marginBottom: 4 }}>
+                No nearby Flood Buddies found.
+              </Text>
+              <Text style={{ fontSize: 11, color: MUTED, textAlign: "center", lineHeight: 16 }}>
+                Flood Buddy will show nearby users and shops when they become available within {selectedRadius / 1000} km.
+              </Text>
+              <TouchableOpacity
+                onPress={() => fetchBuddies()}
+                style={{ marginTop: 14, backgroundColor: BLUE, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 6 }}
+              >
+                <Ionicons name="refresh" size={14} color="#fff" />
+                <Text style={{ color: "#fff", fontSize: 11, fontWeight: "800" }}>Refresh Discovery</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        }
+
+        return (
+          <View style={{ gap: 10 }}>
+            {displayBuddies.map((buddy) => {
+              const buddyId = buddy.user_id || buddy.id;
             const isShop = buddy.role === "Shop Owner";
             const roleIcon = isShop ? "🏪" : "🏠";
             const distKm = buddy.distance_km != null ? buddy.distance_km : (buddy.distance_meters / 1000).toFixed(1);
@@ -4339,12 +4422,24 @@ function FloodBuddyScreen({
                             {buddy.role || "Resident"}
                           </Text>
                         </View>
+                        {buddy.shopType ? (
+                          <View style={{ backgroundColor: "#F1F5F9", paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: "#E2E8F0" }}>
+                            <Text style={{ fontSize: 8.5, fontWeight: "700", color: "#475569" }}>
+                              🏬 {buddy.shopType}
+                            </Text>
+                          </View>
+                        ) : null}
                       </View>
+                      {buddy.address ? (
+                        <Text style={{ fontSize: 10, color: "#64748B", marginTop: 2 }} numberOfLines={1}>
+                          📍 {buddy.address}
+                        </Text>
+                      ) : null}
                       <Text style={{ fontSize: 11, fontWeight: "700", color: BLUE, marginTop: 2 }}>
-                        📍 {distKm} km away
+                        📏 {distKm} km away
                       </Text>
                       <Text style={{ fontSize: 9, color: isOnline ? "#15803D" : MUTED, marginTop: 2, fontWeight: "600" }}>
-                        {isOnline ? "🟢 Active recently" : "⚪ Last active"} · Location updated {buddy.freshness_label || "just now"}
+                        {buddy.is_map_shop ? `🗺️ ${buddy.source || "Google Maps"} · Live Verified Shop` : `${isOnline ? "🟢 Active recently" : "⚪ Last active"} · Location updated ${buddy.freshness_label || "just now"}`}
                       </Text>
                     </View>
                   </View>
@@ -4396,7 +4491,8 @@ function FloodBuddyScreen({
             );
           })}
         </View>
-      )}
+        );
+      })()}
     </ScrollView>
   );
 }

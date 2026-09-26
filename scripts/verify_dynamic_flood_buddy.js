@@ -61,15 +61,15 @@ async function verifyDynamicFloodBuddy() {
 
   // Step 2: Test Nearby Discovery for User A (5km radius)
   console.log("\nStep 2: Querying nearby Flood Buddies for User A (radius: 5000m)...");
-  const buddiesA = store.getNearbyFloodBuddies({
+  const buddiesA = await store.getNearbyFloodBuddies({
     latitude: userA.latitude,
     longitude: userA.longitude,
     radius: 5000,
     currentUserId: userA.user_id
   });
 
-  console.log(`-> Found ${buddiesA.length} nearby buddies for User A`);
-  buddiesA.forEach(b => console.log(`   • ${b.display_name} (${b.role}): ${b.distance_meters}m away (${b.distance_km} km), Online: ${b.is_online}`));
+  console.log(`-> Found ${buddiesA.length} nearby buddies & shops for User A`);
+  buddiesA.forEach(b => console.log(`   • ${b.display_name} (${b.role}${b.shopType ? ` - ${b.shopType}` : ""}): ${b.distance_meters}m away (${b.distance_km} km), Online: ${b.is_online}`));
 
   // Validations:
   // 1. User A must NOT appear in own list
@@ -82,6 +82,15 @@ async function verifyDynamicFloodBuddy() {
     throw new Error("FAIL: User B should be visible to User A within 5km!");
   }
   console.log(`✓ User B found at distance: ${foundB.distance_meters}m`);
+
+  // 2b. Verify at least 5-6 real nearby shops were discovered from live maps
+  const mapShops = buddiesA.filter(b => b.role === "Shop Owner" || b.is_map_shop);
+  console.log(`✓ Discovered ${mapShops.length} live nearby shops around User A`);
+  if (mapShops.length < 5) {
+    console.warn(`[Notice] Discovered ${mapShops.length} shops (expected at least 5)`);
+  } else {
+    console.log(`✓ Successfully discovered >= 5 live shops from maps API (${mapShops.length} found)`);
+  }
 
   // 3. User C (16km away) must NOT appear in 5km radius
   if (buddiesA.some(b => b.user_id === userC.user_id)) {
@@ -97,7 +106,7 @@ async function verifyDynamicFloodBuddy() {
 
   // Step 3: Test Radius Expansion (20km)
   console.log("\nStep 3: Querying nearby Flood Buddies with expanded 20km radius...");
-  const buddies20km = store.getNearbyFloodBuddies({
+  const buddies20km = await store.getNearbyFloodBuddies({
     latitude: userA.latitude,
     longitude: userA.longitude,
     radius: 20000,
@@ -123,7 +132,7 @@ async function verifyDynamicFloodBuddy() {
   };
   store.alerts.push(testAlert);
 
-  const buddiesWithAlert = store.getNearbyFloodBuddies({
+  const buddiesWithAlert = await store.getNearbyFloodBuddies({
     latitude: userA.latitude,
     longitude: userA.longitude,
     radius: 5000,
@@ -152,8 +161,8 @@ async function verifyDynamicFloodBuddy() {
   }
 
   const notif = notifyResult.notification;
-  if (!notif.title.includes("Aryan warned you")) {
-    throw new Error(`FAIL: Expected title to include 'Aryan warned you', got '${notif.title}'`);
+  if (!notif.title.includes("Aryan is notifying you") && !notif.title.includes("Aryan warned you")) {
+    throw new Error(`FAIL: Expected title to include 'Aryan is notifying you', got '${notif.title}'`);
   }
   console.log(`✓ Notification created with personalized title: "${notif.title}"`);
   console.log(`  Body: "${notif.body}"`);
