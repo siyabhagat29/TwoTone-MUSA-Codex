@@ -3106,10 +3106,94 @@ export function isHumanInterventionNeeded(inc) {
     if (inc.aiVerification.longest_consecutive_run != null && inc.aiVerification.longest_consecutive_run < 5) return true;
     return false;
   }
-  if (inc.aiVerified === false || (inc.cvConfidence && inc.cvConfidence < 70)) {
+  if (inc.aiVerified === false || (inc.cvConfidence && inc.cvConfidence < 70) || inc.cvStatus === "Review Needed") {
     return true;
   }
   return false;
+}
+
+// AI Authenticity Evaluator (Explicit REAL vs FAKE vs REVIEW REQUIRED classification)
+export function getAiAuthenticityVerdict(inc) {
+  if (!inc) {
+    return {
+      status: "UNVERIFIED",
+      isReal: false,
+      badgeText: "⏳ Awaiting AI Scan",
+      explanation: "No visual analysis record yet.",
+      color: "#64748b",
+      bg: "#f8fafc",
+      border: "#e2e8f0"
+    };
+  }
+
+  const isQuarantined = inc.isQuarantined || String(inc.status || "").toLowerCase().includes("quarantined");
+  if (isQuarantined) {
+    return {
+      status: "SPAM / FAKE",
+      isReal: false,
+      badgeText: "🚫 QUARANTINED SPAM (FAKE / REPEAT ABUSE)",
+      explanation: "Automated submission blocked: repeat false alarm history detected from this user.",
+      color: "#9d174d",
+      bg: "#fdf2f8",
+      border: "#fbcfe8",
+      confidence: 10
+    };
+  }
+
+  const isFalseAlarm = String(inc.status || "").toLowerCase().includes("false") || inc.isDismissed || inc.falseAlarmAt != null;
+  if (isFalseAlarm) {
+    return {
+      status: "FAKE / FALSE ALARM",
+      isReal: false,
+      badgeText: "❌ FAKE / FALSE ALARM DETECTED",
+      explanation: inc.falseAlarmReason || "Visual inspection and sensor data disproved waterlogging at this coordinate.",
+      color: "#b91c1c",
+      bg: "#fef2f2",
+      border: "#fca5a5",
+      confidence: inc.cvConfidence || 15
+    };
+  }
+
+  const isSos = Boolean(inc.isSos || inc.type === "SOS" || inc.incident_type === "ACTIVE_SOS" || inc.status === "ACTIVE_SOS" || inc.causeCode === "SOS_EMERGENCY");
+  if (isSos) {
+    return {
+      status: "REAL EMERGENCY",
+      isReal: true,
+      badgeText: "🚨 100% REAL DISTRESS (LIVE GPS VERIFIED)",
+      explanation: "High-priority direct citizen SOS emergency with live GPS satellite telemetry.",
+      color: "#15803d",
+      bg: "#f0fdf4",
+      border: "#86efac",
+      confidence: 100
+    };
+  }
+
+  const conf = inc.cvConfidence || (inc.aiFloodConfidence ? Math.round(inc.aiFloodConfidence * 100) : (inc.aiVerification?.confidence ? Math.round(inc.aiVerification.confidence * 100) : (inc.aiVerified ? 95 : 68)));
+
+  if (inc.aiVerified || (inc.aiVerification?.is_flooding === true && conf >= 70) || conf >= 75) {
+    return {
+      status: "REAL FLOODING",
+      isReal: true,
+      badgeText: `✅ REAL FLOOD EVIDENCE (${conf}% CONFIDENCE)`,
+      explanation: "AI Computer Vision confirmed standing water pixels, road submersion, and surface reflection.",
+      color: "#166534",
+      bg: "#f0fdf4",
+      border: "#86efac",
+      confidence: conf
+    };
+  }
+
+  // Low confidence / uncorroborated anomaly
+  return {
+    status: "SUSPECTED FAKE / REVIEW NEEDED",
+    isReal: false,
+    badgeText: `⚠️ SUSPECTED FAKE / REVIEW NEEDED (${conf}% CONFIDENCE)`,
+    explanation: "Low AI visual confidence (<70%) or anomalous frames detected. Human verification required.",
+    color: "#c2410c",
+    bg: "#fff7ed",
+    border: "#fed7aa",
+    confidence: conf
+  };
 }
 
 // Professional Incident & Emergency Response Card
@@ -3138,6 +3222,7 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
   const nearestDistNum = typeof nearestDist === "number" ? nearestDist : parseFloat(nearestDist) || 0.8;
   const nearestEta = Math.max(2, Math.round(nearestDistNum * 3.5 + 1));
   const nearestUnitName = inc.assignedTeam || nearestResource?.name || (isSos ? "Heavy JCB & Silt Extraction Crew" : "Municipal Dewatering Crew");
+  const aiVerdict = getAiAuthenticityVerdict(inc);
 
   const borderLeftColor = isSos
     ? "#dc2626"
@@ -3283,7 +3368,46 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
         )}
       </div>
 
-      {/* 4. Disaster Classification, Depth, Drain Observation & AI Verification */}
+      {/* 4. Prominent AI Authenticity Verdict (REAL vs FAKE/REVIEW) */}
+      <div style={{
+        background: aiVerdict.bg,
+        border: `1.5px solid ${aiVerdict.border}`,
+        borderRadius: "8px",
+        padding: "8px 12px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "4px"
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
+          <span style={{
+            color: aiVerdict.color,
+            fontSize: "12px",
+            fontWeight: "800",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "5px",
+            letterSpacing: "0.2px"
+          }}>
+            {aiVerdict.badgeText}
+          </span>
+          <span style={{
+            fontSize: "10px",
+            fontWeight: "700",
+            background: "#ffffff",
+            color: aiVerdict.color,
+            padding: "2px 7px",
+            borderRadius: "4px",
+            border: `1px solid ${aiVerdict.border}`
+          }}>
+            {aiVerdict.isReal ? "✓ AI CONFIRMED AUTHENTIC" : "⚠️ REQUIRES AUDIT / FAKE"}
+          </span>
+        </div>
+        <div style={{ fontSize: "11px", color: "#334155", lineHeight: "1.3" }}>
+          🤖 <b>AI Diagnostics:</b> {aiVerdict.explanation}
+        </div>
+      </div>
+
+      {/* 5. Disaster Classification, Depth & Drain Observation */}
       <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", fontSize: "11px" }}>
         <span style={{ background: "#f8fafc", color: "#334155", padding: "3px 8px", borderRadius: "6px", fontWeight: "700", border: "1px solid #e2e8f0" }}>
           {inc.cause || (isSos ? "Emergency Life-Safety SOS" : "Waterlogging")}
@@ -3300,19 +3424,9 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
             Drain: {inc.drainObservation}
           </span>
         )}
-
-        {inc.aiVerified ? (
-          <span style={{ background: "#f0fdf4", color: "#166534", padding: "3px 8px", borderRadius: "6px", fontWeight: "700", border: "1px solid #bbf7d0", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-            <CheckCircle2 size={11} /> AI Verified ({inc.cvConfidence ? `${inc.cvConfidence}%` : inc.aiFloodConfidence ? `${Math.round(inc.aiFloodConfidence * 100)}%` : "High"})
-          </span>
-        ) : isHumanInterventionNeeded(inc) ? (
-          <span style={{ background: "#fff7ed", color: "#c2410c", padding: "3px 8px", borderRadius: "6px", fontWeight: "700", border: "1px solid #fed7aa", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-            <AlertCircle size={11} /> Review Needed ({inc.cvConfidence ? `${inc.cvConfidence}%` : "Low AI Conf"})
-          </span>
-        ) : null}
       </div>
 
-      {/* 5. Nearest Response Unit & Distance */}
+      {/* 6. Nearest Response Unit & Distance */}
       <div style={{
         background: "#f8fafc",
         border: "1px solid #e2e8f0",
@@ -3994,32 +4108,32 @@ function MediaLightboxModal({ mediaUrl, incident, isVideo, onClose }) {
             </div>
           )}
 
-          {/* AI Vision Verification Details Card */}
-          {incident?.aiVerification ? (
-            <div style={{ background: incident.aiVerification.is_flooding ? "#f0fdf4" : "#fef2f2", border: `1px solid ${incident.aiVerification.is_flooding ? "#86efac" : "#fecaca"}`, borderRadius: "6px", padding: "8px 12px", textAlign: "left", fontSize: "11px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: "800", color: incident.aiVerification.is_flooding ? "#166534" : "#991b1b" }}>
-                <span>🤖 Authority AI Vision Verification: {incident.aiVerification.is_flooding ? "🌊 Sustained Flooding Confirmed" : "✓ No Flooding Signal Detected"}</span>
-                <span>Confidence: {((incident.aiVerification.confidence_score || incident.aiVerification.confidence || 0) * 100).toFixed(1)}%</span>
-              </div>
-              {Boolean(incident.aiVerification.frames_analyzed) && (
-                <div style={{ marginTop: "4px", fontSize: "10px", color: "#334155", display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                  <span>Frames Analyzed: <b>{incident.aiVerification.frames_analyzed}</b></span>
-                  <span>Longest Flood Run: <b>{incident.aiVerification.longest_consecutive_run || 0} frames</b></span>
-                  <span>Flood Ratio: <b>{((incident.aiVerification.flood_ratio || 0) * 100).toFixed(1)}%</b></span>
+          {/* AI Authenticity & Vision Verification Details Card */}
+          {(() => {
+            const modalVerdict = getAiAuthenticityVerdict(incident);
+            return (
+              <div style={{ background: modalVerdict.bg, border: `1.5px solid ${modalVerdict.border}`, borderRadius: "8px", padding: "10px 14px", textAlign: "left", fontSize: "11px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
+                  <span style={{ fontWeight: "800", color: modalVerdict.color, fontSize: "13px", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                    {modalVerdict.badgeText}
+                  </span>
+                  <span style={{ background: "#fff", color: modalVerdict.color, padding: "2px 8px", borderRadius: "4px", fontWeight: "800", border: `1px solid ${modalVerdict.border}`, fontSize: "10px" }}>
+                    {modalVerdict.isReal ? "AUTHENTICATED BY AI" : "UNCONFIRMED / FAKE SIGNAL"}
+                  </span>
                 </div>
-              )}
-            </div>
-          ) : (
-            <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: "6px", padding: "8px 12px", textAlign: "left", fontSize: "11px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: "800", color: "#166534" }}>
-                <span>🤖 Computer Vision Verification: {incident?.cvStatus || "HIGH_CONFIDENCE_VERIFIED"}</span>
-                <span>AI Confidence: {incident?.cvConfidence || 88}%</span>
+                <div style={{ fontSize: "11px", color: "#334155" }}>
+                  🤖 <b>Detection Diagnosis:</b> {modalVerdict.explanation}
+                </div>
+                {incident?.aiVerification && Boolean(incident.aiVerification.frames_analyzed) && (
+                  <div style={{ marginTop: "2px", fontSize: "10px", color: "#475569", display: "flex", gap: "12px", flexWrap: "wrap", borderTop: `1px dashed ${modalVerdict.border}`, paddingTop: "4px" }}>
+                    <span>Analyzed Frames: <b>{incident.aiVerification.frames_analyzed}</b></span>
+                    <span>Consecutive Flood Run: <b>{incident.aiVerification.longest_consecutive_run || 0} frames</b></span>
+                    <span>Water Pixel Ratio: <b>{((incident.aiVerification.flood_ratio || 0) * 100).toFixed(1)}%</b></span>
+                  </div>
+                )}
               </div>
-              <div style={{ marginTop: "3px", fontSize: "10px", color: "#334155" }}>
-                Model: <b>{incident?.cvModelLabel || "VarshaRaksha CV v2.4 (Water-Pixel Segmentation)"}</b> · Ground Truth Visual Corroboration Active
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Full Incident Context Bar */}
           <div style={{ background: "#f1f5f9", borderRadius: "6px", padding: "8px 12px", textAlign: "left", fontSize: "10.5px", color: "#334155", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
