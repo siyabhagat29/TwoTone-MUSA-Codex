@@ -11,7 +11,7 @@ import {
 } from "./engine.js";
 import { fetchLiveWeather, fetchFloodMetrics, reverseGeocode } from "./weatherService.js";
 import { triggerPagerDutySos } from "./pagerdutyService.js";
-import { sendSosSms } from "./twilioService.js";
+import { sendSosSms, sendSosCall, dispatchTwilioSos } from "./twilioService.js";
 import { uploadPhotoToSupabase, uploadVideoToSupabase, syncIncidentToSupabase, sendAuthorityIncidentEmail } from "./supabaseService.js";
 import { fetchLiveNearbyEmergencyServices, fetchLiveNearbyShops } from "./googlePlacesService.js";
 
@@ -722,7 +722,7 @@ class Store {
     for (const team of this.resources) {
       const activeDispatch = this.dispatches.find(
         (d) => (d.teamId === team.id || (d.team === team.name && (d.facility === team.agency || d.agency === team.agency))) &&
-               d.status !== "Completed" && d.status !== "Cancelled"
+          d.status !== "Completed" && d.status !== "Cancelled"
       );
       if (activeDispatch) {
         team.status = activeDispatch.status || "EN_ROUTE";
@@ -799,10 +799,10 @@ class Store {
       const normSource = String(rawSource).toLowerCase().includes("sos") ? "incident" : String(rawSource).toLowerCase();
       const sourceName = alert.sourceName || (
         normSource === "lightning" ? "Blitzortung Live Lightning Network" :
-        normSource === "rainfall" ? "Rainfall Monitoring Radar" :
-        normSource === "drainage" ? "Chronic Drainage GIS" :
-        normSource === "incident" || alert.isSos ? "Citizen SOS Dispatch" :
-        "VarshaRaksha Risk Engine"
+          normSource === "rainfall" ? "Rainfall Monitoring Radar" :
+            normSource === "drainage" ? "Chronic Drainage GIS" :
+              normSource === "incident" || alert.isSos ? "Citizen SOS Dispatch" :
+                "VarshaRaksha Risk Engine"
       );
 
       return {
@@ -2077,8 +2077,8 @@ class Store {
     const lng = Number(sosData.longitude != null ? sosData.longitude : (sosData.lng != null ? sosData.lng : 72.848));
     const userId = sosData.user_id || sosData.userId || (sosData.userPhone ? `USR-${sosData.userPhone.replace(/\D/g, "").slice(-4)}` : "USR-SHOPKEEPER-72");
     const userName = sosData.userName || sosData.user_name || sosData.reporter || "Citizen";
-    const userPhone = sosData.userPhone || sosData.user_phone || sosData.phone || "+919869001892";
-    const emergencyNumber = sosData.emergencyNumber || sosData.emergency_number || sosData.emergencyPhone || "9869001892";
+    const userPhone = sosData.userPhone || sosData.user_phone || sosData.phone || "+917738122051";
+    const emergencyNumber = sosData.emergencyNumber || sosData.emergency_number || sosData.emergencyPhone || "7738122051";
     const role = sosData.role || "Shop Owner";
     const address = sosData.address || "Station Road Commercial Market";
     const now = new Date();
@@ -2137,8 +2137,8 @@ class Store {
           sos_id: targetInc.sosId || `SOS-${targetInc.id}`,
           user_id: targetInc.reporterReputation?.identifier || "USR-PRIMARY",
           user_name: targetInc.reporter || "Primary Reporter",
-          user_phone: targetInc.userPhone || "+919869001892",
-          emergency_number: targetInc.emergencyNumber || "9869001892",
+          user_phone: targetInc.userPhone || "+917738122051",
+          emergency_number: targetInc.emergencyNumber || "7738122051",
           role: targetInc.role || "Citizen",
           latitude: Number(targetInc.lat),
           longitude: Number(targetInc.lng),
@@ -2237,6 +2237,31 @@ class Store {
       const designatedAuthority = targetInc.assignedTeam || targetInc.recommendedTeam || (nearbyUnitsForMerge[0] ? nearbyUnitsForMerge[0].name : "Municipal Emergency Rescue Squad");
       const designatedPhone = targetInc.assignedTeamPhone || (nearbyUnitsForMerge[0] ? nearbyUnitsForMerge[0].phone : "+91 98200 55663");
 
+      if (!isUserQuarantined) {
+        const mergedSosPayload = {
+          ...targetInc,
+          userName: newReport.user_name || newReport.userName || userName,
+          userPhone: newReport.user_phone || newReport.userPhone || userPhone,
+          emergencyNumber: newReport.emergency_number || newReport.emergencyNumber || emergencyNumber || "+917738122051",
+          address: newReport.address || address,
+          lat: newReport.lat || lat,
+          lng: newReport.lng || lng,
+          assignedTeam: designatedAuthority,
+          eta: targetInc.eta || "4–6 min"
+        };
+        Promise.allSettled([
+          sendSosSms(mergedSosPayload),
+          sendSosCall(mergedSosPayload),
+          triggerPagerDutySos(mergedSosPayload)
+        ]).then(([smsRes, callRes, pdRes]) => {
+          console.log(`[SOS Dispatch] Realtime SOS alerts triggered for merged cluster ${targetInc.id}:`, {
+            sms: smsRes.status === "fulfilled" ? smsRes.value?.status : smsRes.reason?.message,
+            call: callRes.status === "fulfilled" ? callRes.value?.status : callRes.reason?.message,
+            pagerduty: pdRes.status === "fulfilled" ? "sent" : pdRes.reason?.message
+          });
+        });
+      }
+
       return {
         status: "merged",
         incident_id: targetInc.id,
@@ -2254,6 +2279,12 @@ class Store {
         success: true,
         assignedTeam: designatedAuthority,
         teamPhone: designatedPhone,
+        targetEmergencyPhone: emergencyNumber,
+        twilioSender: "+17655635185",
+        twilioSmsRecipient: "+917738122051",
+        twilioCallRecipient: "+917738122051",
+        twilioTestRecipient: "+917738122051",
+        twilioStatus: isUserQuarantined ? "SUPPRESSED_DUE_TO_QUARANTINE" : "DISPATCHED",
         eta: targetInc.eta || "4–6 min"
       };
     }
@@ -2430,21 +2461,21 @@ class Store {
     this.emit("report:created", { incident: sosIncident, zoneId: "ZONE-01" });
     this.emit("incident:created", { incident: sosIncident, zoneId: "ZONE-01" });
 
-    // Only dispatch Twilio SMS and PagerDuty if the user is NOT quarantined
+    // Only dispatch Twilio SMS, Voice Call, and PagerDuty if the user is NOT quarantined
     if (!isUserQuarantined) {
-      sendSosSms(sos).then((twResult) => {
-        console.log(`[SOS Twilio] SMS alert dispatched for ${id}:`, twResult);
-      }).catch((err) => {
-        console.warn(`[SOS Twilio] SMS notice:`, err.message);
-      });
-
-      triggerPagerDutySos(sos).then((pdResult) => {
-        console.log(`[SOS Dispatch] PagerDuty escalation triggered for ${id} (Call: 9869001892)`, pdResult);
-      }).catch((err) => {
-        console.warn(`[SOS Dispatch] PagerDuty notice:`, err.message);
+      Promise.allSettled([
+        sendSosSms(sos),
+        sendSosCall(sos),
+        triggerPagerDutySos(sos)
+      ]).then(([smsRes, callRes, pdRes]) => {
+        console.log(`[SOS Dispatch] Realtime SOS alerts triggered for ${id}:`, {
+          sms: smsRes.status === "fulfilled" ? smsRes.value?.status : smsRes.reason?.message,
+          call: callRes.status === "fulfilled" ? callRes.value?.status : callRes.reason?.message,
+          pagerduty: pdRes.status === "fulfilled" ? "sent" : pdRes.reason?.message
+        });
       });
     } else {
-      console.warn(`[SOS Quarantine] Suppressed automated Twilio SMS & PagerDuty for ${id} due to repeat false alarms (${reputation.falseAlarmCount} strikes).`);
+      console.warn(`[SOS Quarantine] Suppressed automated Twilio SMS & Voice Call for ${id} due to repeat false alarms (${reputation.falseAlarmCount} strikes).`);
     }
 
     return {
@@ -2471,7 +2502,9 @@ class Store {
       teamPhone: rescueTeam.phone,
       targetEmergencyPhone: emergencyNumber,
       twilioSender: "+17655635185",
-      twilioTestRecipient: "+919869001892",
+      twilioSmsRecipient: "+917738122051",
+      twilioCallRecipient: "+917738122051",
+      twilioTestRecipient: "+917738122051",
       twilioStatus: isUserQuarantined ? "SUPPRESSED_DUE_TO_QUARANTINE" : "DISPATCHED",
       pagerdutyStatus: isUserQuarantined ? "HELD_PENDING_CONFIRMATION" : "DISPATCHED_CALL_ACTIVE",
       eta: isUserQuarantined ? "Pending Call" : computedEta
@@ -2567,7 +2600,7 @@ class Store {
           body,
           data: { notificationId: notification.id, type: "FLOOD_BUDDY_WARNING", alertId }
         })
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     return {
@@ -2600,12 +2633,12 @@ class Store {
       const cleanDigits = cleanId.replace(/\D/g, "");
 
       return recId === cleanId ||
-             recName === cleanId ||
-             (cleanDigits.length >= 7 && recPhone.includes(cleanDigits)) ||
-             recId.includes(cleanId) ||
-             cleanId.includes(recId) ||
-             recName.includes(cleanId) ||
-             cleanId.includes(recName);
+        recName === cleanId ||
+        (cleanDigits.length >= 7 && recPhone.includes(cleanDigits)) ||
+        recId.includes(cleanId) ||
+        cleanId.includes(recId) ||
+        recName.includes(cleanId) ||
+        cleanId.includes(recName);
     });
   }
 
@@ -2886,18 +2919,18 @@ class Store {
     const lat = reportData.lat != null && !isNaN(Number(reportData.lat))
       ? Number(reportData.lat)
       : reportData.latitude != null && !isNaN(Number(reportData.latitude))
-      ? Number(reportData.latitude)
-      : reportData.liveLocation?.latitude != null && !isNaN(Number(reportData.liveLocation.latitude))
-      ? Number(reportData.liveLocation.latitude)
-      : null;
+        ? Number(reportData.latitude)
+        : reportData.liveLocation?.latitude != null && !isNaN(Number(reportData.liveLocation.latitude))
+          ? Number(reportData.liveLocation.latitude)
+          : null;
 
     const lng = reportData.lng != null && !isNaN(Number(reportData.lng))
       ? Number(reportData.lng)
       : reportData.longitude != null && !isNaN(Number(reportData.longitude))
-      ? Number(reportData.longitude)
-      : reportData.liveLocation?.longitude != null && !isNaN(Number(reportData.liveLocation.longitude))
-      ? Number(reportData.liveLocation.longitude)
-      : null;
+        ? Number(reportData.longitude)
+        : reportData.liveLocation?.longitude != null && !isNaN(Number(reportData.liveLocation.longitude))
+          ? Number(reportData.liveLocation.longitude)
+          : null;
 
     const geohash = lat != null && lng != null ? encodeGeohash(lat, lng, 6) : "te7uc9";
     const evidenceHash = hashEvidence(`${reportData.note || ""}-${reportData.photoUrl || reportData.photo || ""}`);
@@ -3360,6 +3393,7 @@ class Store {
     this.save();
     this.emit("dispatch:created", { dispatch, team: teamObj, incident });
     this.emit("incident:updated", { incident, action: "dispatched" });
+    this.emit("resources:updated", this.resources);
     return dispatch;
   }
 
@@ -3400,7 +3434,11 @@ class Store {
 
     this.syncResourceStatuses();
     this.save();
-    this.emit("dispatch:overridden", { incidentId, team: teamObj?.name || team, existing });
+    this.emit("dispatch:overridden", { incidentId, team: teamObj?.name || team, existing, incident });
+    if (incident) {
+      this.emit("incident:updated", { incident, action: "dispatched" });
+    }
+    this.emit("resources:updated", this.resources);
     return existing || this.addDispatch({ ...overrideData, isOverride: true });
   }
 
@@ -3435,6 +3473,7 @@ class Store {
       this.emit("incident:updated", { incident: inc, action: "resolved" });
       this.emit("incident:resolved", { incident: inc, id: inc.id });
       this.emit("sos:resolved", { incident: inc, sosId: inc.sosId });
+      this.emit("resources:updated", this.resources);
       return inc;
     }
     return null;
@@ -3470,6 +3509,7 @@ class Store {
     this.save();
     this.emit("incident:updated", { incident: inc, action: "progress_updated", stage });
     this.emit("dispatch:updated", { incident: inc, stage });
+    this.emit("resources:updated", this.resources);
     return inc;
   }
 

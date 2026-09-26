@@ -117,6 +117,7 @@ export async function reverseGeocode(lat, lng) {
           }
           const result = {
             success: true,
+            address: top.formatted_address,
             displayName: top.formatted_address,
             road,
             ward,
@@ -144,9 +145,11 @@ export async function reverseGeocode(lat, lng) {
     const addr = data.address || {};
     const road = addr.road || addr.street || addr.neighbourhood || addr.suburb || "Local Road";
     const ward = addr.city_district || addr.suburb || addr.city || "Ward Area";
+    const cleanAddr = [road, ward, addr.city || addr.town || "Mumbai"].filter(Boolean).join(", ");
     const result = {
       success: true,
-      displayName: data.display_name,
+      address: data.display_name || cleanAddr,
+      displayName: data.display_name || cleanAddr,
       road,
       ward,
       suburb: addr.suburb || "",
@@ -158,6 +161,7 @@ export async function reverseGeocode(lat, lng) {
   } catch (err) {
     const fallback = {
       success: false,
+      address: `Lat ${Number(lat).toFixed(4)}, Lng ${Number(lng).toFixed(4)}`,
       road: `Lat ${Number(lat).toFixed(3)}, Lng ${Number(lng).toFixed(3)}`,
       ward: "Area Location",
       displayName: `Coordinates: ${lat}, ${lng}`
@@ -456,7 +460,7 @@ export function calcHaversineKm(lat1, lon1, lat2, lon2) {
  */
 export async function lookupLiveFacilityPhone(name = "", type = "", address = "", lat = null, lng = null, existingPhone = null) {
   // If a valid live POI phone is already present and not a placeholder, use it
-  if (existingPhone && typeof existingPhone === "string" && existingPhone.trim().length >= 4 && !existingPhone.includes("9869001892")) {
+  if (existingPhone && typeof existingPhone === "string" && existingPhone.trim().length >= 4 && !existingPhone.includes("7738122051")) {
     return existingPhone.trim();
   }
 

@@ -144,10 +144,10 @@ function getIncidentPopupHtml(inc) {
   const isResolved = statusUpper === "RESOLVED" || inc.status === "Resolved";
   const isFalseAlarm = statusUpper === "FALSE_ALARM" || inc.status === "False Alarm";
   const isReached = statusUpper === "ON SCENE" || statusUpper === "ON_SCENE" || statusUpper === "REACHED_SITE" || inc.dispatchProgress === "on_scene";
-  const isEnRoute = statusUpper === "DISPATCHED" || statusUpper === "EN_ROUTE" || inc.dispatchProgress === "en_route";
-  const isAllocated = statusUpper === "RESOURCE ALLOCATED" || statusUpper === "RESOURCE_ALLOCATED" || statusUpper === "ALLOCATED" || Boolean(inc.assignedResource);
+  const isEnRoute = statusUpper === "DISPATCHED" || statusUpper === "EN_ROUTE" || inc.dispatchProgress === "en_route" || inc.dispatched;
+  const isAllocated = statusUpper === "RESOURCE ALLOCATED" || statusUpper === "RESOURCE_ALLOCATED" || statusUpper === "ALLOCATED" || Boolean(inc.assignedTeam || inc.assignedResource);
   const isVerified = statusUpper === "VERIFIED";
-  const isSos = Boolean(inc.isSos || inc.type === "SOS" || inc.causeCode === "SOS_EMERGENCY");
+  const isSos = Boolean(inc.isSos || inc.type === "SOS" || inc.causeCode === "SOS_EMERGENCY" || statusUpper === "ACTIVE SOS" || statusUpper === "ACTIVE_SOS");
 
   const statusBadgeClass = isResolved
     ? "background:#dcfce7;color:#166534;border:1px solid #86efac;"
@@ -164,11 +164,13 @@ function getIncidentPopupHtml(inc) {
     : "background:#fef2f2;color:#b91c1c;border:1px solid #fca5a5;";
 
   const repCount = inc.reporter_count || (inc.reports && inc.reports.length) || 1;
+  const targetId = inc.id || "SOS-LIVE";
+  const nearestUnitName = inc.nearestResource?.name || inc.recommendedTeam || (inc.assignedTeam ? null : "High-Volume Dewatering Pump Unit");
 
   return `
-    <div style="min-width: 220px; font-family: sans-serif;">
+    <div style="min-width: 230px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-        <b style="font-size:13px; color:#0f172a;">${inc.id}</b>
+        <b style="font-size:13px; color:#0f172a;">${inc.id || "INC-SOS"}</b>
         <span style="font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px; ${statusBadgeClass}">
           ${inc.status || (isSos ? "ACTIVE SOS" : "RECEIVED")}
         </span>
@@ -182,37 +184,51 @@ function getIncidentPopupHtml(inc) {
         Cause: <b>${inc.cause || "Severe Flooding"}</b> · Severity: <b>${inc.severity || (isSos ? 95 : 50)}/100</b>
       </div>
       ${isSos && inc.nearestResource ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:4px 6px;margin:4px 0 6px 0;font-size:10px;color:#1e40af;"><b>⚡ Nearest Unit:</b> ${inc.nearestResource.name} (${inc.nearestResource.distanceKm != null ? `${inc.nearestResource.distanceKm} km` : "nearby"})</div>` : inc.assignedTeam ? `<div style="font-size:10px; color:#0284c7; font-weight:700; margin-bottom:6px;">🚒 Assigned: ${inc.assignedTeam}</div>` : ''}
+      
       <div style="display:flex; flex-direction:column; gap:5px; margin-top:8px;">
+        ${(!isEnRoute && !isReached && !isResolved && !isFalseAlarm) ? `
+          <button
+            onclick="window.__autoDispatchIncident('${targetId}')"
+            style="background:linear-gradient(135deg, #dc2626, #b91c1c); color:#fff; border:none; border-radius:6px; padding:7px 10px; font-size:11px; font-weight:700; cursor:pointer; width:100%; display:flex; align-items:center; justify-content:center; gap:5px; box-shadow:0 2px 6px rgba(220,38,38,0.35);"
+          >
+            ⚡ Auto Dispatch ${nearestUnitName ? nearestUnitName.substring(0, 24) : 'Rescue Squad'} &rarr;
+          </button>
+        ` : ''}
+
         <button
-          onclick="window.__openIncidentDetail('${inc.id}')"
+          onclick="window.__openIncidentDetail('${targetId}')"
           style="background:linear-gradient(135deg, #2563eb, #1d4ed8); color:#fff; border:none; border-radius:6px; padding:6px 10px; font-size:11px; font-weight:700; cursor:pointer; width:100%; display:flex; align-items:center; justify-content:center; gap:4px; box-shadow:0 2px 6px rgba(37,99,235,0.35);"
         >
           ⚡ Manage Incident & Allocate Resources &rarr;
         </button>
+
         <div style="display:flex; gap:4px;">
           <button
-            onclick="window.__resolveIncident('${inc.id}')"
+            onclick="window.__resolveIncident('${targetId}')"
             style="background:#16a34a; color:#fff; border:none; border-radius:6px; padding:5px 8px; font-size:10px; font-weight:700; cursor:pointer; flex:1; display:flex; align-items:center; justify-content:center; gap:3px; box-shadow:0 2px 4px rgba(22,163,74,0.25);"
             title="Mark incident as resolved and remove from active map"
           >
             ✓ Mark Resolved
           </button>
           <button
-            onclick="window.__falseAlarmIncident('${inc.id}')"
+            onclick="window.__falseAlarmIncident('${targetId}')"
             style="background:#475569; color:#fff; border:none; border-radius:6px; padding:5px 8px; font-size:10px; font-weight:700; cursor:pointer; flex:1; display:flex; align-items:center; justify-content:center; gap:3px;"
             title="Mark as false alarm and dismiss from dashboard"
           >
             ✕ Dismiss / False Alarm
           </button>
         </div>
-        <a
-          href="https://www.google.com/maps/dir/?api=1&destination=${inc.lat},${inc.lng}&travelmode=driving"
-          target="_blank"
-          rel="noreferrer"
-          style="background:#f8fafc; color:#334155; border:1px solid #cbd5e1; padding:4px 8px; border-radius:6px; font-size:10px; font-weight:600; text-decoration:none; text-align:center;"
-        >
-          Track on Google Maps ↗
-        </a>
+
+        ${(inc.lat && inc.lng) ? `
+          <a
+            href="https://www.google.com/maps/dir/?api=1&destination=${inc.lat},${inc.lng}&travelmode=driving"
+            target="_blank"
+            rel="noreferrer"
+            style="background:#f8fafc; color:#334155; border:1px solid #cbd5e1; padding:4px 8px; border-radius:6px; font-size:10px; font-weight:600; text-decoration:none; text-align:center;"
+          >
+            Track on Google Maps ↗
+          </a>
+        ` : ''}
       </div>
     </div>
   `;
@@ -363,6 +379,7 @@ function LeafletMap({
   onSelectZone,
   onNavigateZone,
   onClearRoute,
+  onAutoDispatch,
   onVerify,
   onResolve,
   onFalseAlarm,
@@ -407,11 +424,22 @@ function LeafletMap({
         onSelectShelter(sh);
       }
     };
+
     window.__openIncidentDetail = (incId) => {
-      if (onNavigateIncident) {
-        onNavigateIncident(incId);
+      if (mapInstance.current) {
+        mapInstance.current.closePopup();
+      }
+      const matched = (incId === "SOS-LIVE" || !incId)
+        ? incidents.find((i) => Boolean(i?.isSos || i?.type === "SOS" || i?.causeCode === "SOS_EMERGENCY"))
+        : incidents.find((i) => i.id === incId);
+      const targetId = matched?.id || incId;
+      if (targetId && targetId !== "SOS-LIVE" && typeof onNavigateIncident === "function") {
+        onNavigateIncident(targetId);
+      } else {
+        window.location.href = "/dispatch";
       }
     };
+
     window.__openZoneDetails = (zoneId) => {
       if (onNavigateZone) {
         onNavigateZone(zoneId);
@@ -421,41 +449,80 @@ function LeafletMap({
         if (found) onSelectZone(found);
       }
     };
+
+    window.__autoDispatchIncident = async (incId) => {
+      if (mapInstance.current) {
+        mapInstance.current.closePopup();
+      }
+      const matched = (incId === "SOS-LIVE" || !incId)
+        ? (incidents.find((i) => Boolean(i?.isSos || i?.type === "SOS" || i?.causeCode === "SOS_EMERGENCY")) || { id: "SOS-LIVE", recommendedTeam: "High-Volume Dewatering Pump Unit" })
+        : (incidents.find((i) => i.id === incId) || { id: incId, recommendedTeam: "High-Volume Dewatering Pump Unit" });
+
+      if (typeof onAutoDispatch === "function") {
+        onAutoDispatch(matched);
+      } else {
+        try {
+          await apiFetch(`/incidents/${matched.id}/dispatch`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              team: matched.recommendedTeam || matched.nearestResource?.name || "High-Volume Dewatering Pump Unit",
+              reason: matched.cause || "Severe waterlogging emergency"
+            })
+          });
+        } catch (err) {
+          console.error("Auto dispatch error:", err);
+        }
+      }
+    };
+
     window.__resolveIncident = async (incId) => {
       if (mapInstance.current) {
         mapInstance.current.closePopup();
       }
+      const matched = (incId === "SOS-LIVE" || !incId)
+        ? incidents.find((i) => Boolean(i?.isSos || i?.type === "SOS" || i?.causeCode === "SOS_EMERGENCY"))
+        : null;
+      const targetId = matched?.id || incId;
       if (typeof onResolve === "function") {
-        onResolve(incId);
+        onResolve(targetId);
       } else {
         try {
-          await apiFetch(`/incidents/${incId}/resolve`, { method: "POST" });
+          await apiFetch(`/incidents/${targetId}/resolve`, { method: "POST" });
         } catch (err) {
           console.error("Resolve error:", err);
         }
       }
     };
+
     window.__falseAlarmIncident = async (incId) => {
       if (mapInstance.current) {
         mapInstance.current.closePopup();
       }
+      const matched = (incId === "SOS-LIVE" || !incId)
+        ? incidents.find((i) => Boolean(i?.isSos || i?.type === "SOS" || i?.causeCode === "SOS_EMERGENCY"))
+        : null;
+      const targetId = matched?.id || incId;
       if (typeof onFalseAlarm === "function") {
-        onFalseAlarm(incId);
+        onFalseAlarm(targetId);
       } else {
         try {
-          await apiFetch(`/incidents/${incId}/false-alarm`, { method: "POST" });
+          await apiFetch(`/incidents/${targetId}/false-alarm`, { method: "POST" });
         } catch (err) {
           console.error("False alarm error:", err);
         }
       }
     };
+
     return () => {
       delete window.__selectShelterRoute;
       delete window.__openIncidentDetail;
+      delete window.__openZoneDetails;
+      delete window.__autoDispatchIncident;
       delete window.__resolveIncident;
       delete window.__falseAlarmIncident;
     };
-  }, [shelters, onSelectShelter, onNavigateIncident, onResolve, onFalseAlarm]);
+  }, [shelters, incidents, zones, onSelectShelter, onNavigateIncident, onNavigateZone, onSelectZone, onAutoDispatch, onResolve, onFalseAlarm]);
 
   // 1. Initialize Leaflet Map (Mounted once, persists across updates)
   useEffect(() => {
@@ -541,7 +608,32 @@ function LeafletMap({
         iconAnchor: [22, 22]
       });
 
-      const popupHtml = `<b>🚨 ACTIVE SOS LOCATION</b><br/>${userLocationName || "Active Distress GPS"}<br/><small style="color:#dc2626;font-weight:700;">Coordinates: ${userLocation[0].toFixed(4)}, ${userLocation[1].toFixed(4)}</small>`;
+      // Find matched active SOS incident or construct rich fallback with action buttons
+      const matchedSos = (incidents || []).find((inc) => {
+        if (!inc) return false;
+        const isSos = Boolean(inc.isSos || inc.type === "SOS" || inc.causeCode === "SOS_EMERGENCY");
+        if (!isSos) return false;
+        const dLat = (inc.lat || inc.latitude || 0) - userLocation[0];
+        const dLng = (inc.lng || inc.longitude || 0) - userLocation[1];
+        return Math.hypot(dLat, dLng) < 0.015;
+      }) || (incidents || []).find(i => Boolean(i?.isSos || i?.type === "SOS" || i?.causeCode === "SOS_EMERGENCY"));
+
+      const activeSosObj = matchedSos || {
+        id: "SOS-LIVE",
+        status: "ACTIVE SOS",
+        isSos: true,
+        reporter: "Citizen",
+        role: "Shop Owner",
+        address: userLocationName || "Powai, Mumbai",
+        cause: "Emergency Life-Safety SOS",
+        severity: 95,
+        lat: userLocation[0],
+        lng: userLocation[1],
+        nearestResource: (resources && resources[0]) ? { name: resources[0].name, distanceKm: 0.4 } : { name: "Municipal Flood Rescue Fleet", distanceKm: 0.4 },
+        assignedTeam: (resources && resources[0]?.name) || "Municipal Flood Rescue Fleet"
+      };
+
+      const popupHtml = getIncidentPopupHtml(activeSosObj);
 
       if (!userMarkerRef.current) {
         const marker = L.marker(userLocation, { icon: userIcon, zIndexOffset: 950 });
@@ -557,7 +649,7 @@ function LeafletMap({
       userLayer.removeLayer(userMarkerRef.current);
       userMarkerRef.current = null;
     }
-  }, [userLocation?.[0], userLocation?.[1], userLocationName]);
+  }, [userLocation?.[0], userLocation?.[1], userLocationName, incidents, resources]);
 
   // 6. RAINFALL RADAR OVERLAY LAYER (In-place updates)
   useEffect(() => {
@@ -2325,9 +2417,10 @@ function Dashboard({
   const critical = zones.filter((z) => z.risk >= 75).length;
   const elevated = zones.filter((z) => z.risk >= 45 && z.risk < 75).length;
   const totalRain = zones.reduce((sum, z) => sum + (z.rainfall || 0), 0);
-  const avgRain = zones.length > 0 ? (totalRain / zones.length).toFixed(1) : 0;
-  const availableTeams = resources.filter((r) => r.status === "Available").length;
-  const [emsCategoryFilter, setEmsCategoryFilter] = useState("all");
+  const availableTeams = resources.filter((r) => {
+    const s = String(r.status || "").toUpperCase();
+    return s === "AVAILABLE" || s === "READY";
+  }).length;
 
   const filteredEmergencyServices = emergencyServices.filter((ems) => {
     if (emsCategoryFilter === "all") return true;
@@ -9070,21 +9163,31 @@ function App() {
       es.onmessage = (evt) => {
         try {
           const data = JSON.parse(evt.data);
+          const incPayload = data.payload?.incident || data.incident;
           if (
             data.type === "INCIDENT_REPORTED" ||
             data.type === "INCIDENT_DISPATCHED" ||
             data.type === "report:created" ||
             data.event === "report:created" ||
             data.type === "report:merged" ||
-            data.event === "report:merged"
+            data.event === "report:merged" ||
+            data.type === "incident:updated"
           ) {
-            if (data.payload?.incident) {
-              const newInc = data.payload.incident;
-              setIncidents((prev) => [newInc, ...prev.filter((i) => i.id !== newInc.id)]);
+            if (incPayload) {
+              const newInc = incPayload;
+              if (newInc.status === "Resolved" || newInc.status === "False Alarm" || newInc.isQuarantined) {
+                setIncidents((prev) => prev.filter((i) => i.id !== newInc.id && i.sosId !== newInc.sosId));
+                setAlerts((prev) => prev.filter((a) => a.incidentId !== newInc.id && a.sosId !== newInc.sosId && a.id !== newInc.id));
+              } else {
+                setIncidents((prev) => [newInc, ...prev.filter((i) => i.id !== newInc.id)]);
+              }
             }
           }
           if (data.type === "RISK_UPDATED" && Array.isArray(data.zones)) {
             setZones(data.zones);
+          }
+          if ((data.type === "resources:updated" || data.event === "resources:updated") && Array.isArray(data.payload)) {
+            setResources(data.payload);
           }
         } catch {
           // parse error
@@ -9094,8 +9197,8 @@ function App() {
       es.addEventListener("report:created", (evt) => {
         try {
           const d = JSON.parse(evt.data);
-          if (d.payload?.incident) {
-            const newInc = d.payload.incident;
+          const newInc = d.payload?.incident || d.incident;
+          if (newInc) {
             setIncidents((prev) => [newInc, ...prev.filter((i) => i.id !== newInc.id)]);
             if (newInc.isSos || newInc.type === "SOS" || newInc.status === "ACTIVE_SOS") {
               playSosEmergencyChime();
@@ -9109,8 +9212,8 @@ function App() {
       es.addEventListener("sos:triggered", (evt) => {
         try {
           const d = JSON.parse(evt.data);
-          const sosInc = d.payload?.incident;
-          const sosAlt = d.payload?.alert;
+          const sosInc = d.payload?.incident || d.incident;
+          const sosAlt = d.payload?.alert || d.alert;
           if (sosInc) {
             setIncidents((prev) => [sosInc, ...prev.filter((i) => i.id !== sosInc.id)]);
           }
@@ -9126,7 +9229,7 @@ function App() {
       es.addEventListener("incident:resolved", (evt) => {
         try {
           const d = JSON.parse(evt.data);
-          const incId = d.id || d.incident?.id;
+          const incId = d.id || d.incident?.id || d.payload?.id || d.payload?.incident?.id;
           if (incId) {
             setIncidents((prev) => prev.filter((i) => i.id !== incId && i.sosId !== incId));
             setAlerts((prev) => prev.filter((a) => a.incidentId !== incId && a.sosId !== incId && a.id !== incId));
@@ -9137,8 +9240,8 @@ function App() {
       es.addEventListener("incident:updated", (evt) => {
         try {
           const d = JSON.parse(evt.data);
-          if (d.incident) {
-            const up = d.incident;
+          const up = d.incident || d.payload?.incident;
+          if (up) {
             if (up.status === "Resolved" || up.status === "False Alarm" || up.isQuarantined) {
               setIncidents((prev) => prev.filter((i) => i.id !== up.id && i.sosId !== up.sosId));
               setAlerts((prev) => prev.filter((a) => a.incidentId !== up.id && a.sosId !== up.sosId && a.id !== up.id));
@@ -9147,6 +9250,64 @@ function App() {
             }
           }
         } catch {}
+      });
+
+      es.addEventListener("dispatch:created", (evt) => {
+        try {
+          const d = JSON.parse(evt.data);
+          const inc = d.incident || d.payload?.incident;
+          if (inc) {
+            setIncidents((prev) => [inc, ...prev.filter((i) => i.id !== inc.id)]);
+          }
+          const team = d.team || d.payload?.team;
+          if (team) {
+            setResources((prev) => prev.map((r) => r.id === team.id || r.name === team.name ? { ...r, ...team } : r));
+          }
+        } catch {}
+      });
+
+      es.addEventListener("dispatch:updated", (evt) => {
+        try {
+          const d = JSON.parse(evt.data);
+          const inc = d.incident || d.payload?.incident;
+          if (inc) {
+            setIncidents((prev) => [inc, ...prev.filter((i) => i.id !== inc.id)]);
+          }
+        } catch {}
+      });
+
+      es.addEventListener("dispatch:overridden", (evt) => {
+        try {
+          const d = JSON.parse(evt.data);
+          const inc = d.incident || d.payload?.incident;
+          if (inc) {
+            setIncidents((prev) => [inc, ...prev.filter((i) => i.id !== inc.id)]);
+          } else {
+            loadInitialData();
+          }
+        } catch {}
+      });
+
+      es.addEventListener("resources:updated", (evt) => {
+        try {
+          const d = JSON.parse(evt.data);
+          const resList = Array.isArray(d.payload)
+            ? d.payload
+            : Array.isArray(d.resources)
+            ? d.resources
+            : Array.isArray(d)
+            ? d
+            : null;
+          if (resList) {
+            setResources(resList);
+          } else {
+            loadInitialData();
+          }
+        } catch {}
+      });
+
+      es.addEventListener("resources:cleared", () => {
+        setResources([]);
       });
 
       es.addEventListener("SOS_CLUSTER_UPDATED", (evt) => {
@@ -9541,6 +9702,9 @@ function App() {
                 <SmartDispatchPage
                   incidents={incidents}
                   resources={resources}
+                  setIncidents={setIncidents}
+                  setResources={setResources}
+                  setAlerts={setAlerts}
                   userLat={userLat}
                   userLng={userLng}
                   notify={notify}
@@ -9557,6 +9721,7 @@ function App() {
                   setResources={setResources}
                   incidents={incidents}
                   setIncidents={setIncidents}
+                  setAlerts={setAlerts}
                   userLat={userLat}
                   userLng={userLng}
                   userLocationName={userLocationName}

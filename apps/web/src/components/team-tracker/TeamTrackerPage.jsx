@@ -26,6 +26,7 @@ export function TeamTrackerPage({
   setResources,
   incidents = [],
   setIncidents,
+  setAlerts,
   userLat = 19.132,
   userLng = 72.848,
   userLocationName = "Andheri / Mumbai Command Center",
@@ -188,6 +189,28 @@ export function TeamTrackerPage({
   const handleAssignmentSuccess = (data) => {
     if (data.resource) {
       handleUpdateResource(data.resource);
+    }
+    const targetIncId = data.dispatch?.incident || assigningIncident?.id;
+    if (targetIncId && typeof setIncidents === "function") {
+      setIncidents((prev) => prev.map((i) => {
+        if (i.id === targetIncId) {
+          const origSev = i.originalSeverity || i.severity || 85;
+          return {
+            ...i,
+            status: "Dispatched",
+            dispatched: true,
+            assignedTeam: data.resource?.name || assigningResource?.name,
+            assignedTeamId: data.resource?.id || assigningResource?.id,
+            mitigationStatus: "Resource Allocated",
+            originalSeverity: origSev,
+            severity: Math.max(15, Math.round(Number(origSev) * 0.35))
+          };
+        }
+        return i;
+      }));
+    }
+    if (targetIncId && typeof setAlerts === "function") {
+      setAlerts((prev) => prev.filter((a) => a.incidentId !== targetIncId && a.sosId !== targetIncId && a.id !== targetIncId));
     }
     if (typeof onReload === "function") {
       onReload();

@@ -10,6 +10,9 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
 export function SmartDispatchPage({
   incidents = [],
   resources = [],
+  setIncidents,
+  setResources,
+  setAlerts,
   userLat = 19.132,
   userLng = 72.848,
   notify,
@@ -136,10 +139,41 @@ export function SmartDispatchPage({
     setUpdatingProgress(true);
     try {
       if (stage === "resolved") {
+        if (typeof setIncidents === "function") {
+          setIncidents((prev) => prev.filter((i) => i.id !== selectedIncident.id && i.sosId !== selectedIncident.id));
+        }
+        if (typeof setAlerts === "function") {
+          setAlerts((prev) => prev.filter((a) => a.incidentId !== selectedIncident.id && a.sosId !== selectedIncident.id && a.id !== selectedIncident.id));
+        }
+        if (selectedIncident.assignedTeam && typeof setResources === "function") {
+          setResources((prev) => prev.map((r) => r.name === selectedIncident.assignedTeam || r.id === selectedIncident.assignedTeamId ? { ...r, status: "AVAILABLE", currentIncidentId: null } : r));
+        }
+
         const res = await fetch(`${API}/incidents/${selectedIncident.id}/resolve`, { method: "POST" });
         if (!res.ok) throw new Error("Failed to resolve incident");
         if (notify) notify(`✓ Incident ${selectedIncident.id} marked as Fully Resolved.`);
       } else {
+        const isReached = stage === "on_scene" || stage === "reached";
+        if (typeof setIncidents === "function") {
+          setIncidents((prev) => prev.map((i) => {
+            if (i.id === selectedIncident.id) {
+              const origSev = i.originalSeverity || i.severity || 85;
+              return {
+                ...i,
+                dispatchProgress: stage,
+                status: isReached ? "On Scene" : "Dispatched",
+                mitigationStatus: isReached ? "Squad On Scene / Operating" : "Resource Allocated",
+                originalSeverity: origSev,
+                severity: isReached ? Math.max(10, Math.round(Number(origSev) * 0.20)) : i.severity
+              };
+            }
+            return i;
+          }));
+        }
+        if (selectedIncident.assignedTeam && typeof setResources === "function") {
+          setResources((prev) => prev.map((r) => r.name === selectedIncident.assignedTeam || r.id === selectedIncident.assignedTeamId ? { ...r, status: isReached ? "On scene" : "En route" } : r));
+        }
+
         const res = await fetch(`${API}/incidents/${selectedIncident.id}/progress`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -155,6 +189,7 @@ export function SmartDispatchPage({
       if (onReload) onReload();
     } catch (err) {
       if (notify) notify(`Status update notice: ${err.message}`);
+      if (onReload) onReload();
     } finally {
       setUpdatingProgress(false);
     }
@@ -218,7 +253,35 @@ export function SmartDispatchPage({
         routeData={routeData}
         isOpen={showDispatchModal}
         onClose={() => setShowDispatchModal(false)}
-        onDispatchSuccess={() => {
+        onDispatchSuccess={(data) => {
+          if (typeof setIncidents === "function" && selectedIncident) {
+            if (data?.incident) {
+              setIncidents((prev) => [data.incident, ...prev.filter((i) => i.id !== data.incident.id)]);
+            } else {
+              setIncidents((prev) => prev.map((i) => {
+                if (i.id === selectedIncident.id) {
+                  const origSev = i.originalSeverity || i.severity || 85;
+                  return {
+                    ...i,
+                    status: "Dispatched",
+                    dispatched: true,
+                    assignedTeam: selectedResource?.name,
+                    assignedTeamId: selectedResource?.id,
+                    mitigationStatus: "Resource Allocated",
+                    originalSeverity: origSev,
+                    severity: Math.max(15, Math.round(Number(origSev) * 0.35))
+                  };
+                }
+                return i;
+              }));
+            }
+          }
+          if (typeof setAlerts === "function" && selectedIncident) {
+            setAlerts((prev) => prev.filter((a) => a.incidentId !== selectedIncident.id && a.sosId !== selectedIncident.id && a.id !== selectedIncident.id));
+          }
+          if (typeof setResources === "function" && selectedResource) {
+            setResources((prev) => prev.map((r) => r.id === selectedResource.id ? { ...r, status: "En route", currentIncidentId: selectedIncident?.id } : r));
+          }
           if (onReload) onReload();
         }}
         notify={notify}
@@ -229,7 +292,10 @@ export function SmartDispatchPage({
         incident={selectedIncident}
         isOpen={showEscalateModal}
         onClose={() => setShowEscalateModal(false)}
-        onEscalationSuccess={() => {
+        onEscalationSuccess={(escInc) => {
+          if (escInc && typeof setIncidents === "function") {
+            setIncidents((prev) => [escInc, ...prev.filter((i) => i.id !== escInc.id)]);
+          }
           if (onReload) onReload();
         }}
         notify={notify}

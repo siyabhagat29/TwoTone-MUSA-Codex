@@ -14,7 +14,7 @@ async function runTest() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         userName: "Powai Market Vendor",
-        userPhone: "+919869001892",
+        userPhone: "+917738122051",
         role: "Shop Owner",
         lat: 19.1176,
         lng: 72.9060,

@@ -103,7 +103,7 @@ export const EMERGENCY_CATEGORIES = {
     icon: "🤝",
     placeType: "",
     keywords: ["relief", "red cross", "trust", "society", "food bank", "charity"],
-    defaultPhone: "1800-11-2334 / 9869001892",
+    defaultPhone: "1800-11-2334 / 7738122051",
     capacityHint: "Emergency Food Packs, Weather Tents & Humanitarian Supplies"
   }
 };

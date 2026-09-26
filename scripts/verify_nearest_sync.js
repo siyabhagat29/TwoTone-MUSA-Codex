@@ -24,7 +24,7 @@ async function runTests() {
     body: JSON.stringify({
       userId: "USR-TEST-POWAI",
       userName: "Powai Lake Shopkeeper",
-      userPhone: "+919869001892",
+      userPhone: "+917738122051",
       emergencyNumber: "+917738122051",
       role: "Shop Owner",
       lat: 19.1176,

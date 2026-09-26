@@ -42,7 +42,7 @@ if (Platform.OS === "web" && typeof document !== "undefined") {
       }
     `;
     document.head.appendChild(styleEl);
-  } catch (_) {}
+  } catch (_) { }
 }
 
 // Global +15% Font Scaling for all Text & TextInput components
@@ -68,7 +68,7 @@ function scaleStyle(style) {
 
 export const LanguageContext = React.createContext({
   lang: "en",
-  setLang: () => {},
+  setLang: () => { },
   t: {}
 });
 
@@ -115,7 +115,8 @@ export const UI_TRANSLATIONS = {
     "Choose your role": "अपनी भूमिका चुनें",
     "Chose your role": "अपनी भूमिका चुनें",
     "chose your role": "अपनी भूमिका चुनें",
-    "Area / Market Location": "इलाका / बाजार स्थान",
+    "Area": "इलाका",
+    "Area / Market Location": "इलाका",
     "Location": "स्थान",
     "Detect Location": "स्थान खोजें",
     "Detecting...": "खोज रहे हैं...",
@@ -430,7 +431,8 @@ export const UI_TRANSLATIONS = {
     "Choose your role": "तुमची भूमिका निवडा",
     "Chose your role": "तुमची भूमिका निवडा",
     "chose your role": "तुमची भूमिका निवडा",
-    "Area / Market Location": "परिसर / बाजारपेठ स्थान",
+    "Area": "परिसर",
+    "Area / Market Location": "परिसर",
     "Location": "स्थान",
     "Detect Location": "स्थान शोधा",
     "Detecting...": "शोधत आहे...",
@@ -1494,7 +1496,7 @@ export default function App() {
           setUserLoc(initialCoords);
           fetchLiveData(initialCoords);
         }
-      } catch (_) {}
+      } catch (_) { }
 
       // Step 2: Concurrently query fresh GPS fix with 1.8s fast timeout
       const getGpsPromise = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -1515,7 +1517,7 @@ export default function App() {
               activeCoords = fastPos.coords;
               setUserLoc(activeCoords);
             }
-          } catch (_) {}
+          } catch (_) { }
         }
       }
 
@@ -1541,7 +1543,7 @@ export default function App() {
             longitude: activeCoords.longitude,
             location_sharing_enabled: true
           })
-        }).catch(() => {});
+        }).catch(() => { });
       }
 
       // Step 3: Fetch reverse geocoded address asynchronously in parallel (non-blocking)
@@ -1560,7 +1562,7 @@ export default function App() {
             setUserAddress(detectedAddr);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
 
       return true;
     } catch (err) {
@@ -1624,7 +1626,7 @@ export default function App() {
             longitude: Number(lng),
             location_sharing_enabled: true
           })
-        }, 2000).catch(() => {});
+        }, 2000).catch(() => { });
       }
     } catch (err) {
       console.warn("[mobile] API fetch notice:", err.message);
@@ -1704,7 +1706,7 @@ export default function App() {
         longitude: userLoc?.longitude || 72.8480,
         location_sharing_enabled: true
       })
-    }).catch(() => {});
+    }).catch(() => { });
 
     const currentLevel = activeZone.risk >= 75 ? "RED" : activeZone.risk >= 45 ? "ORANGE" : "GREEN";
     setPrevRiskLevel(currentLevel);
@@ -1728,10 +1730,10 @@ export default function App() {
             // Mark as read on the backend
             fetchWithTimeout(`${apiUrl}/users/${encodeURIComponent(currentUserId)}/notifications/${latest.id}/read`, {
               method: "POST"
-            }).catch(() => {});
+            }).catch(() => { });
           }
         }
-      } catch (_) {}
+      } catch (_) { }
     };
 
     checkIncomingNotifications();
@@ -1756,8 +1758,8 @@ export default function App() {
     setSosCooldown(60);
 
     const callerName = userProfile?.name || (role === "Shop Owner" ? "Station Rd Shopkeeper" : "Area Resident");
-    const callerPhone = userProfile?.phone || "+919869001892";
-    const emergencyNumber = userProfile?.emergencyNumber || "+919869001892";
+    const callerPhone = userProfile?.phone || "+917738122051";
+    const emergencyNumber = userProfile?.emergencyNumber || "+917738122051";
 
     // Instant One-Tap SOS Dispatch without confirmation dialog
     try {
@@ -1787,9 +1789,11 @@ export default function App() {
           teamPhone: "+91 98200 55663",
           targetEmergencyPhone: emergencyNumber,
           twilioSender: "+17655635185",
-          twilioTestRecipient: "+919869001892",
+          twilioSmsRecipient: "+917738122051",
+          twilioCallRecipient: "+917738122051",
+          twilioTestRecipient: "+917738122051",
           twilioStatus: "DISPATCHED",
-          message: `Emergency broadcast dispatched. Twilio emergency SMS sent to ${emergencyNumber} (testing verified: +919869001892).`
+          message: `Emergency broadcast dispatched. Twilio emergency SMS sent to ${emergencyNumber} and voice call triggered to ${callerPhone}.`
         });
       }
     } catch (err) {
@@ -1801,9 +1805,11 @@ export default function App() {
         teamPhone: "+91 98200 55663",
         targetEmergencyPhone: emergencyNumber,
         twilioSender: "+17655635185",
-        twilioTestRecipient: "+919869001892",
+        twilioSmsRecipient: "+917738122051",
+        twilioCallRecipient: "+917738122051",
+        twilioTestRecipient: "+917738122051",
         twilioStatus: "QUEUED",
-        message: `Emergency broadcast dispatched. Twilio emergency SMS sent to ${emergencyNumber} (testing verified: +919869001892).`
+        message: `Emergency broadcast dispatched. Twilio emergency SMS sent to ${emergencyNumber} and voice call queued.`
       });
     }
   };
@@ -1856,354 +1862,354 @@ export default function App() {
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 0 }}>
             <View style={{ flexDirection: "row", backgroundColor: "#E2E8F0", borderRadius: 8, padding: 2 }}>
-            {["en", "hi", "mr"].map((l) => (
-              <TouchableOpacity
-                key={l}
-                style={[
-                  { paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6 },
-                  lang === l && { backgroundColor: BLUE }
-                ]}
-                onPress={() => handleSetLang(l)}
-              >
-                <Text style={{ fontSize: 10, fontWeight: "800", color: lang === l ? "#fff" : TEXT }}>
-                  {l.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View style={s.headerRight}>
-            <View style={s.liveDot} />
-            <Text style={s.live}>{t.liveSensorsTag}</Text>
+              {["en", "hi", "mr"].map((l) => (
+                <TouchableOpacity
+                  key={l}
+                  style={[
+                    { paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6 },
+                    lang === l && { backgroundColor: BLUE }
+                  ]}
+                  onPress={() => handleSetLang(l)}
+                >
+                  <Text style={{ fontSize: 10, fontWeight: "800", color: lang === l ? "#fff" : TEXT }}>
+                    {l.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={s.headerRight}>
+              <View style={s.liveDot} />
+              <Text style={s.live}>{t.liveSensorsTag}</Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* Tabs */}
-      {tab === "Home" && (
-        <Home
-          userProfile={userProfile}
-          onOpenProfile={() => setProfileModalOpen(true)}
-          role={role || userProfile?.role || "Shop Owner"}
-          zone={activeZone}
-          alerts={alerts}
-          lightning={lightning}
-          emergencyServices={emergencyServices}
-          shelters={shelters}
-          userAddress={userAddress}
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          onReport={() => setTab("Report")}
-          onOpenChecklist={() => setChecklistOpen(true)}
-          onTriggerSos={handleTriggerSos}
-          sosCooldown={sosCooldown}
-          sosActiveData={sosActiveData}
-          onOpenBuddy={() => setTab("Buddy")}
-          onNavigateToMap={() => setTab("Map")}
-          onOpenLocationModal={() => setLocationModalOpen(true)}
-          t={t}
-        />
-      )}
+        {/* Tabs */}
+        {tab === "Home" && (
+          <Home
+            userProfile={userProfile}
+            onOpenProfile={() => setProfileModalOpen(true)}
+            role={role || userProfile?.role || "Shop Owner"}
+            zone={activeZone}
+            alerts={alerts}
+            lightning={lightning}
+            emergencyServices={emergencyServices}
+            shelters={shelters}
+            userAddress={userAddress}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            onReport={() => setTab("Report")}
+            onOpenChecklist={() => setChecklistOpen(true)}
+            onTriggerSos={handleTriggerSos}
+            sosCooldown={sosCooldown}
+            sosActiveData={sosActiveData}
+            onOpenBuddy={() => setTab("Buddy")}
+            onNavigateToMap={() => setTab("Map")}
+            onOpenLocationModal={() => setLocationModalOpen(true)}
+            t={t}
+          />
+        )}
 
-      {tab === "Alerts" && (
-        <AlertsScreen
-          alerts={alerts}
-          lightning={lightning}
-          zone={activeZone}
-          apiUrl={apiUrl}
-          userLoc={userLoc}
-          onRequestLocation={requestLocation}
-          onNavigateToMap={() => setTab("Map")}
-          onRefresh={onRefresh}
-          refreshing={refreshing}
-          t={t}
-        />
-      )}
+        {tab === "Alerts" && (
+          <AlertsScreen
+            alerts={alerts}
+            lightning={lightning}
+            zone={activeZone}
+            apiUrl={apiUrl}
+            userLoc={userLoc}
+            onRequestLocation={requestLocation}
+            onNavigateToMap={() => setTab("Map")}
+            onRefresh={onRefresh}
+            refreshing={refreshing}
+            t={t}
+          />
+        )}
 
-      {tab === "Report" && (
-        <ReportScreen
-          role={role}
-          apiUrl={apiUrl}
-          userLoc={userLoc}
-          userAddress={userAddress}
-          onClose={() => setTab("Home")}
-          onSaved={() => {
-            fetchLiveData();
-            setTab("Home");
-          }}
-          t={t}
-        />
-      )}
+        {tab === "Report" && (
+          <ReportScreen
+            role={role}
+            apiUrl={apiUrl}
+            userLoc={userLoc}
+            userAddress={userAddress}
+            onClose={() => setTab("Home")}
+            onSaved={() => {
+              fetchLiveData();
+              setTab("Home");
+            }}
+            t={t}
+          />
+        )}
 
-      {tab === "Map" && (
-        <MapScreen
-          zones={zones}
-          emergencyServices={emergencyServices}
-          shelters={shelters}
-          shelterLoading={shelterLoading}
-          activeZone={activeZone}
-          userLoc={userLoc}
-          userAddress={userAddress}
-          apiUrl={apiUrl}
-          role={role}
-          onOpenLocationModal={() => setLocationModalOpen(true)}
-          onRequestLocation={requestLocation}
-          onRefresh={onRefresh}
-          refreshing={refreshing}
-          t={t}
-        />
-      )}
+        {tab === "Map" && (
+          <MapScreen
+            zones={zones}
+            emergencyServices={emergencyServices}
+            shelters={shelters}
+            shelterLoading={shelterLoading}
+            activeZone={activeZone}
+            userLoc={userLoc}
+            userAddress={userAddress}
+            apiUrl={apiUrl}
+            role={role}
+            onOpenLocationModal={() => setLocationModalOpen(true)}
+            onRequestLocation={requestLocation}
+            onRefresh={onRefresh}
+            refreshing={refreshing}
+            t={t}
+          />
+        )}
 
-      {tab === "Buddy" && role === "Shop Owner" && (
-        <FloodBuddyScreen
-          floodBuddies={floodBuddies}
-          apiUrl={apiUrl}
-          role={role}
-          userProfile={userProfile}
-          userLoc={userLoc}
-          userAddress={userAddress}
-          onBack={() => setTab("Home")}
-          onRefresh={onRefresh}
-          refreshing={refreshing}
-          t={t}
-        />
-      )}
+        {tab === "Buddy" && role === "Shop Owner" && (
+          <FloodBuddyScreen
+            floodBuddies={floodBuddies}
+            apiUrl={apiUrl}
+            role={role}
+            userProfile={userProfile}
+            userLoc={userLoc}
+            userAddress={userAddress}
+            onBack={() => setTab("Home")}
+            onRefresh={onRefresh}
+            refreshing={refreshing}
+            t={t}
+          />
+        )}
 
-      {tab === "Profile" && (
-        <ProfileScreen
-          lang={lang}
-          setLang={handleSetLang}
-          role={role}
-          userAddress={userAddress}
-          t={t}
-        />
-      )}
+        {tab === "Profile" && (
+          <ProfileScreen
+            lang={lang}
+            setLang={handleSetLang}
+            role={role}
+            userAddress={userAddress}
+            t={t}
+          />
+        )}
 
-      {/* Bottom Navigation: Flood Buddy is exclusively visible for Shop Owners, hidden for Citizens */}
-      <View style={s.nav}>
-        {[
-          ["Home", "home", t.home],
-          ["Alerts", "notifications", t.alerts],
-          ["Map", "map", t.map],
-          ...(role === "Shop Owner" ? [["Buddy", "people", t.floodBuddyTab || "Flood Buddy"]] : [])
-        ].map(([name, icon, label]) => (
-          <TouchableOpacity key={name} style={s.navItem} onPress={() => setTab(name)}>
-            <Ionicons name={icon} size={22} color={tab === name ? BLUE : "#8795A8"} />
-            <Text style={[s.navText, tab === name && { color: BLUE, fontWeight: "800" }]}>{label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+        {/* Bottom Navigation: Flood Buddy is exclusively visible for Shop Owners, hidden for Citizens */}
+        <View style={s.nav}>
+          {[
+            ["Home", "home", t.home],
+            ["Alerts", "notifications", t.alerts],
+            ["Map", "map", t.map],
+            ...(role === "Shop Owner" ? [["Buddy", "people", t.floodBuddyTab || "Flood Buddy"]] : [])
+          ].map(([name, icon, label]) => (
+            <TouchableOpacity key={name} style={s.navItem} onPress={() => setTab(name)}>
+              <Ionicons name={icon} size={22} color={tab === name ? BLUE : "#8795A8"} />
+              <Text style={[s.navText, tab === name && { color: BLUE, fontWeight: "800" }]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-      {/* Automatic High Risk Emergency Modal - Shop Owner Only */}
-      {role === "Shop Owner" && (
-        <Modal visible={autoModalOpen} transparent animationType="slide">
-          <View style={s.modalBack}>
-            <View style={[s.modal, { borderColor: RED, borderWidth: 2, maxHeight: (windowHeight || 700) * 0.85 }]}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <Ionicons name="warning" size={28} color={RED} />
-                <Text style={[s.modalTitle, { color: RED, flex: 1 }]}>{t.riskIncreasedTitle}</Text>
+        {/* Automatic High Risk Emergency Modal - Shop Owner Only */}
+        {role === "Shop Owner" && (
+          <Modal visible={autoModalOpen} transparent animationType="slide">
+            <View style={s.modalBack}>
+              <View style={[s.modal, { borderColor: RED, borderWidth: 2, maxHeight: (windowHeight || 700) * 0.85 }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <Ionicons name="warning" size={28} color={RED} />
+                  <Text style={[s.modalTitle, { color: RED, flex: 1 }]}>{t.riskIncreasedTitle}</Text>
+                </View>
+                <Text style={s.modalSub}>{t.riskIncreasedSub}</Text>
+                <ScrollView style={{ maxHeight: (windowHeight || 700) * 0.55 }} showsVerticalScrollIndicator={false}>
+                  <EmergencyChecklistView role={role} t={t} userProfile={userProfile} />
+                </ScrollView>
+                <TouchableOpacity style={[s.primary, { marginTop: 14 }]} onPress={() => setAutoModalOpen(false)}>
+                  <Text style={s.primaryText}>{t.acknowledge}</Text>
+                </TouchableOpacity>
               </View>
-              <Text style={s.modalSub}>{t.riskIncreasedSub}</Text>
-              <ScrollView style={{ maxHeight: (windowHeight || 700) * 0.55 }} showsVerticalScrollIndicator={false}>
+            </View>
+          </Modal>
+        )}
+
+        {/* Manual Emergency Checklist Modal */}
+        <Modal visible={checklistOpen} transparent animationType="slide">
+          <View style={s.modalBack}>
+            <View style={[s.modal, { maxHeight: (windowHeight || 700) * 0.85, paddingBottom: 24 }]}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <View>
+                  <Text style={s.modalTitle}>📋 {t.emergencyChecklist}</Text>
+                  <Text style={{ fontSize: 10, color: MUTED, marginTop: 1 }}>
+                    Phased flood defense & life safety action protocol
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setChecklistOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Ionicons name="close-circle" size={26} color={MUTED} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
                 <EmergencyChecklistView role={role} t={t} userProfile={userProfile} />
               </ScrollView>
-              <TouchableOpacity style={[s.primary, { marginTop: 14 }]} onPress={() => setAutoModalOpen(false)}>
-                <Text style={s.primaryText}>{t.acknowledge}</Text>
-              </TouchableOpacity>
             </View>
           </View>
         </Modal>
-      )}
 
-      {/* Manual Emergency Checklist Modal */}
-      <Modal visible={checklistOpen} transparent animationType="slide">
-        <View style={s.modalBack}>
-          <View style={[s.modal, { maxHeight: (windowHeight || 700) * 0.85, paddingBottom: 24 }]}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <View>
-                <Text style={s.modalTitle}>📋 {t.emergencyChecklist}</Text>
-                <Text style={{ fontSize: 10, color: MUTED, marginTop: 1 }}>
-                  Phased flood defense & life safety action protocol
+        {/* High-Impact Realtime Flood Buddy Emergency Pop-Out Modal */}
+        {incomingWarning && (
+          <Modal visible={!!incomingWarning} transparent animationType="slide" onRequestClose={() => setIncomingWarning(null)}>
+            <View style={[s.modalBack, { backgroundColor: "rgba(7, 26, 58, 0.85)", justifyContent: "center", padding: 16 }]}>
+              <View style={[s.modal, {
+                borderColor: "#DC2626",
+                borderWidth: 3,
+                backgroundColor: "#FFFFFF",
+                borderRadius: 20,
+                padding: 20,
+                elevation: 24,
+                shadowColor: "#DC2626",
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: 0.6,
+                shadowRadius: 24,
+                maxWidth: 440,
+                width: "100%"
+              }]}>
+                {/* Emergency Flashing Siren Beacon */}
+                <View style={{ alignItems: "center", marginBottom: 12 }}>
+                  <View style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: 36,
+                    backgroundColor: "#FEE2E2",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 3,
+                    borderColor: "#FECACA"
+                  }}>
+                    <Ionicons name="warning" size={42} color="#DC2626" />
+                  </View>
+                  <View style={{
+                    backgroundColor: "#DC2626",
+                    paddingVertical: 4,
+                    paddingHorizontal: 12,
+                    borderRadius: 20,
+                    marginTop: -12,
+                    borderWidth: 2,
+                    borderColor: "#FFFFFF"
+                  }}>
+                    <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase" }}>
+                      🚨 FLOOD BUDDY DISTRESS ALERT
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Title */}
+                <Text style={{ fontSize: 18, fontWeight: "900", color: "#0F172A", textAlign: "center", letterSpacing: -0.3, marginTop: 4 }}>
+                  {incomingWarning.title || "Urgent Waterlogging Warning!"}
                 </Text>
-              </View>
-              <TouchableOpacity onPress={() => setChecklistOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close-circle" size={26} color={MUTED} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-              <EmergencyChecklistView role={role} t={t} userProfile={userProfile} />
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
 
-      {/* High-Impact Realtime Flood Buddy Emergency Pop-Out Modal */}
-      {incomingWarning && (
-        <Modal visible={!!incomingWarning} transparent animationType="slide" onRequestClose={() => setIncomingWarning(null)}>
-          <View style={[s.modalBack, { backgroundColor: "rgba(7, 26, 58, 0.85)", justifyContent: "center", padding: 16 }]}>
-            <View style={[s.modal, {
-              borderColor: "#DC2626",
-              borderWidth: 3,
-              backgroundColor: "#FFFFFF",
-              borderRadius: 20,
-              padding: 20,
-              elevation: 24,
-              shadowColor: "#DC2626",
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: 0.6,
-              shadowRadius: 24,
-              maxWidth: 440,
-              width: "100%"
-            }]}>
-              {/* Emergency Flashing Siren Beacon */}
-              <View style={{ alignItems: "center", marginBottom: 12 }}>
+                {/* Sender Highlight Card */}
                 <View style={{
-                  width: 72,
-                  height: 72,
-                  borderRadius: 36,
-                  backgroundColor: "#FEE2E2",
+                  backgroundColor: "#FEF2F2",
+                  borderColor: "#FECACA",
+                  borderWidth: 1.5,
+                  borderRadius: 12,
+                  padding: 12,
+                  marginTop: 12,
+                  flexDirection: "row",
                   alignItems: "center",
-                  justifyContent: "center",
-                  borderWidth: 3,
-                  borderColor: "#FECACA"
+                  gap: 10
                 }}>
-                  <Ionicons name="warning" size={42} color="#DC2626" />
+                  <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "#DC2626", alignItems: "center", justifyContent: "center" }}>
+                    <Ionicons name="person" size={20} color="#FFFFFF" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, fontWeight: "900", color: "#991B1B" }}>
+                      {incomingWarning.sender_name || "Nearby Citizen / Shopkeeper"}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: "#7F1D1D", fontWeight: "700", marginTop: 1 }}>
+                      🏷️ Role: {incomingWarning.sender_role || "Shop Owner"} • Nearby Geofence Sector
+                    </Text>
+                  </View>
                 </View>
+
+                {/* Detailed Alert Message */}
                 <View style={{
-                  backgroundColor: "#DC2626",
-                  paddingVertical: 4,
-                  paddingHorizontal: 12,
-                  borderRadius: 20,
-                  marginTop: -12,
-                  borderWidth: 2,
-                  borderColor: "#FFFFFF"
+                  backgroundColor: "#F8FAFC",
+                  borderColor: "#E2E8F0",
+                  borderWidth: 1,
+                  borderRadius: 12,
+                  padding: 14,
+                  marginTop: 10
                 }}>
-                  <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase" }}>
-                    🚨 FLOOD BUDDY DISTRESS ALERT
+                  <Text style={{ fontSize: 13, color: "#1E293B", fontWeight: "700", lineHeight: 20 }}>
+                    "{incomingWarning.body}"
+                  </Text>
+                  <Text style={{ fontSize: 10, color: "#64748B", fontWeight: "600", marginTop: 6 }}>
+                    ⏱️ Received: {new Date(incomingWarning.created_at || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </Text>
                 </View>
-              </View>
 
-              {/* Title */}
-              <Text style={{ fontSize: 18, fontWeight: "900", color: "#0F172A", textAlign: "center", letterSpacing: -0.3, marginTop: 4 }}>
-                {incomingWarning.title || "Urgent Waterlogging Warning!"}
-              </Text>
+                {/* Action Buttons Suite */}
+                <View style={{ marginTop: 16, gap: 8 }}>
+                  <TouchableOpacity
+                    style={[s.primary, { backgroundColor: "#0284C7", paddingVertical: 12, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }]}
+                    onPress={() => {
+                      setIncomingWarning(null);
+                      setTab("Buddy");
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="people" size={18} color="#FFFFFF" />
+                    <Text style={{ color: "#FFFFFF", fontSize: 13, fontWeight: "900" }}>👥 VIEW FLOOD BUDDY (NEARBY SHOPS)</Text>
+                  </TouchableOpacity>
 
-              {/* Sender Highlight Card */}
-              <View style={{
-                backgroundColor: "#FEF2F2",
-                borderColor: "#FECACA",
-                borderWidth: 1.5,
-                borderRadius: 12,
-                padding: 12,
-                marginTop: 12,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 10
-              }}>
-                <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "#DC2626", alignItems: "center", justifyContent: "center" }}>
-                  <Ionicons name="person" size={20} color="#FFFFFF" />
+                  <TouchableOpacity
+                    style={[s.primary, { backgroundColor: "#DC2626", paddingVertical: 12, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }]}
+                    onPress={() => {
+                      setIncomingWarning(null);
+                      handleTriggerSos();
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="radio" size={18} color="#FFFFFF" />
+                    <Text style={{ color: "#FFFFFF", fontSize: 13, fontWeight: "900" }}>🚨 TRIGGER 1-TAP EMERGENCY SOS</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={{ paddingVertical: 10, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "#F1F5F9" }}
+                    onPress={() => setIncomingWarning(null)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ color: "#475569", fontSize: 12, fontWeight: "800" }}>✓ I Am Safe · Acknowledge & Dismiss</Text>
+                  </TouchableOpacity>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 13, fontWeight: "900", color: "#991B1B" }}>
-                    {incomingWarning.sender_name || "Nearby Citizen / Shopkeeper"}
-                  </Text>
-                  <Text style={{ fontSize: 11, color: "#7F1D1D", fontWeight: "700", marginTop: 1 }}>
-                    🏷️ Role: {incomingWarning.sender_role || "Shop Owner"} • Nearby Geofence Sector
-                  </Text>
-                </View>
               </View>
+            </View>
+          </Modal>
+        )}
 
-              {/* Detailed Alert Message */}
-              <View style={{
-                backgroundColor: "#F8FAFC",
-                borderColor: "#E2E8F0",
-                borderWidth: 1,
-                borderRadius: 12,
-                padding: 14,
-                marginTop: 10
-              }}>
-                <Text style={{ fontSize: 13, color: "#1E293B", fontWeight: "700", lineHeight: 20 }}>
-                  "{incomingWarning.body}"
-                </Text>
-                <Text style={{ fontSize: 10, color: "#64748B", fontWeight: "600", marginTop: 6 }}>
-                  ⏱️ Received: {new Date(incomingWarning.created_at || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </Text>
-              </View>
+        {/* Location Selector Modal */}
+        <LocationSelectorModal
+          visible={locationModalOpen}
+          onClose={() => setLocationModalOpen(false)}
+          onSelectLocation={handleSelectCustomLocation}
+          requestLocation={requestLocation}
+          currentAddress={userAddress}
+          apiUrl={apiUrl}
+          role={role}
+          t={t}
+        />
 
-              {/* Action Buttons Suite */}
-              <View style={{ marginTop: 16, gap: 8 }}>
-                <TouchableOpacity
-                  style={[s.primary, { backgroundColor: "#0284C7", paddingVertical: 12, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }]}
-                  onPress={() => {
-                    setIncomingWarning(null);
-                    setTab("Buddy");
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="people" size={18} color="#FFFFFF" />
-                  <Text style={{ color: "#FFFFFF", fontSize: 13, fontWeight: "900" }}>👥 VIEW FLOOD BUDDY (NEARBY SHOPS)</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[s.primary, { backgroundColor: "#DC2626", paddingVertical: 12, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }]}
-                  onPress={() => {
-                    setIncomingWarning(null);
-                    handleTriggerSos();
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="radio" size={18} color="#FFFFFF" />
-                  <Text style={{ color: "#FFFFFF", fontSize: 13, fontWeight: "900" }}>🚨 TRIGGER 1-TAP EMERGENCY SOS</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={{ paddingVertical: 10, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "#F1F5F9" }}
-                  onPress={() => setIncomingWarning(null)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={{ color: "#475569", fontSize: 12, fontWeight: "800" }}>✓ I Am Safe · Acknowledge & Dismiss</Text>
-                </TouchableOpacity>
-              </View>
+        {/* Quick Report Dialog */}
+        <Modal visible={reportOpen} transparent animationType="slide">
+          <View style={s.modalBack}>
+            <View style={s.modal}>
+              <Text style={s.modalTitle}>{t.reportIncident}</Text>
+              <Text style={s.modalSub}>{t.reportScreenSub}</Text>
+              <TouchableOpacity
+                style={s.primary}
+                onPress={() => {
+                  setReportOpen(false);
+                  setTab("Report");
+                }}
+              >
+                <Ionicons name="document-text" size={18} color="#fff" />
+                <Text style={s.primaryText}>{t.openFullForm}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.cancel} onPress={() => setReportOpen(false)}>
+                <Text style={{ color: MUTED }}>{t.cancel}</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>
-      )}
-
-      {/* Location Selector Modal */}
-      <LocationSelectorModal
-        visible={locationModalOpen}
-        onClose={() => setLocationModalOpen(false)}
-        onSelectLocation={handleSelectCustomLocation}
-        requestLocation={requestLocation}
-        currentAddress={userAddress}
-        apiUrl={apiUrl}
-        role={role}
-        t={t}
-      />
-
-      {/* Quick Report Dialog */}
-      <Modal visible={reportOpen} transparent animationType="slide">
-        <View style={s.modalBack}>
-          <View style={s.modal}>
-            <Text style={s.modalTitle}>{t.reportIncident}</Text>
-            <Text style={s.modalSub}>{t.reportScreenSub}</Text>
-            <TouchableOpacity
-              style={s.primary}
-              onPress={() => {
-                setReportOpen(false);
-                setTab("Report");
-              }}
-            >
-              <Ionicons name="document-text" size={18} color="#fff" />
-              <Text style={s.primaryText}>{t.openFullForm}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={s.cancel} onPress={() => setReportOpen(false)}>
-              <Text style={{ color: MUTED }}>{t.cancel}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
     </LanguageContext.Provider>
   );
 }
@@ -2482,7 +2488,7 @@ function LoginPage({
             setLocationInput(`${activeCoords.latitude.toFixed(4)}, ${activeCoords.longitude.toFixed(4)}`);
           }
         }
-      } catch (_) {}
+      } catch (_) { }
 
       // Step 4: Concurrently race fresh hardware GPS fix with 1.8s timeout
       const getGpsPromise = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -2500,7 +2506,7 @@ function LoginPage({
             if (fastPos?.coords) {
               activeCoords = fastPos.coords;
             }
-          } catch (_) {}
+          } catch (_) { }
         }
       }
 
@@ -2538,7 +2544,7 @@ function LoginPage({
             resolvedAddress = geo.displayName;
           }
         }
-      } catch (_) {}
+      } catch (_) { }
 
       if (!userEditedLocationRef.current) {
         setLocationInput(resolvedAddress);
@@ -2760,7 +2766,7 @@ function LoginPage({
           <View style={s.loginInputGroup}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 6 }}>
               <Text style={[s.loginInputLabel, { flex: 1, minWidth: 110, marginBottom: 0 }]}>
-                {t.location || "Area / Market Location"} <Text style={{ color: RED }}>*</Text>
+                {t.area || t["Area"] || "Area"} <Text style={{ color: RED }}>*</Text>
               </Text>
               <TouchableOpacity
                 style={[s.loginDetectBtn, { flexShrink: 0 }]}
@@ -3059,48 +3065,48 @@ function Home({
 
             {/* Nearby Discovered Emergency Resources for Active SOS */}
             {Array.isArray(sosActiveData.nearbyResources || sosActiveData.nearby_resources || sosActiveData.incident?.nearbyResources) &&
-             (sosActiveData.nearbyResources || sosActiveData.nearby_resources || sosActiveData.incident?.nearbyResources).length > 0 && (
-              <View style={{ background: "#FEF2F2", borderColor: "#FCA5A5", borderWidth: 1, borderRadius: 10, padding: 10, marginTop: 4 }}>
-                <Text style={{ fontSize: 11, fontWeight: "800", color: "#991B1B", marginBottom: 6 }}>
-                  📍 Nearby Emergency Resources Discovered Around SOS:
-                </Text>
-                {(sosActiveData.nearbyResources || sosActiveData.nearby_resources || sosActiveData.incident?.nearbyResources).slice(0, 3).map((res, rIdx) => {
-                  const navUrl = res.mapsUrl || res.navigateUrl || ((res.lat || res.latitude) && (res.lng || res.longitude) ? `https://www.google.com/maps/dir/?api=1&destination=${res.lat || res.latitude},${res.lng || res.longitude}&travelmode=driving` : null);
-                  return (
-                    <View key={res.id || rIdx} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 5, borderTopWidth: rIdx > 0 ? 0.5 : 0, borderColor: "#FECACA" }}>
-                      <View style={{ flex: 1, marginRight: 8 }}>
-                        <Text style={{ fontSize: 11, fontWeight: "700", color: "#1F2937" }} numberOfLines={1}>
-                          {res.icon || "🚒"} {res.name}
-                        </Text>
-                        <Text style={{ fontSize: 10, color: "#6B7280" }}>
-                          ⚡ {res.distanceKm != null ? `${res.distanceKm} km` : "~0.5 km"} · {res.category || "Emergency"}
-                        </Text>
+              (sosActiveData.nearbyResources || sosActiveData.nearby_resources || sosActiveData.incident?.nearbyResources).length > 0 && (
+                <View style={{ background: "#FEF2F2", borderColor: "#FCA5A5", borderWidth: 1, borderRadius: 10, padding: 10, marginTop: 4 }}>
+                  <Text style={{ fontSize: 11, fontWeight: "800", color: "#991B1B", marginBottom: 6 }}>
+                    📍 Nearby Emergency Resources Discovered Around SOS:
+                  </Text>
+                  {(sosActiveData.nearbyResources || sosActiveData.nearby_resources || sosActiveData.incident?.nearbyResources).slice(0, 3).map((res, rIdx) => {
+                    const navUrl = res.mapsUrl || res.navigateUrl || ((res.lat || res.latitude) && (res.lng || res.longitude) ? `https://www.google.com/maps/dir/?api=1&destination=${res.lat || res.latitude},${res.lng || res.longitude}&travelmode=driving` : null);
+                    return (
+                      <View key={res.id || rIdx} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 5, borderTopWidth: rIdx > 0 ? 0.5 : 0, borderColor: "#FECACA" }}>
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <Text style={{ fontSize: 11, fontWeight: "700", color: "#1F2937" }} numberOfLines={1}>
+                            {res.icon || "🚒"} {res.name}
+                          </Text>
+                          <Text style={{ fontSize: 10, color: "#6B7280" }}>
+                            ⚡ {res.distanceKm != null ? `${res.distanceKm} km` : "~0.5 km"} · {res.category || "Emergency"}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: "row", gap: 6 }}>
+                          {res.phone && (
+                            <TouchableOpacity
+                              onPress={() => Linking.openURL(`tel:${res.phone.split("/")[0].trim().replace(/\s+/g, "")}`).catch(() => null)}
+                              style={{ backgroundColor: "#DC2626", paddingVertical: 4, paddingHorizontal: 7, borderRadius: 5, flexDirection: "row", alignItems: "center", gap: 2 }}
+                            >
+                              <Ionicons name="call" size={10} color="#fff" />
+                              <Text style={{ fontSize: 10, color: "#fff", fontWeight: "700" }}>Call</Text>
+                            </TouchableOpacity>
+                          )}
+                          {navUrl && (
+                            <TouchableOpacity
+                              onPress={() => Linking.openURL(navUrl).catch(() => null)}
+                              style={{ backgroundColor: "#2563EB", paddingVertical: 4, paddingHorizontal: 7, borderRadius: 5, flexDirection: "row", alignItems: "center", gap: 2 }}
+                            >
+                              <Ionicons name="navigate" size={10} color="#fff" />
+                              <Text style={{ fontSize: 10, color: "#fff", fontWeight: "700" }}>Map</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
                       </View>
-                      <View style={{ flexDirection: "row", gap: 6 }}>
-                        {res.phone && (
-                          <TouchableOpacity
-                            onPress={() => Linking.openURL(`tel:${res.phone.split("/")[0].trim().replace(/\s+/g, "")}`).catch(() => null)}
-                            style={{ backgroundColor: "#DC2626", paddingVertical: 4, paddingHorizontal: 7, borderRadius: 5, flexDirection: "row", alignItems: "center", gap: 2 }}
-                          >
-                            <Ionicons name="call" size={10} color="#fff" />
-                            <Text style={{ fontSize: 10, color: "#fff", fontWeight: "700" }}>Call</Text>
-                          </TouchableOpacity>
-                        )}
-                        {navUrl && (
-                          <TouchableOpacity
-                            onPress={() => Linking.openURL(navUrl).catch(() => null)}
-                            style={{ backgroundColor: "#2563EB", paddingVertical: 4, paddingHorizontal: 7, borderRadius: 5, flexDirection: "row", alignItems: "center", gap: 2 }}
-                          >
-                            <Ionicons name="navigate" size={10} color="#fff" />
-                            <Text style={{ fontSize: 10, color: "#fff", fontWeight: "700" }}>Map</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
+                    );
+                  })}
+                </View>
+              )}
           </View>
         );
       })()}
@@ -4493,96 +4499,96 @@ function FloodBuddyScreen({
           <View style={{ gap: 10 }}>
             {displayBuddies.map((buddy) => {
               const buddyId = buddy.user_id || buddy.id;
-            const isShop = buddy.role === "Shop Owner";
-            const roleIcon = isShop ? "🏪" : "🏠";
-            const distKm = buddy.distance_km != null ? buddy.distance_km : (buddy.distance_meters / 1000).toFixed(1);
-            const isOnline = buddy.is_online;
-            const hasAlert = Boolean(buddy.nearby_alert);
+              const isShop = buddy.role === "Shop Owner";
+              const roleIcon = isShop ? "🏪" : "🏠";
+              const distKm = buddy.distance_km != null ? buddy.distance_km : (buddy.distance_meters / 1000).toFixed(1);
+              const isOnline = buddy.is_online;
+              const hasAlert = Boolean(buddy.nearby_alert);
 
-            return (
-              <View style={s.buddyCard} key={buddyId}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-                  <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, flex: 1 }}>
-                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: isShop ? "#EFF6FF" : "#F0FDF4", alignItems: "center", justifyContent: "center" }}>
-                      <Text style={{ fontSize: 20 }}>{roleIcon}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                        <Text style={s.buddyName}>{buddy.display_name || buddy.name}</Text>
-                        <View style={{ backgroundColor: isShop ? "#DBEAFE" : "#DCFCE7", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                          <Text style={{ fontSize: 9, fontWeight: "800", color: isShop ? BLUE : "#15803D" }}>
-                            {buddy.role || "Resident"}
-                          </Text>
-                        </View>
-                        {buddy.shopType ? (
-                          <View style={{ backgroundColor: "#F1F5F9", paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: "#E2E8F0" }}>
-                            <Text style={{ fontSize: 8.5, fontWeight: "700", color: "#475569" }}>
-                              🏬 {buddy.shopType}
+              return (
+                <View style={s.buddyCard} key={buddyId}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, flex: 1 }}>
+                      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: isShop ? "#EFF6FF" : "#F0FDF4", alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ fontSize: 20 }}>{roleIcon}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <Text style={s.buddyName}>{buddy.display_name || buddy.name}</Text>
+                          <View style={{ backgroundColor: isShop ? "#DBEAFE" : "#DCFCE7", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                            <Text style={{ fontSize: 9, fontWeight: "800", color: isShop ? BLUE : "#15803D" }}>
+                              {buddy.role || "Resident"}
                             </Text>
                           </View>
+                          {buddy.shopType ? (
+                            <View style={{ backgroundColor: "#F1F5F9", paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: "#E2E8F0" }}>
+                              <Text style={{ fontSize: 8.5, fontWeight: "700", color: "#475569" }}>
+                                🏬 {buddy.shopType}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        {buddy.address ? (
+                          <Text style={{ fontSize: 10, color: "#64748B", marginTop: 2 }} numberOfLines={1}>
+                            📍 {buddy.address}
+                          </Text>
                         ) : null}
-                      </View>
-                      {buddy.address ? (
-                        <Text style={{ fontSize: 10, color: "#64748B", marginTop: 2 }} numberOfLines={1}>
-                          📍 {buddy.address}
+                        <Text style={{ fontSize: 11, fontWeight: "700", color: BLUE, marginTop: 2 }}>
+                          📏 {distKm} km away
                         </Text>
-                      ) : null}
-                      <Text style={{ fontSize: 11, fontWeight: "700", color: BLUE, marginTop: 2 }}>
-                        📏 {distKm} km away
-                      </Text>
-                      <Text style={{ fontSize: 9, color: isOnline ? "#15803D" : MUTED, marginTop: 2, fontWeight: "600" }}>
-                        {buddy.is_map_shop ? `🗺️ ${buddy.source || "Google Maps"} · Live Verified Shop` : `${isOnline ? "🟢 Active recently" : "⚪ Last active"} · Location updated ${buddy.freshness_label || "just now"}`}
-                      </Text>
+                        <Text style={{ fontSize: 9, color: isOnline ? "#15803D" : MUTED, marginTop: 2, fontWeight: "600" }}>
+                          {buddy.is_map_shop ? `🗺️ ${buddy.source || "Google Maps"} · Live Verified Shop` : `${isOnline ? "🟢 Active recently" : "⚪ Last active"} · Location updated ${buddy.freshness_label || "just now"}`}
+                        </Text>
+                      </View>
                     </View>
+
+                    <TouchableOpacity
+                      style={[s.buddyNotifyBtn, notifying[buddyId] && { opacity: 0.6 }]}
+                      onPress={() => handleNotify(buddy)}
+                      disabled={notifying[buddyId]}
+                      activeOpacity={0.8}
+                    >
+                      {notifying[buddyId] ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Ionicons name="notifications" size={13} color="#fff" />
+                      )}
+                      <Text style={{ color: "#fff", fontSize: 11, fontWeight: "800" }}>
+                        {notifying[buddyId] ? "Notifying..." : (t.notifyNeighbor || "Notify")}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
 
-                  <TouchableOpacity
-                    style={[s.buddyNotifyBtn, notifying[buddyId] && { opacity: 0.6 }]}
-                    onPress={() => handleNotify(buddy)}
-                    disabled={notifying[buddyId]}
-                    activeOpacity={0.8}
-                  >
-                    {notifying[buddyId] ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <Ionicons name="notifications" size={13} color="#fff" />
-                    )}
-                    <Text style={{ color: "#fff", fontSize: 11, fontWeight: "800" }}>
-                      {notifying[buddyId] ? "Notifying..." : (t.notifyNeighbor || "Notify")}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Nearby Flood Alert for this specific buddy */}
-                <View style={{ marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#F1F5F9" }}>
-                  {hasAlert ? (
-                    <View style={{ backgroundColor: "#FEF2F2", borderColor: "#FCA5A5", borderWidth: 1, borderRadius: 8, padding: 8 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                        <Text style={{ fontSize: 13 }}>⚠️</Text>
-                        <Text style={{ fontSize: 11, fontWeight: "800", color: "#991B1B" }}>
-                          {buddy.nearby_alert.severity || "HIGH"} FLOOD RISK nearby
+                  {/* Nearby Flood Alert for this specific buddy */}
+                  <View style={{ marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#F1F5F9" }}>
+                    {hasAlert ? (
+                      <View style={{ backgroundColor: "#FEF2F2", borderColor: "#FCA5A5", borderWidth: 1, borderRadius: 8, padding: 8 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                          <Text style={{ fontSize: 13 }}>⚠️</Text>
+                          <Text style={{ fontSize: 11, fontWeight: "800", color: "#991B1B" }}>
+                            {buddy.nearby_alert.severity || "HIGH"} FLOOD RISK nearby
+                          </Text>
+                        </View>
+                        <Text style={{ fontSize: 10, color: "#7F1D1D", marginTop: 2 }} numberOfLines={2}>
+                          {buddy.nearby_alert.description || buddy.nearby_alert.title || "Water accumulation and runoff detected near buddy."}
+                        </Text>
+                        <Text style={{ fontSize: 9, fontWeight: "700", color: "#991B1B", marginTop: 3 }}>
+                          📍 {(buddy.nearby_alert.distance_km ?? (buddy.nearby_alert.distance_meters / 1000)).toFixed(1)} km from {buddy.display_name}
                         </Text>
                       </View>
-                      <Text style={{ fontSize: 10, color: "#7F1D1D", marginTop: 2 }} numberOfLines={2}>
-                        {buddy.nearby_alert.description || buddy.nearby_alert.title || "Water accumulation and runoff detected near buddy."}
-                      </Text>
-                      <Text style={{ fontSize: 9, fontWeight: "700", color: "#991B1B", marginTop: 3 }}>
-                        📍 {(buddy.nearby_alert.distance_km ?? (buddy.nearby_alert.distance_meters / 1000)).toFixed(1)} km from {buddy.display_name}
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 2 }}>
-                      <Ionicons name="checkmark-circle" size={13} color="#16A34A" />
-                      <Text style={{ fontSize: 10, fontWeight: "700", color: "#16A34A" }}>
-                        No active flood alert nearby
-                      </Text>
-                    </View>
-                  )}
+                    ) : (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 2 }}>
+                        <Ionicons name="checkmark-circle" size={13} color="#16A34A" />
+                        <Text style={{ fontSize: 10, fontWeight: "700", color: "#16A34A" }}>
+                          No active flood alert nearby
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
-              </View>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
         );
       })()}
     </ScrollView>
@@ -4847,7 +4853,7 @@ function ReportScreen({ role, apiUrl, userLoc, userAddress, onSaved, onClose, t 
             setLocAddress(`${activeCoords.latitude.toFixed(4)}, ${activeCoords.longitude.toFixed(4)}`);
           }
         }
-      } catch (_) {}
+      } catch (_) { }
 
       // Fast race with 1.8s timeout
       const getPos = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -4858,7 +4864,7 @@ function ReportScreen({ role, apiUrl, userLoc, userAddress, onSaved, onClose, t 
           activeCoords = pos.coords;
           setLoc(activeCoords);
         }
-      } catch (_) {}
+      } catch (_) { }
 
       if (activeCoords) {
         try {
@@ -4873,7 +4879,7 @@ function ReportScreen({ role, apiUrl, userLoc, userAddress, onSaved, onClose, t 
             const addr = (geo.road && geo.ward) ? `${geo.road}, ${geo.ward}` : (geo.road || geo.displayName || `${activeCoords.latitude.toFixed(4)}, ${activeCoords.longitude.toFixed(4)}`);
             setLocAddress(addr);
           }
-        } catch (_) {}
+        } catch (_) { }
       }
     } catch (err) {
       console.log("GPS fetch error:", err);
