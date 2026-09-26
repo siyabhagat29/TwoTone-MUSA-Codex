@@ -15,11 +15,11 @@
       "trend": "stable",
       "totalTodayRain": 0.8,
       "tempC": 27.1,
-      "humidity": 81,
+      "humidity": 82,
       "riverDischarge": 3.16,
       "dischargeRatio": 0.9,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-26T18:06:36.121Z"
+      "lastUpdated": "2026-09-26T18:17:53.023Z"
     },
     {
       "id": "Z-02",
@@ -37,10 +37,10 @@
       "riverDischarge": 1.48,
       "dischargeRatio": 0.91,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-26T18:06:36.263Z",
+      "lastUpdated": "2026-09-26T18:17:53.176Z",
       "totalTodayRain": 0.8,
       "tempC": 27.1,
-      "humidity": 81
+      "humidity": 82
     },
     {
       "id": "Z-03",
@@ -57,11 +57,11 @@
       "trend": "stable",
       "totalTodayRain": 0.8,
       "tempC": 27.1,
-      "humidity": 81,
+      "humidity": 82,
       "riverDischarge": 3.16,
       "dischargeRatio": 0.9,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-26T18:06:36.403Z"
+      "lastUpdated": "2026-09-26T18:17:53.324Z"
     },
     {
       "id": "Z-04",
@@ -77,15 +77,293 @@
       "reports": 0,
       "trend": "stable",
       "totalTodayRain": 0.5,
-      "tempC": 27.4,
-      "humidity": 80,
+      "tempC": 27.3,
+      "humidity": 81,
       "riverDischarge": 1.48,
       "dischargeRatio": 0.91,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-26T18:06:36.551Z"
+      "lastUpdated": "2026-09-26T18:17:53.477Z"
     }
   ],
   "incidents": [
+    {
+      "id": "INC-1004",
+      "sosId": "SOS-2001",
+      "type": "SOS",
+      "isSos": true,
+      "zoneId": "ZONE-01",
+      "reporter": "Test Citizen",
+      "role": "Shop Owner",
+      "userPhone": "+917738122051",
+      "emergencyNumber": "+917738122051",
+      "time": "11:47 PM",
+      "userTimestamp": "2026-09-26T18:17:59.809Z",
+      "timestamp": "2026-09-26T18:17:59.809Z",
+      "first_reported_at": "2026-09-26T18:17:59.809Z",
+      "last_reported_at": "2026-09-26T18:17:59.809Z",
+      "status": "Resolved",
+      "severity": 0,
+      "isQuarantined": false,
+      "quarantineReason": null,
+      "reporterReputation": {
+        "identifier": "+917738122051",
+        "userName": "Siya Bhagat",
+        "userPhone": "+917738122051",
+        "totalSubmissions": 7,
+        "verifiedCount": 0,
+        "falseAlarmCount": 0,
+        "trustScore": 1,
+        "status": "NORMAL",
+        "isQuarantined": false,
+        "quarantineReason": null,
+        "createdAt": "2026-09-26T17:29:16.029Z",
+        "updatedAt": "2026-09-26T18:17:59.820Z",
+        "history": []
+      },
+      "smsSuppressed": false,
+      "cause": "🚨 Emergency Life-Safety SOS",
+      "causeCode": "SOS_EMERGENCY",
+      "causeDescription": "Immediate distress signal triggered by Test Citizen (Shop Owner). User Phone: +917738122051 · Emergency Contact: +917738122051",
+      "recommendedTeam": "Disaster Management Command Cell",
+      "recommendedTeamId": "EMS-LOC-04",
+      "assignedTeam": "Disaster Management Command Cell",
+      "assignedTeamPhone": "1916 / 1077",
+      "assignedResource": {
+        "id": "EMS-LOC-04",
+        "name": "Disaster Management Command Cell",
+        "category": "municipal",
+        "icon": "🏛️",
+        "type": "Municipal Relief Operations",
+        "station": "Civic Administrative Office",
+        "phone": "1916 / 1077",
+        "lat": 19.1019,
+        "lng": 72.8959,
+        "distanceKm": 0.3,
+        "status": "Direct Control"
+      },
+      "eta": "3 mins",
+      "nearestResource": {
+        "id": "EMS-LOC-04",
+        "name": "Disaster Management Command Cell",
+        "category": "municipal",
+        "icon": "🏛️",
+        "type": "Municipal Relief Operations",
+        "station": "Civic Administrative Office",
+        "phone": "1916 / 1077",
+        "lat": 19.1019,
+        "lng": 72.8959,
+        "distanceKm": 0.3,
+        "status": "Direct Control"
+      },
+      "nearbyResources": [
+        {
+          "id": "EMS-LOC-04",
+          "name": "Disaster Management Command Cell",
+          "category": "municipal",
+          "icon": "🏛️",
+          "type": "Municipal Relief Operations",
+          "station": "Civic Administrative Office",
+          "phone": "1916 / 1077",
+          "lat": 19.1019,
+          "lng": 72.8959,
+          "distanceKm": 0.3,
+          "status": "Direct Control"
+        },
+        {
+          "id": "EMS-LOC-03",
+          "name": "Police Station & Evacuation Outpost",
+          "category": "police",
+          "icon": "👮",
+          "type": "Police & Public Safety",
+          "station": "Sector Police Station",
+          "phone": "100 / 112",
+          "lat": 19.1064,
+          "lng": 72.9004,
+          "distanceKm": 0.4,
+          "status": "Patrol Active"
+        },
+        {
+          "id": "EMS-LOC-01",
+          "name": "Local Fire & Flood Rescue Outpost",
+          "category": "fire",
+          "icon": "🚒",
+          "type": "Fire & Rapid Water Rescue",
+          "station": "Area Emergency Response Unit",
+          "phone": "101 / 112",
+          "lat": 19.1079,
+          "lng": 72.8949,
+          "distanceKm": 0.5,
+          "status": "Active 24/7"
+        },
+        {
+          "id": "EMS-LOC-02",
+          "name": "Civil Municipal Hospital Trauma Center",
+          "category": "medical",
+          "icon": "🚑",
+          "type": "Emergency & Trauma Care",
+          "station": "Emergency Healthcare Complex",
+          "phone": "102 / 108",
+          "lat": 19.0989,
+          "lng": 72.9014,
+          "distanceKm": 0.7,
+          "status": "Emergency Ward Open"
+        }
+      ],
+      "nearbyServices": [
+        {
+          "id": "EMS-LOC-04",
+          "name": "Disaster Management Command Cell",
+          "category": "municipal",
+          "icon": "🏛️",
+          "type": "Municipal Relief Operations",
+          "station": "Civic Administrative Office",
+          "phone": "1916 / 1077",
+          "lat": 19.1019,
+          "lng": 72.8959,
+          "distanceKm": 0.3,
+          "status": "Direct Control"
+        },
+        {
+          "id": "EMS-LOC-03",
+          "name": "Police Station & Evacuation Outpost",
+          "category": "police",
+          "icon": "👮",
+          "type": "Police & Public Safety",
+          "station": "Sector Police Station",
+          "phone": "100 / 112",
+          "lat": 19.1064,
+          "lng": 72.9004,
+          "distanceKm": 0.4,
+          "status": "Patrol Active"
+        },
+        {
+          "id": "EMS-LOC-01",
+          "name": "Local Fire & Flood Rescue Outpost",
+          "category": "fire",
+          "icon": "🚒",
+          "type": "Fire & Rapid Water Rescue",
+          "station": "Area Emergency Response Unit",
+          "phone": "101 / 112",
+          "lat": 19.1079,
+          "lng": 72.8949,
+          "distanceKm": 0.5,
+          "status": "Active 24/7"
+        },
+        {
+          "id": "EMS-LOC-02",
+          "name": "Civil Municipal Hospital Trauma Center",
+          "category": "medical",
+          "icon": "🚑",
+          "type": "Emergency & Trauma Care",
+          "station": "Emergency Healthcare Complex",
+          "phone": "102 / 108",
+          "lat": 19.0989,
+          "lng": 72.9014,
+          "distanceKm": 0.7,
+          "status": "Emergency Ward Open"
+        }
+      ],
+      "routingRationale": "Immediate high-priority deployment of Disaster Management Command Cell (0.3 km away) to active GPS distress coordinate.",
+      "waterLevel": 55,
+      "drainObservation": "Distress / Flooding",
+      "onsetSpeed": "Immediate",
+      "recurrence": "No",
+      "lat": 19.1044,
+      "lng": 72.8974,
+      "latitude": 19.1044,
+      "longitude": 72.8974,
+      "geohash": "te7u8",
+      "evidenceHash": "0xSOS1a0def0370d",
+      "address": "Test Ward 72",
+      "note": "EMERGENCY SOS BROADCAST: User Test Citizen triggered life-safety alarm at Test Ward 72. Contact: +917738122051",
+      "photo": false,
+      "photoUrl": null,
+      "video": false,
+      "videoUrl": null,
+      "mediaType": "none",
+      "gps": true,
+      "liveGps": true,
+      "liveLocation": {
+        "latitude": 19.1044,
+        "longitude": 72.8974,
+        "address": "Test Ward 72",
+        "capturedAt": "2026-09-26T18:17:59.809Z"
+      },
+      "cvConfidence": 100,
+      "cvConfidenceDecimal": 1,
+      "aiVerified": true,
+      "aiFloodConfidence": 1,
+      "cvModelLabel": "EMERGENCY_SOS_DIRECT_DISPATCH",
+      "cvStatus": "Verified",
+      "reporter_count": 1,
+      "clusterCount": 1,
+      "mergedCount": 1,
+      "reports": [
+        {
+          "id": "RPT-679821-773",
+          "incident_id": "INC-1004",
+          "sos_id": "SOS-2001",
+          "user_id": "USR-2051",
+          "user_name": "Test Citizen",
+          "user_phone": "+917738122051",
+          "emergency_number": "+917738122051",
+          "role": "Shop Owner",
+          "latitude": 19.1044,
+          "longitude": 72.8974,
+          "lat": 19.1044,
+          "lng": 72.8974,
+          "address": "Test Ward 72",
+          "distance_meters": 0,
+          "timestamp": "2026-09-26T18:17:59.809Z",
+          "created_at": "2026-09-26T18:17:59.809Z"
+        }
+      ],
+      "mergedReports": [
+        {
+          "id": "RPT-679821-773",
+          "incident_id": "INC-1004",
+          "sos_id": "SOS-2001",
+          "user_id": "USR-2051",
+          "user_name": "Test Citizen",
+          "user_phone": "+917738122051",
+          "emergency_number": "+917738122051",
+          "role": "Shop Owner",
+          "latitude": 19.1044,
+          "longitude": 72.8974,
+          "lat": 19.1044,
+          "lng": 72.8974,
+          "address": "Test Ward 72",
+          "distance_meters": 0,
+          "timestamp": "2026-09-26T18:17:59.809Z",
+          "created_at": "2026-09-26T18:17:59.809Z"
+        }
+      ],
+      "latest_report": {
+        "id": "RPT-679821-773",
+        "incident_id": "INC-1004",
+        "sos_id": "SOS-2001",
+        "user_id": "USR-2051",
+        "user_name": "Test Citizen",
+        "user_phone": "+917738122051",
+        "emergency_number": "+917738122051",
+        "role": "Shop Owner",
+        "latitude": 19.1044,
+        "longitude": 72.8974,
+        "lat": 19.1044,
+        "lng": 72.8974,
+        "address": "Test Ward 72",
+        "distance_meters": 0,
+        "timestamp": "2026-09-26T18:17:59.809Z",
+        "created_at": "2026-09-26T18:17:59.809Z"
+      },
+      "relatedIncidentId": null,
+      "duplicateOf": null,
+      "createdAt": "2026-09-26T18:17:59.809Z",
+      "updatedAt": "2026-09-26T18:17:59.809Z",
+      "dispatched": true,
+      "originalSeverity": 95,
+      "resolvedAt": "2026-09-26T18:17:59.833Z"
+    },
     {
       "id": "INC-1003",
       "sosId": "SOS-2001",
@@ -101,8 +379,8 @@
       "timestamp": "2026-09-26T17:44:12.619Z",
       "first_reported_at": "2026-09-26T17:44:12.619Z",
       "last_reported_at": "2026-09-26T18:00:15.158Z",
-      "status": "Dispatched",
-      "severity": 33,
+      "status": "Resolved",
+      "severity": 0,
       "isQuarantined": false,
       "quarantineReason": null,
       "reporterReputation": {
@@ -569,7 +847,8 @@
       "originalSeverity": 95,
       "dispatched": true,
       "assignedDispatchId": "DSP-71",
-      "dispatchedAt": "2026-09-26T17:50:11.118Z"
+      "dispatchedAt": "2026-09-26T17:50:11.118Z",
+      "resolvedAt": "2026-09-26T18:12:37.121Z"
     },
     {
       "id": "INC-1002",
@@ -1397,8 +1676,8 @@
       "channels": [
         "App"
       ],
-      "createdAt": "2026-09-26T17:50:11.118Z",
-      "updatedAt": "2026-09-26T17:50:11.118Z"
+      "createdAt": "2026-09-26T18:17:59.833Z",
+      "updatedAt": "2026-09-26T18:17:59.833Z"
     },
     {
       "id": "ALT-DRN-BLK-01",
@@ -1421,7 +1700,7 @@
         "App"
       ],
       "createdAt": "2026-09-26T13:00:04.155Z",
-      "updatedAt": "2026-09-26T17:50:11.118Z"
+      "updatedAt": "2026-09-26T18:17:59.833Z"
     },
     {
       "id": "ALT-DRN-BLK-02",
@@ -1444,7 +1723,7 @@
         "App"
       ],
       "createdAt": "2026-09-25T23:00:04.156Z",
-      "updatedAt": "2026-09-26T17:50:11.118Z"
+      "updatedAt": "2026-09-26T18:17:59.833Z"
     },
     {
       "id": "ALT-DRN-BLK-03",
@@ -1467,166 +1746,22 @@
         "App"
       ],
       "createdAt": "2026-09-25T15:00:04.156Z",
-      "updatedAt": "2026-09-26T17:50:11.118Z"
-    },
-    {
-      "id": "ALT-SOS-SOS-2001",
-      "type": "sos",
-      "source": "incident",
-      "sourceName": "Citizen SOS Dispatch",
-      "sosId": "SOS-2001",
-      "incidentId": "SOS-2001",
-      "location_name": "19.1044, 72.8974",
-      "area": "Citizen SOS Location",
-      "lat": 19.104407,
-      "lng": 72.897406,
-      "latitude": 19.104407,
-      "longitude": 72.897406,
-      "level": "RED",
-      "severity": "CRITICAL",
-      "title": "SOS: Citizen stranded in flood water (1 people)",
-      "description": "🚨 Clustered SOS (6 reports within 500m). Latest: Siya Bhagat (+917738122051) at Powai Station Road Market",
-      "message": "Immediate water rescue required. Contact: Emergency Call",
-      "status": "Active SOS",
-      "channels": [
-        "App",
-        "SMS",
-        "WhatsApp",
-        "PagerDuty"
-      ],
-      "createdAt": "2026-09-26T17:44:12.619Z",
-      "updatedAt": "2026-09-26T18:00:15.158Z",
-      "reporterCount": 6,
-      "reporter_count": 6,
-      "reports": [
-        {
-          "id": "RPT-652632-281",
-          "incident_id": "INC-1003",
-          "sos_id": "SOS-2001",
-          "user_id": "USR-651082",
-          "user_name": "Bhagwaan",
-          "user_phone": "+91 9869001892",
-          "emergency_number": "+91 7977661625",
-          "role": "Shop Owner",
-          "latitude": 19.104407,
-          "longitude": 72.897406,
-          "lat": 19.104407,
-          "lng": 72.897406,
-          "address": "Powai, Powai",
-          "distance_meters": 0,
-          "timestamp": "2026-09-26T17:44:12.619Z",
-          "created_at": "2026-09-26T17:44:12.619Z",
-          "photo_url": "/uploads/sample_flood_photo_2.jpg",
-          "photoUrl": "/uploads/sample_flood_photo_2.jpg",
-          "video_url": "/uploads/sample_flood_evidence.mp4",
-          "videoUrl": "/uploads/sample_flood_evidence.mp4"
-        },
-        {
-          "id": "RPT-241768-205",
-          "incident_id": "INC-1003",
-          "sos_id": "SOS-2001",
-          "user_id": "USR-TEST-02",
-          "user_name": "Siya Bhagat",
-          "user_phone": "+917738122051",
-          "emergency_number": "+917738122051",
-          "role": "Shop Owner",
-          "latitude": 19.1044,
-          "longitude": 72.8974,
-          "lat": 19.1044,
-          "lng": 72.8974,
-          "address": "Powai Station Road Market, Mumbai",
-          "distance_meters": 1,
-          "timestamp": "2026-09-26T17:54:01.755Z",
-          "created_at": "2026-09-26T17:54:01.755Z",
-          "photo_url": "/uploads/sample_flood_photo_3.jpg",
-          "photoUrl": "/uploads/sample_flood_photo_3.jpg",
-          "video_url": "/uploads/sample_flood_evidence.mp4",
-          "videoUrl": "/uploads/sample_flood_evidence.mp4"
-        },
-        {
-          "id": "RPT-354280-496",
-          "incident_id": "INC-1003",
-          "sos_id": "SOS-2001",
-          "user_id": "USR-353310",
-          "user_name": "BaapHuTera",
-          "user_phone": "+91 9869001892",
-          "emergency_number": "+91 7977661625",
-          "role": "Shop Owner",
-          "latitude": 19.104407,
-          "longitude": 72.897406,
-          "lat": 19.104407,
-          "lng": 72.897406,
-          "address": "Powai, Powai",
-          "distance_meters": 0,
-          "timestamp": "2026-09-26T17:55:54.263Z",
-          "created_at": "2026-09-26T17:55:54.263Z",
-          "photo_url": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
-          "photoUrl": "https://fnsesjwksmzypuoobufk.supabase.co/storage/v1/object/public/incident-photos/INC-1008_1790338169913.jpg",
-          "video_url": "/uploads/sample_flood_evidence.mp4",
-          "videoUrl": "/uploads/sample_flood_evidence.mp4"
-        },
-        {
-          "id": "RPT-480790-136",
-          "incident_id": "INC-1003",
-          "sos_id": "SOS-2001",
-          "user_id": "USR-2051",
-          "user_name": "Siya Bhagat",
-          "user_phone": "+917738122051",
-          "emergency_number": "+917738122051",
-          "role": "Shop Owner",
-          "latitude": 19.1044,
-          "longitude": 72.8974,
-          "lat": 19.1044,
-          "lng": 72.8974,
-          "address": "Station Road Commercial Market",
-          "distance_meters": 1,
-          "timestamp": "2026-09-26T17:58:00.789Z",
-          "created_at": "2026-09-26T17:58:00.789Z",
-          "photo_url": "/uploads/sample_flood_photo.jpg",
-          "photoUrl": "/uploads/sample_flood_photo.jpg",
-          "video_url": "/uploads/sample_flood_evidence.mp4",
-          "videoUrl": "/uploads/sample_flood_evidence.mp4"
-        },
-        {
-          "id": "RPT-596050-516",
-          "incident_id": "INC-1003",
-          "sos_id": "SOS-2001",
-          "user_id": "USR-2051",
-          "user_name": "Siya Bhagat",
-          "user_phone": "+917738122051",
-          "emergency_number": "+917738122051",
-          "role": "Shop Owner",
-          "latitude": 19.1044,
-          "longitude": 72.8974,
-          "lat": 19.1044,
-          "lng": 72.8974,
-          "address": "Powai Station Road Market",
-          "distance_meters": 1,
-          "timestamp": "2026-09-26T17:59:56.038Z",
-          "created_at": "2026-09-26T17:59:56.038Z"
-        },
-        {
-          "id": "RPT-615159-107",
-          "incident_id": "INC-1003",
-          "sos_id": "SOS-2001",
-          "user_id": "USR-2051",
-          "user_name": "Siya Bhagat",
-          "user_phone": "+917738122051",
-          "emergency_number": "+917738122051",
-          "role": "Shop Owner",
-          "latitude": 19.1044,
-          "longitude": 72.8974,
-          "lat": 19.1044,
-          "lng": 72.8974,
-          "address": "Powai Station Road Market",
-          "distance_meters": 1,
-          "timestamp": "2026-09-26T18:00:15.158Z",
-          "created_at": "2026-09-26T18:00:15.158Z"
-        }
-      ]
+      "updatedAt": "2026-09-26T18:17:59.833Z"
     }
   ],
   "dispatches": [
+    {
+      "id": "DSP-72",
+      "incident": "SOS-LIVE",
+      "team": "Advanced Life Support (ALS) Ambulance",
+      "teamId": "RES-SIM-001",
+      "reason": "High severity waterlogging",
+      "channel": "Twilio SMS + Operations Board Bus",
+      "status": "En route",
+      "eta": "8–12 min",
+      "isOverride": false,
+      "createdAt": "2026-09-26T18:12:59.850Z"
+    },
     {
       "id": "DSP-71",
       "incident": "INC-1003",
@@ -1634,7 +1769,7 @@
       "teamId": "RES-SIM-001",
       "reason": "Test SOS Dispatch",
       "channel": "Twilio SMS + Operations Board Bus",
-      "status": "En route",
+      "status": "Completed",
       "eta": "8–12 min",
       "isOverride": false,
       "createdAt": "2026-09-26T17:50:11.118Z"
@@ -1665,9 +1800,9 @@
       "phone": "108 / 102",
       "simulation_id": "SIM-20260926-160",
       "created_at": "2026-09-26T17:38:06.494Z",
-      "currentIncidentId": "INC-1003",
+      "currentIncidentId": "SOS-LIVE",
       "eta": "8–12 min",
-      "activeDispatchId": "DSP-71"
+      "activeDispatchId": "DSP-72"
     },
     {
       "id": "RES-SIM-002",
@@ -2133,27 +2268,7 @@
     }
   ],
   "notifications": [],
-  "sosAlerts": [
-    {
-      "id": "SOS-2001",
-      "userId": "USR-651082",
-      "userName": "Bhagwaan",
-      "userPhone": "+91 9869001892",
-      "emergencyNumber": "+91 7977661625",
-      "role": "Shop Owner",
-      "lat": 19.104407,
-      "lng": 72.897406,
-      "address": "Powai, Powai",
-      "emergencyStatus": "ACTIVE_SOS",
-      "assignedTeam": "Disaster Management Command Cell",
-      "assignedTeamPhone": "1916 / 1077",
-      "eta": "3 mins",
-      "timestamp": "2026-09-26T17:44:12.619Z",
-      "isQuarantined": false,
-      "quarantineReason": null,
-      "smsSuppressed": false
-    }
-  ],
+  "sosAlerts": [],
   "alertFeedbacks": [],
   "chronicBlockages": [
     {
@@ -2566,7 +2681,7 @@
       "identifier": "+917738122051",
       "userName": "Siya Bhagat",
       "userPhone": "+917738122051",
-      "totalSubmissions": 6,
+      "totalSubmissions": 7,
       "verifiedCount": 0,
       "falseAlarmCount": 0,
       "trustScore": 1,
@@ -2574,9 +2689,9 @@
       "isQuarantined": false,
       "quarantineReason": null,
       "createdAt": "2026-09-26T17:29:16.029Z",
-      "updatedAt": "2026-09-26T18:00:15.158Z",
+      "updatedAt": "2026-09-26T18:17:59.820Z",
       "history": []
     }
   },
-  "updatedAt": "2026-09-26T18:06:36.551Z"
+  "updatedAt": "2026-09-26T18:17:59.833Z"
 }

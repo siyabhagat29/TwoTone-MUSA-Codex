@@ -2417,11 +2417,13 @@ function Dashboard({
   const critical = zones.filter((z) => z.risk >= 75).length;
   const elevated = zones.filter((z) => z.risk >= 45 && z.risk < 75).length;
   const totalRain = zones.reduce((sum, z) => sum + (z.rainfall || 0), 0);
+  const avgRain = zones.length ? Math.round(totalRain / zones.length) : 0;
   const availableTeams = resources.filter((r) => {
     const s = String(r.status || "").toUpperCase();
     return s === "AVAILABLE" || s === "READY";
   }).length;
 
+  const [emsCategoryFilter, setEmsCategoryFilter] = useState("all");
   const filteredEmergencyServices = emergencyServices.filter((ems) => {
     if (emsCategoryFilter === "all") return true;
     return ems.category === emsCategoryFilter;
@@ -3116,8 +3118,8 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
   const inc = incident;
   const isSos = Boolean(inc.isSos || inc.type === "SOS" || inc.status === "ACTIVE_SOS" || inc.causeCode === "SOS_EMERGENCY");
   const isDispatched = inc.status === "Dispatched";
-  const isVerified = inc.status === "Verified";
-  const isFalseAlarm = inc.status === "False Alarm";
+  const isFalseAlarm = inc.status === "False Alarm" || inc.status === "FALSE_ALARM" || inc.falseAlarmAt != null || Boolean(inc.isDismissed);
+  const isResolved = inc.status === "Resolved" || inc.status === "RESOLVED" || inc.resolvedAt != null;
 
   const causeCode = inc.causeCode || (inc.cause === "Blocked drain" ? "SUSPECTED_BLOCKED_DRAIN" : "RAINFALL_OVERLOAD");
   const hasVideo = Boolean((inc.videoUrl || inc.video) && inc.videoUrl !== "attached" && (inc.videoUrl?.startsWith("http") || inc.videoUrl?.startsWith("data:video") || inc.videoUrl?.startsWith("/uploads")));
@@ -3339,22 +3341,19 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
           </a>
         ) : null}
 
-        {!isVerified && !isDispatched && !isFalseAlarm && (
-          <button
-            className="ghost small"
-            onClick={() => (onResolve ? onResolve(inc.id) : onVerify(inc.id))}
-            style={{ fontSize: "11px", padding: "5px 10px", color: "#16a34a", borderColor: "#bbf7d0", background: "#f0fdf4" }}
-            title="Mark incident as resolved"
-          >
-            <CheckCircle2 size={12} /> Resolve
-          </button>
-        )}
-
-        {!isFalseAlarm && !isDispatched && (
+        {!isResolved && !isFalseAlarm && (
           <>
             <button
               className="ghost small"
-              onClick={() => (onDismiss ? onDismiss(inc.id) : onFalseAlarm(inc.id))}
+              onClick={() => (onResolve ? onResolve(inc.id || inc.sosId) : onVerify(inc.id))}
+              style={{ fontSize: "11px", padding: "5px 10px", color: "#16a34a", borderColor: "#bbf7d0", background: "#f0fdf4", fontWeight: "700" }}
+              title="Mark incident as resolved"
+            >
+              <CheckCircle2 size={12} /> Resolve
+            </button>
+            <button
+              className="ghost small"
+              onClick={() => (onDismiss ? onDismiss(inc.id || inc.sosId) : onFalseAlarm(inc.id || inc.sosId))}
               style={{ fontSize: "11px", padding: "5px 8px", color: "#475569", borderColor: "#cbd5e1", background: "#f8fafc" }}
               title="Dismiss incident from active dashboard"
             >
@@ -3362,7 +3361,7 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
             </button>
             <button
               className="ghost small"
-              onClick={() => onFalseAlarm(inc.id)}
+              onClick={() => (onFalseAlarm ? onFalseAlarm(inc.id || inc.sosId) : null)}
               style={{ fontSize: "11px", padding: "5px 8px", color: "#b91c1c", borderColor: "#fecaca", background: "#fef2f2" }}
               title="Flag as false alarm and remove from dashboard"
             >

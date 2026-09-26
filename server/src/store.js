@@ -3443,14 +3443,21 @@ class Store {
   }
 
   resolveIncident(incidentId) {
-    const inc = this.incidents.find((i) => i.id === incidentId || i.sosId === incidentId);
+    if (!incidentId) return null;
+    const cleanId = String(incidentId).trim().toUpperCase();
+    const inc = this.incidents.find((i) => {
+      if (!i) return false;
+      const iId = String(i.id || "").trim().toUpperCase();
+      const sId = String(i.sosId || "").trim().toUpperCase();
+      return iId === cleanId || sId === cleanId || (iId && cleanId.includes(iId)) || (sId && cleanId.includes(sId));
+    });
     if (inc) {
       inc.status = "Resolved";
       inc.dispatched = true;
       inc.originalSeverity = inc.originalSeverity || inc.severity;
       inc.severity = 0;
       inc.resolvedAt = new Date().toISOString();
-      const dispatch = this.dispatches.find((d) => (d.incident === inc.id || d.incident === incidentId) && d.status !== "Completed");
+      const dispatch = this.dispatches.find((d) => (d.incident === inc.id || d.incident === incidentId || d.incident === inc.sosId) && d.status !== "Completed");
       if (dispatch) dispatch.status = "Completed";
       if (inc.assignedTeam) {
         const teamObj = this.resources.find((t) => t.name === inc.assignedTeam || t.id === inc.assignedTeamId);
@@ -3464,8 +3471,8 @@ class Store {
         this.updateZoneMetrics(inc.zoneId);
       }
       // Clear and remove any alerts or SOS entries from the active notification stack
-      this.alerts = this.alerts.filter((a) => a.incidentId !== inc.id && a.sosId !== inc.sosId && a.id !== incidentId && a.incidentId !== incidentId);
-      this.sosAlerts = this.sosAlerts.filter((s) => s.id !== inc.sosId && s.id !== incidentId && s.incidentId !== inc.id && s.incidentId !== incidentId);
+      this.alerts = this.alerts.filter((a) => a.incidentId !== inc.id && a.sosId !== inc.sosId && a.id !== incidentId && a.incidentId !== incidentId && a.sosId !== incidentId);
+      this.sosAlerts = this.sosAlerts.filter((s) => s.id !== inc.sosId && s.id !== incidentId && s.incidentId !== inc.id && s.incidentId !== incidentId && s.id !== inc.id);
 
       this.recomputeAlerts();
       this.syncResourceStatuses();
@@ -3473,6 +3480,7 @@ class Store {
       this.emit("incident:updated", { incident: inc, action: "resolved" });
       this.emit("incident:resolved", { incident: inc, id: inc.id });
       this.emit("sos:resolved", { incident: inc, sosId: inc.sosId });
+      this.emit("incidents:updated", this.incidents);
       this.emit("resources:updated", this.resources);
       return inc;
     }
