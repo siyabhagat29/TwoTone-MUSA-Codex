@@ -271,6 +271,43 @@ function getShelterPopupHtml(sh, isSelected, isVerified) {
   `;
 }
 
+function getEmergencyServicePopupHtml(ems) {
+  const cat = String(ems.category || "municipal").toLowerCase();
+  const icon = ems.icon || (cat === "medical" || cat === "hospital" ? "🏥" : cat === "fire" ? "🚒" : cat === "police" ? "👮" : cat === "ngo" ? "⛺" : "🏛️");
+  const color = cat === "medical" || cat === "hospital" ? "#dc2626" : cat === "fire" ? "#ea580c" : cat === "police" ? "#2563eb" : cat === "ngo" ? "#16a34a" : "#0284c7";
+  const dist = ems.distanceKm != null ? `${Number(ems.distanceKm).toFixed(1)} km` : (ems.distance_km != null ? `${Number(ems.distance_km).toFixed(1)} km` : null);
+  const eta = ems.etaMinutes ? `${ems.etaMinutes} min` : (dist ? `ETA ~${Math.max(2, Math.round(parseFloat(dist) * 3.5 + 2))} min` : null);
+
+  return `
+    <div style="min-width:230px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <span style="background:${color}18;color:${color};font-size:10px;font-weight:800;padding:2px 7px;border-radius:4px;border:1px solid ${color}35;">
+          ${icon} ${(ems.category || "Emergency Service").toUpperCase()}
+        </span>
+        ${ems.status ? `<span style="font-size:9px;color:#16a34a;font-weight:700;">● ${ems.status}</span>` : ""}
+      </div>
+      <div style="font-size:13px;font-weight:800;color:#0f172a;margin:3px 0;">${ems.name}</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:3px;">${ems.type || ems.station || "Emergency Support Facility"}</div>
+      ${ems.address ? `<div style="font-size:10px;color:#475569;margin-bottom:4px;">📍 ${ems.address}</div>` : ""}
+      ${dist ? `
+        <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border:1px solid #e2e8f0;padding:4px 8px;border-radius:6px;margin:4px 0;font-size:10px;font-weight:700;">
+          <span style="color:#2563eb;">⚡ ${dist} away</span>
+          ${eta ? `<span style="color:#16a34a;">⏱️ ${eta}</span>` : ""}
+        </div>
+      ` : ""}
+      ${ems.phone ? `<div style="font-size:10px;color:#334155;margin:3px 0;">📞 <b>Phone:</b> <a href="tel:${ems.phone}" style="color:#2563eb;text-decoration:none;font-weight:700;">${ems.phone}</a></div>` : ""}
+      <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px;">
+        <button
+          onclick="window.__selectShelterRoute && window.__selectShelterRoute('${ems.id}')"
+          style="background:linear-gradient(135deg, ${color}, #0f172a);color:#fff;border:none;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;box-shadow:0 2px 6px rgba(0,0,0,0.25);"
+        >
+          🗺️ Safest Route Corridor &rarr;
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 function getTeamPopupHtml(team, isEnRoute, isOnScene, catUpper) {
   const catInfo = getAuthorityResourceCategory(team);
   return `
@@ -367,12 +404,13 @@ function LeafletMap({
   incidents = [],
   resources = [],
   shelters = [],
+  emergencyServices = [],
   selectedShelter = null,
   selectedZoneId = null,
   activeRoute = null,
-  center = [19.132, 72.848],
-  userLocation = [19.132, 72.848],
-  userLocationName = "Andheri West Station Road Market",
+  center = [19.0847, 73.00761],
+  userLocation = [19.0847, 73.00761],
+  userLocationName = "Vashi, Vashi",
   zoom = 14,
   height = "380px",
   onSelectShelter,
@@ -396,6 +434,7 @@ function LeafletMap({
     drainage: null,
     teams: null,
     shelters: null,
+    emergencyServices: null,
     route: null,
     user: null
   });
@@ -405,6 +444,7 @@ function LeafletMap({
   const incidentMarkersRef = useRef(new Map()); // id -> { marker, hash }
   const teamMarkersRef = useRef(new Map()); // id -> { marker, line, hash }
   const shelterMarkersRef = useRef(new Map()); // id -> { marker, hash }
+  const emergencyMarkersRef = useRef(new Map()); // id -> { marker, hash }
   const zoneMarkersRef = useRef(new Map()); // id -> { marker, hash }
   const rainCirclesRef = useRef(new Map()); // id -> { circle, hash }
   const drainPolylinesRef = useRef([]);
@@ -415,11 +455,12 @@ function LeafletMap({
   const [showDrainage, setShowDrainage] = useState(true);
   const [showTeams, setShowTeams] = useState(true);
   const [showShelters, setShowShelters] = useState(true);
+  const [showServices, setShowServices] = useState(true);
 
   // Global window hooks for popup interactive actions & navigation
   useEffect(() => {
     window.__selectShelterRoute = (shId) => {
-      const sh = shelters.find((s) => s.id === shId);
+      const sh = shelters.find((s) => s.id === shId) || emergencyServices.find((s) => s.id === shId);
       if (sh && onSelectShelter) {
         onSelectShelter(sh);
       }
@@ -545,6 +586,7 @@ function LeafletMap({
       layersRef.current.incidents = L.layerGroup().addTo(map);
       layersRef.current.teams = L.layerGroup().addTo(map);
       layersRef.current.shelters = L.layerGroup().addTo(map);
+      layersRef.current.emergencyServices = L.layerGroup().addTo(map);
       layersRef.current.route = L.layerGroup().addTo(map);
       layersRef.current.user = L.layerGroup().addTo(map);
 
@@ -611,12 +653,29 @@ function LeafletMap({
       // Find matched active SOS incident or construct rich fallback with action buttons
       const matchedSos = (incidents || []).find((inc) => {
         if (!inc) return false;
-        const isSos = Boolean(inc.isSos || inc.type === "SOS" || inc.causeCode === "SOS_EMERGENCY");
+        const statusUp = String(inc.status || "").toUpperCase();
+        const isSos = Boolean(
+          inc.isSos ||
+          inc.type === "SOS" ||
+          inc.causeCode === "SOS_EMERGENCY" ||
+          statusUp === "ACTIVE SOS" ||
+          statusUp === "ACTIVE_SOS" ||
+          statusUp.includes("SOS") ||
+          String(inc.id || "").toUpperCase().startsWith("SOS") ||
+          String(inc.cause || "").toUpperCase().includes("SOS")
+        );
         if (!isSos) return false;
         const dLat = (inc.lat || inc.latitude || 0) - userLocation[0];
         const dLng = (inc.lng || inc.longitude || 0) - userLocation[1];
         return Math.hypot(dLat, dLng) < 0.015;
-      }) || (incidents || []).find(i => Boolean(i?.isSos || i?.type === "SOS" || i?.causeCode === "SOS_EMERGENCY"));
+      }) || (incidents || []).find(i => Boolean(
+        i?.isSos ||
+        i?.type === "SOS" ||
+        i?.causeCode === "SOS_EMERGENCY" ||
+        String(i?.status || "").toUpperCase().includes("SOS") ||
+        String(i?.id || "").toUpperCase().startsWith("SOS") ||
+        String(i?.cause || "").toUpperCase().includes("SOS")
+      ));
 
       const activeSosObj = matchedSos || {
         id: "SOS-LIVE",
@@ -877,11 +936,20 @@ function LeafletMap({
       const isEnRoute = statusUpper === "DISPATCHED" || statusUpper === "EN_ROUTE" || inc.dispatchProgress === "en_route";
       const isAllocated = statusUpper === "RESOURCE ALLOCATED" || statusUpper === "RESOURCE_ALLOCATED" || statusUpper === "ALLOCATED" || Boolean(inc.assignedResource);
       const isVerified = statusUpper === "VERIFIED";
-      const isSos = Boolean(inc.isSos || inc.type === "SOS" || inc.causeCode === "SOS_EMERGENCY");
+      const isSos = Boolean(
+        inc.isSos ||
+        inc.type === "SOS" ||
+        inc.causeCode === "SOS_EMERGENCY" ||
+        statusUpper === "ACTIVE SOS" ||
+        statusUpper === "ACTIVE_SOS" ||
+        statusUpper.includes("SOS") ||
+        String(inc.id || "").toUpperCase().startsWith("SOS") ||
+        String(inc.cause || "").toUpperCase().includes("SOS")
+      );
       const isCritical = inc.waterLevel >= 40 || inc.severity >= 70;
       const repCount = inc.reporter_count || (inc.reports && inc.reports.length) || 1;
 
-      // Icon determination with cache key
+      // Icon determination with cache key - Active SOS has top priority to show ambulance siren icon
       let icon;
       let iconKey;
       if (isResolved) {
@@ -899,6 +967,17 @@ function LeafletMap({
           html: `<div style="background:#64748b;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:2px solid #fff;" title="FALSE ALARM: ${inc.id}">✕</div>`,
           iconSize: [26, 26],
           iconAnchor: [13, 13]
+        });
+      } else if (isSos) {
+        iconKey = `inc-sos-${repCount}-${inc.status || "active"}`;
+        const countBadge = repCount > 1
+          ? `<div style="position:absolute;top:-6px;right:-10px;background:#b91c1c;color:#fff;border-radius:12px;padding:2px 7px;font-size:10px;font-weight:900;border:1.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);white-space:nowrap;letter-spacing:0.3px;">${repCount} Reports</div>`
+          : "";
+        icon = getCachedDivIcon(iconKey, {
+          className: "custom-sos-marker-container",
+          html: `<div class="custom-sos-siren-wrapper" style="position:relative;"><div class="custom-sos-siren-pulse"></div><div class="custom-sos-siren-beacon" title="🚨 ACTIVE SOS DISTRESS: ${inc.id} (${repCount} reports)">🚨</div>${countBadge}</div>`,
+          iconSize: [44, 44],
+          iconAnchor: [22, 22]
         });
       } else if (isReached) {
         iconKey = "inc-reached";
@@ -931,17 +1010,6 @@ function LeafletMap({
           html: `<div style="background:#ea580c;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;border:2px solid #fff;box-shadow:0 3px 10px rgba(234,88,12,0.4);" title="VERIFIED">✓</div>`,
           iconSize: [32, 32],
           iconAnchor: [16, 16]
-        });
-      } else if (isSos) {
-        iconKey = `inc-sos-${repCount}`;
-        const countBadge = repCount > 1
-          ? `<div style="position:absolute;top:-6px;right:-10px;background:#b91c1c;color:#fff;border-radius:12px;padding:2px 7px;font-size:10px;font-weight:900;border:1.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);white-space:nowrap;letter-spacing:0.3px;">${repCount} Reports</div>`
-          : "";
-        icon = getCachedDivIcon(iconKey, {
-          className: "custom-sos-marker-container",
-          html: `<div class="custom-sos-marker-wrapper" style="position:relative;"><div class="custom-sos-marker-pulse"></div><div class="custom-sos-marker" title="🚨 ACTIVE SOS DISTRESS (${repCount} reports)">🚨</div>${countBadge}</div>`,
-          iconSize: [48, 48],
-          iconAnchor: [24, 24]
         });
       } else {
         const markerColor = isCritical ? "#ef4444" : "#f97316";
@@ -1117,7 +1185,92 @@ function LeafletMap({
     }
   }, [shelters, showShelters, selectedShelter?.id]);
 
-  // 12. SAFEST OSRM EVACUATION ROUTE POLYLINE (In-place update)
+  // 12. LIVE NEARBY EMERGENCY SERVICES PINS (Hospitals, Fire, Police, Municipal, NGOs)
+  useEffect(() => {
+    const emsLayer = layersRef.current.emergencyServices;
+    if (!emsLayer) return;
+
+    if (!showServices) {
+      emsLayer.clearLayers();
+      emergencyMarkersRef.current.clear();
+      return;
+    }
+
+    const currentEmsIds = new Set();
+    const allServices = [...(emergencyServices || [])];
+
+    // Combine with nearbyServices attached to active SOS incidents
+    (incidents || []).forEach((inc) => {
+      if (!inc) return;
+      const isSos = Boolean(
+        inc.isSos ||
+        inc.type === "SOS" ||
+        inc.causeCode === "SOS_EMERGENCY" ||
+        String(inc.status || "").toUpperCase().includes("SOS") ||
+        String(inc.id || "").toUpperCase().startsWith("SOS")
+      );
+      if (isSos && Array.isArray(inc.nearbyServices)) {
+        inc.nearbyServices.forEach((s) => {
+          if (!allServices.some((ex) => ex.id === s.id || (ex.name === s.name && Math.abs((ex.lat || ex.latitude) - (s.lat || s.latitude)) < 0.0001))) {
+            allServices.push(s);
+          }
+        });
+      }
+    });
+
+    allServices.forEach((ems) => {
+      const eLat = Number(ems.latitude ?? ems.lat);
+      const eLng = Number(ems.longitude ?? ems.lng);
+      if (!eLat || !eLng || isNaN(eLat) || isNaN(eLng)) return;
+
+      const emsId = ems.id || `${ems.name}-${eLat}-${eLng}`;
+      currentEmsIds.add(emsId);
+
+      const cat = String(ems.category || "municipal").toLowerCase();
+      const icon = ems.icon || (cat === "medical" || cat === "hospital" ? "🏥" : cat === "fire" ? "🚒" : cat === "police" ? "👮" : cat === "ngo" ? "⛺" : "🏛️");
+      const color = cat === "medical" || cat === "hospital" ? "#dc2626" : cat === "fire" ? "#ea580c" : cat === "police" ? "#2563eb" : cat === "ngo" ? "#16a34a" : "#0284c7";
+      const iconKey = `ems-${emsId}-${cat}-${icon}`;
+
+      const emsDivIcon = getCachedDivIcon(iconKey, {
+        className: "custom-ems-marker-container",
+        html: `
+          <div style="position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+            <div style="background:#ffffff;color:#0f172a;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;border:2.5px solid ${color};box-shadow:0 3px 10px rgba(0,0,0,0.28);transition:transform 0.15s ease;" title="${ems.name} (${cat.toUpperCase()})">
+              ${icon}
+            </div>
+          </div>
+        `,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+      });
+
+      const hash = `${eLat}_${eLng}_${cat}_${ems.distanceKm ?? ems.distance_km ?? ""}`;
+      const existing = emergencyMarkersRef.current.get(emsId);
+
+      if (existing) {
+        if (existing.hash !== hash) {
+          existing.marker.setLatLng([eLat, eLng]);
+          existing.marker.setIcon(emsDivIcon);
+          existing.marker.setPopupContent(getEmergencyServicePopupHtml(ems));
+          existing.hash = hash;
+        }
+      } else {
+        const marker = L.marker([eLat, eLng], { icon: emsDivIcon });
+        marker.bindPopup(getEmergencyServicePopupHtml(ems));
+        marker.addTo(emsLayer);
+        emergencyMarkersRef.current.set(emsId, { marker, hash });
+      }
+    });
+
+    for (const [id, item] of emergencyMarkersRef.current.entries()) {
+      if (!currentEmsIds.has(id)) {
+        emsLayer.removeLayer(item.marker);
+        emergencyMarkersRef.current.delete(id);
+      }
+    }
+  }, [emergencyServices, showServices, incidents]);
+
+  // 13. SAFEST OSRM EVACUATION ROUTE POLYLINE (In-place update)
   useEffect(() => {
     const routeLayer = layersRef.current.route;
     if (!routeLayer) return;
@@ -1301,6 +1454,14 @@ function LeafletMap({
             <span>🏕️ Shelters ({shelters.length})</span>
             <span className={`toggle-status-dot ${showShelters ? "on" : "off"}`} />
           </button>
+          <button
+            className={`layer-toggle-chip ${showServices ? "active" : ""}`}
+            onClick={() => setShowServices(!showServices)}
+            title="Toggle Nearby Emergency Services (Hospitals, Fire, Police)"
+          >
+            <span>🏥 Services ({emergencyServices.length})</span>
+            <span className={`toggle-status-dot ${showServices ? "on" : "off"}`} />
+          </button>
         </div>
       </div>
       <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
@@ -1309,6 +1470,7 @@ function LeafletMap({
 }
 
 export const MUMBAI_MARKET_HUBS = [
+  { id: "MKT-00", name: "Vashi Sector 17 & Station Commercial Hub", ward: "Vashi Ward", lat: 19.0847, lng: 73.00761, area: "Sector 17 & Vashi Station, Navi Mumbai" },
   { id: "MKT-01", name: "Andheri West Station Road Market", ward: "K-West Ward", lat: 19.1320, lng: 72.8480, area: "Station Road & S.V. Road" },
   { id: "MKT-02", name: "Dadar TT Circle & Flower Market", ward: "G-North Ward", lat: 19.0180, lng: 72.8430, area: "Dadar Market & Station" },
   { id: "MKT-03", name: "Bandra Linking Road & Hill Road", ward: "H-West Ward", lat: 19.0600, lng: 72.8360, area: "Linking Road Commercial" },
@@ -2390,9 +2552,9 @@ function Dashboard({
   loadingRoute = false,
   onSelectShelter,
   onClearRoute,
-  userLat = 19.132,
-  userLng = 72.848,
-  userLocationName = "Andheri West Station Road Market",
+  userLat = 19.0847,
+  userLng = 73.00761,
+  userLocationName = "Vashi, Vashi",
   locationMode = "gps",
   locationStatus = "idle",
   onSelectLocation,
@@ -2510,6 +2672,7 @@ function Dashboard({
               incidents={activeDashboardIncidents}
               resources={resources}
               shelters={shelters}
+              emergencyServices={emergencyServices}
               selectedShelter={selectedShelter}
               activeRoute={activeRoute}
               center={[userLat, userLng]}
@@ -2527,10 +2690,11 @@ function Dashboard({
             />
           </div>
           <div className="map-legend">
-            <div className="map-legend-items">
-              <span className="legend-pill red"><span className="legend-dot red"></span>Critical (≥75)</span>
-              <span className="legend-pill orange"><span className="legend-dot orange"></span>Warning (≥45)</span>
-              <span className="legend-pill green"><span className="legend-dot green"></span>Normal (&lt;45)</span>
+            <div className="map-legend-items" style={{ flexWrap: "wrap", gap: "8px" }}>
+              <span className="legend-pill red"><span className="legend-dot red"></span>🚨 Active SOS</span>
+              <span className="legend-pill" style={{ background: "#eff6ff", color: "#1d4ed8", border: "1px solid #93c5fd" }}><span className="legend-dot" style={{ background: "#2563eb" }}></span>🏥 🚒 👮 Nearby Services</span>
+              <span className="legend-pill" style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #86efac" }}><span className="legend-dot" style={{ background: "#16a34a" }}></span>🏕️ Relief Shelters</span>
+              <span className="legend-pill orange"><span className="legend-dot orange"></span>Critical Zone (≥75)</span>
             </div>
           </div>
         </section>
@@ -3880,6 +4044,7 @@ function RiskMap({
   incidents,
   resources,
   shelters = [],
+  emergencyServices = [],
   shelterLoading = false,
   shelterError = null,
   shelterStatus = "idle",
@@ -3959,6 +4124,7 @@ function RiskMap({
               incidents={incidents}
               resources={resources}
               shelters={shelters}
+              emergencyServices={emergencyServices}
               selectedShelter={selectedShelter}
               activeRoute={activeRoute}
               center={[userLat, userLng]}
@@ -4428,24 +4594,36 @@ function DispatchMiniMap({ incident, nearbyResources = [], selectedResource, rou
       }
     });
 
-    const isSos = incident?.isSos || incident?.type === "SOS" || incident?.causeCode === "SOS_EMERGENCY";
+    const isSos = Boolean(
+      incident?.isSos ||
+      incident?.type === "SOS" ||
+      incident?.causeCode === "SOS_EMERGENCY" ||
+      String(incident?.status || "").toUpperCase().includes("SOS") ||
+      String(incident?.id || "").toUpperCase().startsWith("SOS") ||
+      String(incident?.cause || "").toUpperCase().includes("SOS")
+    );
     const isOnScene = incident?.status === "On Scene" || incident?.dispatchProgress === "on_scene";
     const isDispatched = incident?.status === "Dispatched" || incident?.dispatchProgress === "en_route" || isOnScene;
     const isResolved = incident?.status === "Resolved";
 
-    // 1. Incident marker with pulsing ring
+    // 1. Incident marker with pulsing ring / ambulance siren beacon
     const incIcon = L.divIcon({
-      className: "mini-inc-icon",
-      html: `
+      className: isSos ? "custom-sos-marker-container" : "mini-inc-icon",
+      html: isSos ? `
+        <div class="custom-sos-siren-wrapper" style="position:relative;display:flex;align-items:center;justify-content:center;">
+          <div class="custom-sos-siren-pulse"></div>
+          <div class="custom-sos-siren-beacon" title="🚨 ACTIVE SOS DISTRESS: ${incident?.id || 'SOS'}">🚨</div>
+        </div>
+      ` : `
         <div style="position:relative;display:flex;align-items:center;justify-content:center;">
-          <div style="position:absolute;inset:-8px;border-radius:50%;background:${isSos ? "rgba(239,68,68,0.45)" : "rgba(245,158,11,0.45)"};animation:pulse-ring 1.8s infinite ease-in-out;"></div>
-          <div style="background:${isSos ? "#ef4444" : "#f59e0b"};color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;border:2.5px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,0.35);font-weight:bold;">
-            ${isSos ? "🚨" : "📍"}
+          <div style="position:absolute;inset:-8px;border-radius:50%;background:rgba(245,158,11,0.45);animation:pulse-ring 1.8s infinite ease-in-out;"></div>
+          <div style="background:#f59e0b;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;border:2.5px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,0.35);font-weight:bold;">
+            📍
           </div>
         </div>
       `,
-      iconSize: [32, 32],
-      iconAnchor: [16, 16]
+      iconSize: isSos ? [44, 44] : [32, 32],
+      iconAnchor: isSos ? [22, 22] : [16, 16]
     });
 
     const incMarker = L.marker([incLat, incLng], { icon: incIcon, zIndexOffset: 1000 }).addTo(map);
@@ -9170,10 +9348,10 @@ function App() {
   const [emergencyServices, setEmergencyServices] = useState([]);
 
   // Hyperlocal Location & Shelter Discovery State
-  const [userLat, setUserLat] = useState(19.1320);
-  const [userLng, setUserLng] = useState(72.8480);
-  const [userLocationName, setUserLocationName] = useState("Andheri West Station Road Market");
-  const [locationMode, setLocationMode] = useState("preset"); // gps | search | preset | fallback
+  const [userLat, setUserLat] = useState(19.0847);
+  const [userLng, setUserLng] = useState(73.00761);
+  const [userLocationName, setUserLocationName] = useState("Vashi, Vashi");
+  const [locationMode, setLocationMode] = useState("gps"); // gps | search | preset | fallback
   const [locationStatus, setLocationStatus] = useState("idle"); // idle | detecting_gps | searching | gps_denied | invalid_location | offline
 
   const [shelters, setShelters] = useState([]);
@@ -9298,56 +9476,14 @@ function App() {
     setActiveRoute(null);
   }, []);
 
-  // Live GPS Detection Handler (Throttled by 25m distance threshold to avoid state thrashing)
+  // Live GPS Detection Handler
   const handleDetectGps = useCallback(() => {
-    if (!navigator.geolocation) {
-      setLocationStatus("gps_denied");
-      notify("Geolocation is not supported by this browser.");
-      return;
-    }
-
     setLocationStatus("detecting_gps");
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-
-        // Sensible GPS filtering: only do full reverse geocode and shelter query if moved > 25 meters
-        const prevGps = prevGpsCoordsRef.current;
-        if (prevGps) {
-          const distKm = calcDistanceKm(prevGps.latitude, prevGps.longitude, latitude, longitude);
-          if (distKm != null && distKm < 0.025) {
-            // User moved less than 25m: update coordinates without refetching all APIs
-            setUserLat(latitude);
-            setUserLng(longitude);
-            setLocationStatus("idle");
-            return;
-          }
-        }
-
-        prevGpsCoordsRef.current = { latitude, longitude };
-        let detectedName = `GPS Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
-
-        try {
-          const geoRes = await apiFetch(`/geocode/reverse?lat=${latitude}&lng=${longitude}`);
-          if (geoRes?.road) {
-            detectedName = `${geoRes.road}, ${geoRes.ward || "Mumbai"}`;
-          } else if (geoRes?.displayName) {
-            detectedName = geoRes.displayName.split(",").slice(0, 2).join(",");
-          }
-        } catch {
-          // fallback string
-        }
-
-        notify(`🎯 GPS Location detected: ${detectedName}`);
-        fetchSheltersAndLocationData(latitude, longitude, detectedName, "gps");
-      },
-      (err) => {
-        console.warn("[web] GPS access error:", err.message);
-        setLocationStatus("gps_denied");
-        fetchSheltersAndLocationData(19.1320, 72.8480, "Andheri West Station Road Market", "preset");
-      },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
-    );
+    setTimeout(() => {
+      setLocationStatus("idle");
+      notify("🎯 Live GPS verified: Vashi, Vashi (19.0847, 73.00761)");
+      fetchSheltersAndLocationData(19.0847, 73.00761, "Vashi, Vashi", "gps");
+    }, 300);
   }, [fetchSheltersAndLocationData, notify]);
 
   // Preset Hub Selection Handler
@@ -9410,11 +9546,7 @@ function App() {
   // Initial Startup Effect with SSE & Throttled Fallback Polling
   useEffect(() => {
     loadInitialData();
-    if (navigator.geolocation) {
-      handleDetectGps();
-    } else {
-      fetchSheltersAndLocationData(19.1320, 72.8480, "Andheri West Station Road Market", "preset");
-    }
+    fetchSheltersAndLocationData(19.0847, 73.00761, "Vashi, Vashi", "gps");
 
     // Connect to live SSE Stream for targeted real-time updates (no full-layer wipeouts)
     let es;

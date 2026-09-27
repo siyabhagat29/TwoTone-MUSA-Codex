@@ -80,12 +80,25 @@ export function DispatchInteractiveMap({
     group.clearLayers();
 
     // 1. Incident Target Marker
-    const isCrit = incident.isSos || incident.severity >= 80;
+    const isSos = Boolean(
+      incident.isSos ||
+      incident.type === "SOS" ||
+      incident.causeCode === "SOS_EMERGENCY" ||
+      String(incident.status || "").toUpperCase().includes("SOS") ||
+      String(incident.id || "").toUpperCase().startsWith("SOS") ||
+      String(incident.cause || "").toUpperCase().includes("SOS")
+    );
+    const isCrit = isSos || incident.severity >= 80;
     const incMarkerColor = isCrit ? "#dc2626" : "#2563eb";
 
     const incidentIcon = L.divIcon({
-      className: "sd-map-incident-marker",
-      html: `
+      className: isSos ? "custom-sos-marker-container" : "sd-map-incident-marker",
+      html: isSos ? `
+        <div class="custom-sos-siren-wrapper" style="position:relative;display:flex;align-items:center;justify-content:center;">
+          <div class="custom-sos-siren-pulse"></div>
+          <div class="custom-sos-siren-beacon" title="🚨 ACTIVE SOS DISTRESS: ${incident.id}">🚨</div>
+        </div>
+      ` : `
         <div style="
           width: 36px;
           height: 36px;
@@ -100,11 +113,11 @@ export function DispatchInteractiveMap({
           color: #ffffff;
           cursor: pointer;
         ">
-          ${incident.isSos ? "🚨" : "📍"}
+          📍
         </div>
       `,
-      iconSize: [36, 36],
-      iconAnchor: [18, 18]
+      iconSize: isSos ? [44, 44] : [36, 36],
+      iconAnchor: isSos ? [22, 22] : [18, 18]
     });
 
     const incMarker = L.marker([incLat, incLng], { icon: incidentIcon }).addTo(group);

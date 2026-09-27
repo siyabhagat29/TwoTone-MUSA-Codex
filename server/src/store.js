@@ -1793,8 +1793,8 @@ class Store {
   }
 
   getEmergencyServices(userLat, userLng) {
-    const uLat = Number(userLat) || 19.1320;
-    const uLng = Number(userLng) || 72.8480;
+    const uLat = Number(userLat) || 19.0847;
+    const uLng = Number(userLng) || 73.00761;
     // Dynamically generate emergency services localized to the user's GPS area
     return [
       {

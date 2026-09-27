@@ -1378,6 +1378,7 @@ const DEFAULT_API = (() => {
 })();
 
 export const MUMBAI_MARKET_HUBS = [
+  { id: "MKT-00", name: "Vashi Sector 17 & Station Commercial Hub", ward: "Vashi Ward", latitude: 19.0847, longitude: 73.00761, area: "Sector 17 & Vashi Station, Navi Mumbai" },
   { id: "MKT-01", name: "Andheri West Station Road Market", ward: "K-West Ward", latitude: 19.1320, longitude: 72.8480, area: "Station Road & S.V. Road" },
   { id: "MKT-02", name: "Dadar TT Circle & Flower Market", ward: "G-North Ward", latitude: 19.0180, longitude: 72.8430, area: "Dadar Market & Station" },
   { id: "MKT-03", name: "Bandra Linking Road & Hill Road", ward: "H-West Ward", latitude: 19.0600, longitude: 72.8360, area: "Linking Road Commercial" },
@@ -1432,8 +1433,8 @@ export default function App() {
   const [floodBuddies, setFloodBuddies] = useState([]);
   const [lightning, setLightning] = useState(null);
 
-  const [userLoc, setUserLoc] = useState({ latitude: 19.132, longitude: 72.848 });
-  const [userAddress, setUserAddress] = useState("Locating...");
+  const [userLoc, setUserLoc] = useState({ latitude: 19.0847, longitude: 73.00761 });
+  const [userAddress, setUserAddress] = useState("Vashi, Vashi");
   const [gpsError, setGpsError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [locationModalOpen, setLocationModalOpen] = useState(false);
@@ -1522,7 +1523,7 @@ export default function App() {
       }
 
       if (!activeCoords) {
-        activeCoords = { latitude: 19.132, longitude: 72.848 };
+        activeCoords = { latitude: 19.0847, longitude: 73.00761 };
         setUserLoc(activeCoords);
       }
 
@@ -1573,8 +1574,8 @@ export default function App() {
 
   const fetchLiveData = async (loc = userLoc, explicitAddr = null) => {
     const currentReqId = ++shelterReqIdRef.current;
-    const lat = loc?.latitude || 19.132;
-    const lng = loc?.longitude || 72.848;
+    const lat = loc?.latitude || 19.0847;
+    const lng = loc?.longitude || 73.00761;
     const activeAddress = explicitAddr || userAddress || `${lat}, ${lng}`;
     const shelterUrl = `${apiUrl}/shelters/nearby?latitude=${lat}&longitude=${lng}&radius_km=10`;
     const currentUserId = userProfile?.id || userProfile?.phone || userProfile?.name || "current_user";
@@ -3478,8 +3479,8 @@ function MapScreen({
   const [selectedPin, setSelectedPin] = useState(null);
   const [selectedShelter, setSelectedShelter] = useState(null);
   const [zoom, setZoom] = useState(15);
-  const [centerLat, setCenterLat] = useState(userLoc?.latitude || 19.132);
-  const [centerLng, setCenterLng] = useState(userLoc?.longitude || 72.848);
+  const [centerLat, setCenterLat] = useState(userLoc?.latitude || 19.0847);
+  const [centerLng, setCenterLng] = useState(userLoc?.longitude || 73.00761);
   const [osrmRoute, setOsrmRoute] = useState(null);
   const [loadingRoute, setLoadingRoute] = useState(false);
   const lastTapRef = useRef(0);
@@ -4769,7 +4770,7 @@ function AlertsScreen({ alerts = [], lightning, zone, apiUrl, userLoc, onRequest
 function ReportScreen({ role, apiUrl, userLoc, userAddress, onSaved, onClose, t }) {
   const { height: windowHeight } = useWindowDimensions();
   const [note, setNote] = useState("");
-  const [loc, setLoc] = useState(userLoc || { latitude: 19.132, longitude: 72.848 });
+  const [loc, setLoc] = useState(userLoc || { latitude: 19.0847, longitude: 73.00761 });
   const [locAddress, setLocAddress] = useState(userAddress || "");
   const [locLoading, setLocLoading] = useState(false);
   const [photoUri, setPhotoUri] = useState(null);
