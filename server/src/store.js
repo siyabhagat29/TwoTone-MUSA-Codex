@@ -2467,11 +2467,17 @@ class Store {
       // Update alert description to reflect aggregated cluster count
       const matchedAlert = (this.alerts || []).find((a) => a.incidentId === targetInc.id || a.sosId === targetInc.sosId);
       if (matchedAlert) {
+        matchedAlert.title = `🔴 SOS: ${userName} (${targetInc.reporter_count} reports)`;
         matchedAlert.description = `🚨 Clustered SOS (${targetInc.reporter_count} reports within 500m). Latest: ${userName} (${userPhone}) at ${address}`;
+        matchedAlert.message = matchedAlert.description;
         matchedAlert.reporterCount = targetInc.reporter_count;
         matchedAlert.reporter_count = targetInc.reporter_count;
         matchedAlert.reports = targetInc.reports;
         matchedAlert.updatedAt = userTimestamp;
+        matchedAlert.type = "SOS";
+        matchedAlert.priority = "CRITICAL";
+        matchedAlert.severity = "CRITICAL";
+        matchedAlert.isSos = true;
       }
 
       this.save();
@@ -2484,10 +2490,18 @@ class Store {
         reporter_count: targetInc.reporter_count,
         latest_report: newReport,
         incident: targetInc,
+        alert: matchedAlert,
         distance_meters: Math.round(minDistanceMeters),
         timestamp: userTimestamp
       };
       this.emit("SOS_CLUSTER_UPDATED", clusterEvent);
+      this.emit("sos:triggered", {
+        sos: { ...targetInc, id: targetInc.sosId || `SOS-${targetInc.id}` },
+        team: { name: targetInc.assignedTeam || "Municipal Flood Rescue Fleet" },
+        incident: targetInc,
+        alert: matchedAlert,
+        reporter_count: targetInc.reporter_count
+      });
       this.emit("report:merged", { incident: targetInc, report: newReport, distance_meters: Math.round(minDistanceMeters) });
       this.emit("incident:updated", { incident: targetInc });
 
@@ -2694,22 +2708,34 @@ class Store {
       id: alertId,
       sosId: id,
       incidentId,
-      title: isUserQuarantined ? `⚠️ FLAGGED USER SOS: ${userName}` : `🚨 CRITICAL SOS: ${userName}`,
+      title: isUserQuarantined ? `⚠️ FLAGGED USER SOS: ${userName}` : `🔴 SOS: ${userName}`,
       description: isUserQuarantined
         ? `Quarantined reporter (${reputation.falseAlarmCount} false alarms). Auto-SMS suppressed. Contact: ${userPhone}`
         : `Immediate distress signal triggered at ${address}. Contact: ${userPhone} (Emergency: ${emergencyNumber})`,
+      message: isUserQuarantined
+        ? `Quarantined reporter (${reputation.falseAlarmCount} false alarms). Auto-SMS suppressed. Contact: ${userPhone}`
+        : `Immediate distress signal triggered at ${address}. Contact: ${userPhone} (Emergency: ${emergencyNumber})`,
       severity: isUserQuarantined ? "WARNING" : "CRITICAL",
+      priority: "CRITICAL",
+      type: "SOS",
+      isSos: true,
       zoneId: "ZONE-01",
       area: address,
+      address,
       userPhone,
       emergencyNumber,
       userName,
+      reporter: userName,
       role,
+      lat,
+      lng,
+      latitude: lat,
+      longitude: lng,
       reporterCount: 1,
+      reporter_count: 1,
       isQuarantined: isUserQuarantined,
       timestamp: userTimestamp,
-      type: "SOS",
-      isSos: true,
+      createdAt: userTimestamp,
       unread: true
     };
 

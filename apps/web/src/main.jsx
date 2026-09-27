@@ -1906,32 +1906,39 @@ function NotificationsDrawer({ isOpen, onClose, alerts = [], incidents = [], onA
   if (!isOpen) return null;
   const navigate = useNavigate();
 
-  // Active unmitigated SOS alerts (strictly sorted to the top)
-  const dispatchedIncidentIds = new Set(
-    incidents
-      .filter((i) => i.status === "Dispatched" || i.status === "Resolved" || i.status === "RESOLVED" || i.dispatched || i.assignedTeam)
-      .map((i) => String(i.id || i.sosId))
-  );
+  const isResolvedOrDismissed = (i) => {
+    if (!i) return false;
+    const st = String(i.status || "").trim().toUpperCase();
+    return st === "RESOLVED" || st === "FALSE ALARM" || st === "FALSE_ALARM" || st === "DISMISSED" || i.isDismissed === true || i.isQuarantined === true;
+  };
 
-  // Collect and deduplicate SOS alerts
+  // 1. Collect and deduplicate all active SOS alerts from both incidents and alerts
   const seenSosIds = new Set();
-  const rawSosList = [
-    ...incidents.filter(
-      (i) => (i.isSos || i.type === "SOS" || i.status === "ACTIVE_SOS" || i.causeCode === "SOS_EMERGENCY") &&
-             i.status !== "Dispatched" && i.status !== "Resolved" && i.status !== "RESOLVED" && !i.dispatched && !i.assignedTeam
-    ),
-    ...alerts.filter(
-      (a) => (a.isSos || a.type === "SOS" || a.type === "sos") &&
-             !a.dispatched && !dispatchedIncidentIds.has(String(a.incidentId)) && !dispatchedIncidentIds.has(String(a.sosId)) && !dispatchedIncidentIds.has(String(a.id))
-    )
-  ];
-
   const sosAlerts = [];
-  for (const s of rawSosList) {
-    const key = String(s.id || s.sosId || `${s.lat}_${s.lng}`);
-    if (!seenSosIds.has(key)) {
-      seenSosIds.add(key);
-      sosAlerts.push(s);
+
+  // Gather from incidents
+  for (const i of incidents) {
+    if (!i) continue;
+    const isSos = Boolean(i.isSos || i.type === "SOS" || i.status === "ACTIVE_SOS" || i.causeCode === "SOS_EMERGENCY");
+    if (isSos && !isResolvedOrDismissed(i)) {
+      const key = String(i.id || i.sosId);
+      if (!seenSosIds.has(key)) {
+        seenSosIds.add(key);
+        sosAlerts.push(i);
+      }
+    }
+  }
+
+  // Gather from alerts
+  for (const a of alerts) {
+    if (!a) continue;
+    const isSos = Boolean(a.isSos || a.type === "SOS" || a.type === "sos" || (a.priority === "CRITICAL" && String(a.id || "").startsWith("SOS")));
+    if (isSos && a.status !== "Resolved" && a.status !== "RESOLVED") {
+      const key = String(a.incidentId || a.sosId || a.id);
+      if (!seenSosIds.has(key)) {
+        seenSosIds.add(key);
+        sosAlerts.push(a);
+      }
     }
   }
 
@@ -1948,11 +1955,19 @@ function NotificationsDrawer({ isOpen, onClose, alerts = [], incidents = [], onA
     return 4; // LOW / INFO / NORMAL
   };
 
+  const resolvedIncidentIds = new Set(
+    incidents.filter(isResolvedOrDismissed).map((i) => String(i.id || i.sosId))
+  );
+
   const regularAlerts = alerts
-    .filter(
-      (a) => !a.isSos && a.type !== "SOS" && a.type !== "sos" && !a.dispatched &&
-             !dispatchedIncidentIds.has(String(a.incidentId)) && !dispatchedIncidentIds.has(String(a.sosId)) && !dispatchedIncidentIds.has(String(a.id))
-    )
+    .filter((a) => {
+      if (!a) return false;
+      const isSos = Boolean(a.isSos || a.type === "SOS" || a.type === "sos");
+      if (isSos) return false;
+      if (resolvedIncidentIds.has(String(a.incidentId)) || resolvedIncidentIds.has(String(a.sosId)) || resolvedIncidentIds.has(String(a.id))) return false;
+      if (a.status === "Resolved" || a.status === "RESOLVED") return false;
+      return true;
+    })
     .sort((a, b) => getAlertRank(a) - getAlertRank(b));
 
   const totalCount = sosAlerts.length + regularAlerts.length;
@@ -9729,15 +9744,19 @@ function App() {
           const sosInc = d.payload?.incident || d.incident;
           const sosAlt = d.payload?.alert || d.alert;
           if (sosInc) {
-            setIncidents((prev) => [sosInc, ...prev.filter((i) => i.id !== sosInc.id && i.sosId !== sosInc.id)]);
+            setIncidents((prev) => [sosInc, ...prev.filter((i) => i.id !== sosInc.id && i.sosId !== sosInc.id && (sosInc.sosId ? i.sosId !== sosInc.sosId : true))]);
           }
           if (sosAlt) {
-            setAlerts((prev) => [sosAlt, ...prev.filter((a) => a.id !== sosAlt.id)]);
+            setAlerts((prev) => [sosAlt, ...prev.filter((a) => a.id !== sosAlt.id && a.incidentId !== sosAlt.incidentId && a.sosId !== sosAlt.sosId)]);
           }
           playSosEmergencyChime();
           setNotificationsOpen(true);
-          notify(`🚨 CRITICAL SOS TRIGGERED: ${sosInc?.reporter || "Distress Signal"} at ${sosInc?.address || "Active Area"}`);
-        } catch {}
+          const reporter = sosInc?.reporter || sosAlt?.userName || sosAlt?.reporter || "Citizen";
+          const location = sosInc?.address || sosAlt?.address || sosAlt?.area || "Live Location";
+          notify(`🚨 CRITICAL SOS TRIGGERED: ${reporter} at ${location}`);
+        } catch (err) {
+          console.error("Error in sos:triggered SSE:", err);
+        }
       });
 
       es.addEventListener("incident:resolved", (evt) => {
@@ -9831,10 +9850,16 @@ function App() {
         try {
           const d = JSON.parse(evt.data);
           const up = d.incident || d.payload?.incident;
+          const alt = d.alert || d.payload?.alert;
           if (up) {
             setIncidents((prev) => [up, ...prev.filter((i) => i.id !== up.id && i.sosId !== up.id)]);
-            notify(`🚨 SOS CLUSTER UPDATED: Incident ${up.id} now has ${up.reporter_count || 2} reports in 500m zone.`);
           }
+          if (alt) {
+            setAlerts((prev) => [alt, ...prev.filter((a) => a.id !== alt.id && a.incidentId !== alt.incidentId && a.sosId !== alt.sosId)]);
+          }
+          playSosEmergencyChime();
+          setNotificationsOpen(true);
+          notify(`🚨 SOS CLUSTER UPDATED: Incident ${up?.id || ""} now has ${up?.reporter_count || 2} reports in 500m zone.`);
         } catch {}
       });
 
@@ -10014,21 +10039,25 @@ function App() {
 
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
-  const dispatchedIncidentIds = new Set(
-    incidents
-      .filter((i) => i.status === "Dispatched" || i.status === "Resolved" || i.status === "RESOLVED" || i.dispatched || i.assignedTeam)
-      .map((i) => i.id)
-  );
+  const isResolvedOrDismissed = (i) => {
+    if (!i) return false;
+    const st = String(i.status || "").trim().toUpperCase();
+    return st === "RESOLVED" || st === "FALSE ALARM" || st === "FALSE_ALARM" || st === "DISMISSED" || i.isDismissed === true || i.isQuarantined === true;
+  };
 
   const activeSosIncidents = incidents.filter(
-    (i) => isActiveIncident(i) &&
-           (i.isSos || i.type === "SOS" || i.status === "ACTIVE_SOS" || i.causeCode === "SOS_EMERGENCY") &&
-           i.status !== "Dispatched" && !i.dispatched && !i.assignedTeam
+    (i) => (i.isSos || i.type === "SOS" || i.status === "ACTIVE_SOS" || i.causeCode === "SOS_EMERGENCY") &&
+           !isResolvedOrDismissed(i)
+  );
+
+  const resolvedIncidentIds = new Set(
+    incidents.filter(isResolvedOrDismissed).map((i) => String(i.id || i.sosId))
   );
 
   const activeAlerts = alerts.filter(
-    (a) => !a.dispatched && !dispatchedIncidentIds.has(a.incidentId) && !dispatchedIncidentIds.has(a.sosId) &&
-           !(a.isSos && (dispatchedIncidentIds.has(a.incidentId) || dispatchedIncidentIds.has(a.sosId) || activeSosIncidents.length === 0))
+    (a) => !a.isSos && a.type !== "SOS" && a.type !== "sos" &&
+           !resolvedIncidentIds.has(String(a.incidentId)) && !resolvedIncidentIds.has(String(a.sosId)) && !resolvedIncidentIds.has(String(a.id)) &&
+           a.status !== "Resolved" && a.status !== "RESOLVED"
   );
 
   const hasActiveSos = activeSosIncidents.length > 0;
