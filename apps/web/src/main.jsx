@@ -177,7 +177,7 @@ function getIncidentPopupHtml(inc) {
       </div>
       ${isSos ? `<div style="background:#ef4444;color:#fff;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:800;margin-bottom:6px;display:inline-block;">🚨 ACTIVE SOS · ${repCount} ${repCount === 1 ? 'Person Reported' : 'Reports within 500m'}</div>` : ''}
       <div style="font-size:12px; font-weight:700; color:#1e293b; margin-bottom:2px;">
-        ${inc.reporter || "Citizen"} <span style="font-size:10px; font-weight:normal; color:#64748b;">(${inc.role || "Citizen"})</span>
+        ${(inc.reporter && inc.reporter !== "Shop Owner" && inc.reporter !== "Resident") ? inc.reporter : (inc.userName || inc.name || (inc.role === "Shop Owner" ? "Shopkeeper" : "Citizen"))} <span style="font-size:10px; font-weight:normal; color:#64748b;">(${inc.role || "Citizen"})</span>
       </div>
       <div style="font-size:11px; color:#475569; margin:2px 0;">📍 ${inc.address || "Live Area"}</div>
       <div style="font-size:10px; color:#64748b; margin-bottom:4px;">
@@ -2037,7 +2037,7 @@ function NotificationsDrawer({ isOpen, onClose, alerts = [], incidents = [], onA
                 const sLng = sos.lng ?? sos.longitude;
                 const distKm = hasUserLocation && sLat && sLng ? calcDistanceKm(userLat, userLng, sLat, sLng) : null;
                 const repCount = sos.reporter_count || (Array.isArray(sos.reports) ? sos.reports.length : (sos.reports_length || 1));
-                const reporterName = sos.reporter || sos.userName || sos.name || "Aryan";
+                const reporterName = (sos.reporter && sos.reporter !== "Shop Owner" && sos.reporter !== "Resident") ? sos.reporter : (sos.userName || sos.name || (sos.role === "Shop Owner" ? "Shopkeeper" : "Citizen"));
                 const locationText = sos.address || sos.location_name || sos.area || "Live Location";
                 const sosId = sos.id || sos.sosId || "SOS-LIVE";
 
@@ -3693,7 +3693,7 @@ function IncidentCard({ incident, resources = [], onAutoDispatch, onVerify, onFa
 
       {/* 2. Reporter Name & Role */}
       <div style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-        <span>{inc.reporter || (isSos ? "Aryan" : "Citizen")}</span>
+        <span>{(inc.reporter && inc.reporter !== "Shop Owner" && inc.reporter !== "Resident") ? inc.reporter : (inc.userName || inc.name || (inc.role === "Shop Owner" ? "Shopkeeper" : "Citizen"))}</span>
         {inc.role && (
           <span style={{ fontSize: "11px", fontWeight: "600", color: "#475569", background: "#f8fafc", padding: "1px 6px", borderRadius: "4px", border: "1px solid #e2e8f0" }}>
             ({inc.role})
@@ -6091,7 +6091,7 @@ function IncidentDetailPage({ incidents, resources = [], notify, onReload, onAut
             <div style={{ fontSize: "13px", color: "#475569", marginTop: "4px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
               <span>📍 <b>{inc.address || "Live Street Location"}</b></span>
               <span>·</span>
-              <span>Primary Reporter: <b>{inc.reporter}</b> ({inc.role || "Citizen"})</span>
+              <span>Primary Reporter: <b>{(inc.reporter && inc.reporter !== "Shop Owner" && inc.reporter !== "Resident") ? inc.reporter : (inc.userName || inc.name || (inc.role === "Shop Owner" ? "Shopkeeper" : "Citizen"))}</b> ({inc.role || "Citizen"})</span>
               <span>·</span>
               <span>⏱️ {inc.time || (inc.userTimestamp ? new Date(inc.userTimestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Just now")}</span>
             </div>
@@ -6276,7 +6276,7 @@ function IncidentDetailPage({ incidents, resources = [], notify, onReload, onAut
               </h3>
             </div>
             <div style={{ fontSize: "12px", color: "#475569", marginTop: "3px" }}>
-              Reported by <b>{inc.reporter || "Citizen"}</b> ({inc.role || "Resident"}) · 📍 {inc.address || "Live Incident Coordinates"} · ⏱️ {inc.time || (inc.userTimestamp ? new Date(inc.userTimestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Ground Captured")}
+              Reported by <b>{(inc.reporter && inc.reporter !== "Shop Owner" && inc.reporter !== "Resident") ? inc.reporter : (inc.userName || inc.name || (inc.role === "Shop Owner" ? "Shopkeeper" : "Citizen"))}</b> ({inc.role || "Resident"}) · 📍 {inc.address || "Live Incident Coordinates"} · ⏱️ {inc.time || (inc.userTimestamp ? new Date(inc.userTimestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Ground Captured")}
             </div>
           </div>
 

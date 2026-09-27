@@ -3343,11 +3343,16 @@ class Store {
     const nearbyEms = this.getEmergencyServices(lat, lng);
     const nearestResource = nearbyEms[0] || null;
 
+    const rawReporter = reportData.reporter || reportData.userName || reportData.name || reportData.user_name;
+    const finalReporter = (rawReporter && rawReporter !== "Shop Owner" && rawReporter !== "Resident") ? String(rawReporter).trim() : (reportData.role === "Shop Owner" ? "Shopkeeper" : "Citizen");
+
     // Every citizen report is created as an incident record
     const incident = {
       id,
       zoneId,
-      reporter: reportData.reporter || (reportData.role === "Shop Owner" ? "Shop Owner" : "Area Resident"),
+      reporter: finalReporter,
+      userName: finalReporter,
+      name: finalReporter,
       role: reportData.role || "Shop Owner",
       userPhone: reportData.userPhone || reportData.phone || null,
       time: formattedTime,

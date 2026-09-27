@@ -1758,7 +1758,7 @@ export default function App() {
     if (sosCooldown > 0) return;
     setSosCooldown(60);
 
-    const callerName = userProfile?.name || (role === "Shop Owner" ? "Station Rd Shopkeeper" : "Area Resident");
+    const callerName = userProfile?.name?.trim() || "Citizen";
     const callerPhone = userProfile?.phone || "+917738122051";
     const emergencyNumber = userProfile?.emergencyNumber || "+917738122051";
 
@@ -1929,6 +1929,7 @@ export default function App() {
         {tab === "Report" && (
           <ReportScreen
             role={role}
+            userProfile={userProfile}
             apiUrl={apiUrl}
             userLoc={userLoc}
             userAddress={userAddress}
@@ -4785,7 +4786,7 @@ function AlertsScreen({ alerts = [], lightning, zone, apiUrl, userLoc, onRequest
 }
 
 // Incident Report Screen with Attached Photo & Video Preview Card + Live GPS Location Tracking
-function ReportScreen({ role, apiUrl, userLoc, userAddress, onSaved, onClose, t }) {
+function ReportScreen({ role, userProfile, apiUrl, userLoc, userAddress, onSaved, onClose, t }) {
   const { height: windowHeight } = useWindowDimensions();
   const [note, setNote] = useState("");
   const [loc, setLoc] = useState(userLoc || { latitude: 19.0847, longitude: 73.00761 });
@@ -5103,8 +5104,19 @@ function ReportScreen({ role, apiUrl, userLoc, userAddress, onSaved, onClose, t 
         }
       }
 
+      const reporterName = userProfile?.name?.trim() || "Citizen";
+      const reporterPhone = userProfile?.phone || "+917738122051";
+      const reporterRole = userProfile?.role || role || "Shop Owner";
+      const reporterUserId = userProfile?.id || (reporterPhone ? `USR-${reporterPhone.replace(/\D/g, "").slice(-4)}` : "USR-SHOP-01");
+
       const payload = {
-        role,
+        reporter: reporterName,
+        userName: reporterName,
+        name: reporterName,
+        userPhone: reporterPhone,
+        phone: reporterPhone,
+        userId: reporterUserId,
+        role: reporterRole,
         waterLevel: waterDepthChoice,
         customWaterCm: waterDepthChoice === "Custom / Other" ? customWater : null,
         drainObservation: drainObs,
@@ -5117,16 +5129,16 @@ function ReportScreen({ role, apiUrl, userLoc, userAddress, onSaved, onClose, t 
         videoUrl: finalVideoUrl,
         mediaType: finalVideoUrl ? "video" : (finalPhotoUrl ? "image" : null),
         aiVerification: verifiedAi,
-        lat: loc?.latitude ?? 19.132,
-        lng: loc?.longitude ?? 72.848,
-        address: locAddress || "Station Road Commercial Area",
+        lat: loc?.latitude ?? 19.0847,
+        lng: loc?.longitude ?? 73.00761,
+        address: locAddress || "Vashi, Vashi",
         userTimestamp,
         timestamp: userTimestamp,
         time: userFormattedTime,
         liveLocation: {
-          lat: loc?.latitude ?? 19.132,
-          lng: loc?.longitude ?? 72.848,
-          address: locAddress || "Station Road Commercial Area",
+          lat: loc?.latitude ?? 19.0847,
+          lng: loc?.longitude ?? 73.00761,
+          address: locAddress || "Vashi, Vashi",
           timestamp: userTimestamp
         }
       };
