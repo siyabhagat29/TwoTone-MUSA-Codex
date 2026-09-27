@@ -742,13 +742,13 @@ app.post(["/api/users/location", "/api/users/heartbeat", "/api/users/profile"], 
 // Flood Buddy: Dynamic Nearby Logged-In Users & Maps Shops Discovery
 const handleFloodBuddyNearby = async (req, res) => {
   try {
-    const lat = req.query.latitude ?? req.query.lat ?? 19.1320;
-    const lng = req.query.longitude ?? req.query.lng ?? 72.8480;
+    const lat = req.query.latitude ?? req.query.lat ?? 19.0847;
+    const lng = req.query.longitude ?? req.query.lng ?? 73.00761;
     const radius = req.query.radius ?? 5000;
     const currentUserId = req.query.user_id ?? req.query.userId ?? req.headers["x-user-id"] ?? null;
     const currentUserName = req.query.user_name ?? req.query.userName ?? req.query.name ?? req.headers["x-user-name"] ?? null;
     const currentUserPhone = req.query.phone ?? req.query.user_phone ?? req.headers["x-user-phone"] ?? null;
-    const maxAgeMinutes = req.query.max_age_minutes ? Number(req.query.max_age_minutes) : 120;
+    const maxAgeMinutes = req.query.max_age_minutes ? Number(req.query.max_age_minutes) : 5;
 
     const buddies = await store.getNearbyFloodBuddies({
       latitude: parseFloat(lat),

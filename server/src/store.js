@@ -814,9 +814,12 @@ class Store {
         }
         this.alerts = data.alerts || [];
         this.dispatches = data.dispatches || [];
-        this.resources = data.resources?.length ? data.resources : this.resources;
-        this.users = data.users?.length ? data.users : this.users;
-        this.notifications = data.notifications || [];
+        const EXCLUDED_PAST_NAMES = ["suresh", "siya", "danish", "baaphutera", "aruan", "test", "demo"];
+        this.users = (data.users || []).filter((u) => {
+          const uName = String(u.display_name || u.name || "").toLowerCase();
+          const uId = String(u.user_id || u.id || "").toLowerCase();
+          return !EXCLUDED_PAST_NAMES.some((ex) => uName.includes(ex) || uId.includes(ex));
+        });
         this.sosAlerts = data.sosAlerts || [];
         this.alertFeedbacks = data.alertFeedbacks || [];
         this.chronicBlockages = data.chronicBlockages?.length ? data.chronicBlockages : this.chronicBlockages;
@@ -1983,10 +1986,10 @@ class Store {
     currentUserId = null,
     currentUserName = null,
     currentUserPhone = null,
-    maxAgeMinutes = 120
+    maxAgeMinutes = 5
   } = {}) {
-    const currentLat = latitude != null ? Number(latitude) : 19.1320;
-    const currentLng = longitude != null ? Number(longitude) : 72.8480;
+    const currentLat = latitude != null ? Number(latitude) : 19.0847;
+    const currentLng = longitude != null ? Number(longitude) : 73.00761;
     const radiusMeters = Number(radius) || 5000;
     const nowMs = Date.now();
     const buddies = [];
@@ -1998,11 +2001,18 @@ class Store {
 
     const activeAlerts = (this.alerts || []).filter(a => a.status !== "Resolved" && a.status !== "False Alarm");
 
-    // 1. Process active registered users in system
+    const EXCLUDED_PAST_NAMES = ["suresh", "siya", "danish", "baaphutera", "aruan", "test", "demo"];
+
+    // 1. Process active registered users in system (strictly recent active heartbeats)
     for (const u of (this.users || [])) {
       const uId = String(u.user_id || u.id || "").trim().toLowerCase();
       const uName = String(u.display_name || u.name || "").trim().toLowerCase();
       const uPhone = String(u.phone || "").replace(/\D/g, "");
+
+      // Exclude past test identities
+      if (EXCLUDED_PAST_NAMES.some(ex => uName.includes(ex) || uId.includes(ex))) {
+        continue;
+      }
 
       // 100% exclude self: by ID, display name, phone, or cross-match
       const isSelf =
