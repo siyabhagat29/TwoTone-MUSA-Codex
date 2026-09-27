@@ -14,12 +14,12 @@
       "reports": 0,
       "trend": "stable",
       "totalTodayRain": 0.2,
-      "tempC": 29.9,
-      "humidity": 68,
+      "tempC": 30,
+      "humidity": 67,
       "riverDischarge": 2.59,
       "dischargeRatio": 0.97,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-27T05:58:23.601Z"
+      "lastUpdated": "2026-09-27T06:37:00.668Z"
     },
     {
       "id": "Z-02",
@@ -35,12 +35,12 @@
       "reports": 0,
       "trend": "stable",
       "totalTodayRain": 0.2,
-      "tempC": 29.9,
-      "humidity": 68,
+      "tempC": 30,
+      "humidity": 67,
       "riverDischarge": 1.22,
       "dischargeRatio": 0.97,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-27T05:58:24.501Z"
+      "lastUpdated": "2026-09-27T06:37:00.859Z"
     },
     {
       "id": "Z-03",
@@ -56,12 +56,12 @@
       "reports": 0,
       "trend": "stable",
       "totalTodayRain": 0.2,
-      "tempC": 29.9,
-      "humidity": 68,
+      "tempC": 30,
+      "humidity": 67,
       "riverDischarge": 2.59,
       "dischargeRatio": 0.97,
       "riskLevel": "GREEN",
-      "lastUpdated": "2026-09-27T05:58:25.108Z"
+      "lastUpdated": "2026-09-27T06:37:01.053Z"
     },
     {
       "id": "Z-04",
@@ -77,12 +77,12 @@
       "reports": 30,
       "trend": "stable",
       "totalTodayRain": 0.6,
-      "tempC": 30.2,
-      "humidity": 64,
+      "tempC": 30.5,
+      "humidity": 62,
       "riverDischarge": 1.22,
       "dischargeRatio": 0.97,
       "riskLevel": "ORANGE",
-      "lastUpdated": "2026-09-27T05:58:25.546Z"
+      "lastUpdated": "2026-09-27T06:37:01.277Z"
     }
   ],
   "incidents": [
@@ -7738,25 +7738,7 @@
       "updatedAt": "2026-09-27T04:49:07.757Z"
     }
   ],
-  "notifications": [
-    {
-      "id": "NOTIF-60452",
-      "recipient_user_id": "USR-655821",
-      "recipient_name": "ramesh",
-      "recipient_phone": "+91 9832616353",
-      "sender_user_id": "USR-645409",
-      "sender_name": "Girish",
-      "sender_role": "Shop Owner",
-      "alert_id": null,
-      "type": "FLOOD_BUDDY_WARNING",
-      "title": "🚨 Girish is notifying you",
-      "body": "Flood chance can arrive near your area! Please take precautions and secure your shop.",
-      "severity": "HIGH",
-      "created_at": "2026-09-27T05:57:40.453Z",
-      "read_at": "2026-09-27T05:57:41.183Z",
-      "status": "read"
-    }
-  ],
+  "notifications": [],
   "sosAlerts": [
     {
       "id": "SOS-2001",
@@ -8335,5 +8317,5 @@
       "history": []
     }
   },
-  "updatedAt": "2026-09-27T05:58:25.546Z"
+  "updatedAt": "2026-09-27T06:37:01.277Z"
 }

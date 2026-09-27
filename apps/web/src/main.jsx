@@ -1857,7 +1857,7 @@ function Sidebar({ open }) {
   );
 }
 
-function Topbar({ onMenu, alertCount, onRefresh, onToggleNotifications, hasActiveSos }) {
+function Topbar({ onMenu, alertCount, sosCount = 0, onRefresh, onToggleNotifications, hasActiveSos }) {
   const loc = useLocation();
   const title = loc.pathname === "/" ? "Overview" : nav.find((x) => x[1] === loc.pathname)?.[0] || "Operations";
   return (
@@ -1877,9 +1877,19 @@ function Topbar({ onMenu, alertCount, onRefresh, onToggleNotifications, hasActiv
         <button className="icon-btn" title="Refresh Live Data" onClick={onRefresh}>
           <RefreshCw size={17} />
         </button>
+        {sosCount > 0 && (
+          <button
+            className="sos-topbar-pill"
+            title={`${sosCount} Active Emergency SOS Alert(s)`}
+            onClick={onToggleNotifications}
+          >
+            <span className="pulsing-red-dot" />
+            <span>🔴 <b>{sosCount} SOS</b></span>
+          </button>
+        )}
         <button
           className={`icon-btn badge-btn ${hasActiveSos ? "sos-ringing" : ""}`}
-          title="Active Emergency Alerts"
+          title="Active Emergency & System Alerts"
           onClick={onToggleNotifications}
         >
           <Bell size={18} color={hasActiveSos ? "#dc2626" : "currentColor"} />
@@ -1892,25 +1902,59 @@ function Topbar({ onMenu, alertCount, onRefresh, onToggleNotifications, hasActiv
 }
 
 // Slide-down interactive Notifications Drawer / Modal with live SOS emergencies
-function NotificationsDrawer({ isOpen, onClose, alerts = [], incidents = [], onAutoDispatch, onClearAlerts, userLat, userLng }) {
+function NotificationsDrawer({ isOpen, onClose, alerts = [], incidents = [], onAutoDispatch, onResolve, onClearAlerts, userLat, userLng }) {
   if (!isOpen) return null;
   const navigate = useNavigate();
 
-  // Active unmitigated SOS alerts (removed from queue once resources are dispatched or incident is resolved)
-  const sosAlerts = incidents.filter(
-    (i) => (i.isSos || i.type === "SOS" || i.status === "ACTIVE_SOS" || i.causeCode === "SOS_EMERGENCY") &&
-           i.status !== "Dispatched" && i.status !== "Resolved" && i.status !== "RESOLVED" && !i.dispatched && !i.assignedTeam
-  );
-
+  // Active unmitigated SOS alerts (strictly sorted to the top)
   const dispatchedIncidentIds = new Set(
     incidents
       .filter((i) => i.status === "Dispatched" || i.status === "Resolved" || i.status === "RESOLVED" || i.dispatched || i.assignedTeam)
-      .map((i) => i.id)
+      .map((i) => String(i.id || i.sosId))
   );
 
-  const regularAlerts = alerts.filter(
-    (a) => !a.isSos && a.type !== "SOS" && !a.dispatched && !dispatchedIncidentIds.has(a.incidentId) && !dispatchedIncidentIds.has(a.sosId)
-  );
+  // Collect and deduplicate SOS alerts
+  const seenSosIds = new Set();
+  const rawSosList = [
+    ...incidents.filter(
+      (i) => (i.isSos || i.type === "SOS" || i.status === "ACTIVE_SOS" || i.causeCode === "SOS_EMERGENCY") &&
+             i.status !== "Dispatched" && i.status !== "Resolved" && i.status !== "RESOLVED" && !i.dispatched && !i.assignedTeam
+    ),
+    ...alerts.filter(
+      (a) => (a.isSos || a.type === "SOS" || a.type === "sos") &&
+             !a.dispatched && !dispatchedIncidentIds.has(String(a.incidentId)) && !dispatchedIncidentIds.has(String(a.sosId)) && !dispatchedIncidentIds.has(String(a.id))
+    )
+  ];
+
+  const sosAlerts = [];
+  for (const s of rawSosList) {
+    const key = String(s.id || s.sosId || `${s.lat}_${s.lng}`);
+    if (!seenSosIds.has(key)) {
+      seenSosIds.add(key);
+      sosAlerts.push(s);
+    }
+  }
+
+  // Priority sorting helper for regular non-SOS alerts:
+  // 1. Critical (CRITICAL / RED)
+  // 2. High (HIGH)
+  // 3. Moderate (MODERATE / ELEVATED / ORANGE)
+  // 4. Low/informational (LOW / NORMAL / INFO / GREEN)
+  const getAlertRank = (alt) => {
+    const sev = String(alt.severity || alt.level || "").toUpperCase();
+    if (sev === "CRITICAL" || sev === "RED" || sev === "EMERGENCY") return 1;
+    if (sev === "HIGH" || sev === "ORANGE") return 2;
+    if (sev === "MODERATE" || sev === "ELEVATED" || sev === "YELLOW" || sev === "WARNING") return 3;
+    return 4; // LOW / INFO / NORMAL
+  };
+
+  const regularAlerts = alerts
+    .filter(
+      (a) => !a.isSos && a.type !== "SOS" && a.type !== "sos" && !a.dispatched &&
+             !dispatchedIncidentIds.has(String(a.incidentId)) && !dispatchedIncidentIds.has(String(a.sosId)) && !dispatchedIncidentIds.has(String(a.id))
+    )
+    .sort((a, b) => getAlertRank(a) - getAlertRank(b));
+
   const totalCount = sosAlerts.length + regularAlerts.length;
   const hasUserLocation = userLat != null && userLng != null && !isNaN(Number(userLat)) && !isNaN(Number(userLng));
 
@@ -1920,9 +1964,27 @@ function NotificationsDrawer({ isOpen, onClose, alerts = [], incidents = [], onA
       <div className="notifications-dropdown">
         <div className="notifications-head">
           <h3>
-            <Bell size={17} color={sosAlerts.length > 0 ? "#ef4444" : "#2563eb"} />
+            <Bell size={17} color={sosAlerts.length > 0 ? "#dc2626" : "#2563eb"} />
             Emergency & System Notifications
-            {totalCount > 0 && <span className="badge-count">{totalCount}</span>}
+            {sosAlerts.length > 0 ? (
+              <span style={{
+                background: "#dc2626",
+                color: "#ffffff",
+                padding: "2px 7px",
+                borderRadius: "10px",
+                fontSize: "10px",
+                fontWeight: "800",
+                marginLeft: "6px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px"
+              }}>
+                <span className="pulsing-red-dot" />
+                {sosAlerts.length} SOS ACTIVE
+              </span>
+            ) : totalCount > 0 ? (
+              <span className="badge-count">{totalCount}</span>
+            ) : null}
           </h3>
           <div className="notifications-head-actions">
             <button
@@ -1954,23 +2016,48 @@ function NotificationsDrawer({ isOpen, onClose, alerts = [], incidents = [], onA
             </div>
           ) : (
             <>
-              {/* 1. Critical SOS Alerts with high urgency layout */}
+              {/* 1. SOS ALERTS ALWAYS APPEAR AT THE VERY TOP — PURE EMERGENCY RED */}
               {sosAlerts.map((sos) => {
                 const sLat = sos.lat ?? sos.latitude;
                 const sLng = sos.lng ?? sos.longitude;
                 const distKm = hasUserLocation && sLat && sLng ? calcDistanceKm(userLat, userLng, sLat, sLng) : null;
                 const repCount = sos.reporter_count || (Array.isArray(sos.reports) ? sos.reports.length : (sos.reports_length || 1));
+                const reporterName = sos.reporter || sos.userName || sos.name || "Aryan";
+                const locationText = sos.address || sos.location_name || sos.area || "Live Location";
+                const sosId = sos.id || sos.sosId || "SOS-LIVE";
 
                 return (
-                  <div key={sos.id} className="sos-alert-card">
+                  <div key={sosId} className="sos-alert-card">
+                    {/* Header: Red Badge + Distress status + Timestamp */}
                     <div className="sos-card-header">
-                      <span className="sos-card-badge" style={repCount > 1 ? { background: "#dc2626" } : undefined}>
+                      <span className="sos-card-badge">
                         <span className="pulsing-red-dot" />
-                        🚨 CRITICAL SOS {repCount > 1 ? `(${repCount} REPORTS IN 500m ZONE)` : "TRIGGERED"}
+                        🔴 SOS — EMERGENCY
                       </span>
-                      <span style={{ fontSize: "10px", color: "#991b1b", fontWeight: "700" }}>
-                        ⏱️ {sos.time || "Immediate"}
+                      <span style={{ fontSize: "11px", color: "#991b1b", fontWeight: "800", display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                        ⏱️ {sos.time || "NOW"}
                       </span>
+                    </div>
+
+                    {/* Affected User's Headline */}
+                    <div className="sos-user-headline">
+                      {reporterName} needs immediate assistance
+                      {sos.role && <span style={{ fontSize: "11px", fontWeight: "600", color: "#b91c1c", marginLeft: "4px" }}>({sos.role})</span>}
+                    </div>
+
+                    {/* Location & Proximity */}
+                    <div className="sos-details-box">
+                      <div style={{ fontWeight: "700", display: "flex", alignItems: "center", gap: "4px" }}>
+                        📍 {locationText}
+                      </div>
+                      {distKm != null && (
+                        <div style={{ fontWeight: "700", color: "#b91c1c" }}>
+                          📏 {distKm} km from you
+                        </div>
+                      )}
+                      <div style={{ fontSize: "11px", color: "#991b1b", marginTop: "2px", fontWeight: "600" }}>
+                        ⚠️ Emergency assistance requested
+                      </div>
                     </div>
 
                     {repCount > 1 && (
@@ -1978,8 +2065,8 @@ function NotificationsDrawer({ isOpen, onClose, alerts = [], incidents = [], onA
                         background: "#fee2e2",
                         border: "1px solid #fca5a5",
                         borderRadius: "6px",
-                        padding: "5px 9px",
-                        margin: "4px 0",
+                        padding: "4px 8px",
+                        marginBottom: "8px",
                         fontSize: "11px",
                         fontWeight: "800",
                         color: "#991b1b",
@@ -1988,21 +2075,12 @@ function NotificationsDrawer({ isOpen, onClose, alerts = [], incidents = [], onA
                         gap: "6px"
                       }}>
                         <span>👥</span>
-                        <span><b>{repCount} Distress Signals</b> generated from this 500m sector</span>
+                        <span><b>{repCount} Distress Signals</b> in 500m zone</span>
                       </div>
                     )}
 
-                    <div style={{ fontSize: "13px", fontWeight: "800", color: "#991b1b", margin: "4px 0 2px" }}>
-                      {sos.reporter || "Citizen"}
-                      {sos.role && <span style={{ fontSize: "10px", fontWeight: "normal", color: "#b91c1c" }}> ({sos.role})</span>}
-                    </div>
-
-                    <div style={{ fontSize: "11px", color: "#7f1d1d", display: "flex", flexDirection: "column", gap: "2px", margin: "4px 0 8px" }}>
-                      <div>📍 <b>Location:</b> {sos.address}</div>
-                      {distKm != null && <div>📏 <b>Distance:</b> {distKm} km from you</div>}
-                    </div>
-
-                    <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                    {/* Emergency Action Buttons */}
+                    <div className="sos-actions-row">
                       <button
                         className="primary"
                         onClick={() => {
@@ -2010,26 +2088,34 @@ function NotificationsDrawer({ isOpen, onClose, alerts = [], incidents = [], onA
                           onClose();
                         }}
                         style={{
-                          background: "#dc2626",
-                          borderColor: "#b91c1c",
+                          background: "linear-gradient(135deg, #dc2626, #b91c1c)",
+                          borderColor: "#991b1b",
                           fontSize: "11px",
-                          padding: "6px 12px",
+                          fontWeight: "800",
+                          padding: "7px 12px",
                           borderRadius: "8px",
-                          flex: 1
+                          flex: 1,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "5px",
+                          color: "#ffffff",
+                          boxShadow: "0 2px 6px rgba(220, 38, 38, 0.3)"
                         }}
                       >
-                        <Send size={12} /> Dispatch Rescue Squad
+                        <Send size={12} /> RESPOND NOW
                       </button>
-                      {sos.lat && sos.lng && (
+
+                      {sLat && sLng && (
                         <a
-                          href={`https://www.google.com/maps/dir/?api=1&destination=${sos.lat},${sos.lng}&travelmode=driving`}
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${sLat},${sLng}&travelmode=driving`}
                           target="_blank"
                           rel="noreferrer"
                           style={{
                             background: "#fee2e2",
                             color: "#991b1b",
                             border: "1px solid #fca5a5",
-                            padding: "6px 10px",
+                            padding: "7px 10px",
                             borderRadius: "8px",
                             fontSize: "11px",
                             fontWeight: "700",
@@ -2042,22 +2128,49 @@ function NotificationsDrawer({ isOpen, onClose, alerts = [], incidents = [], onA
                           <Navigation size={12} /> Maps ↗
                         </a>
                       )}
+
+                      {onResolve && (
+                        <button
+                          onClick={() => {
+                            onResolve(sosId);
+                          }}
+                          style={{
+                            background: "#f1f5f9",
+                            color: "#334155",
+                            border: "1px solid #cbd5e1",
+                            padding: "7px 10px",
+                            borderRadius: "8px",
+                            fontSize: "11px",
+                            fontWeight: "700",
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "3px"
+                          }}
+                          title="Mark SOS as Resolved"
+                        >
+                          ✓ Resolve
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
               })}
 
-              {/* 2. Standard Alerts & Flood Advisories */}
+              {/* 2. Priority Sorted Regular Alerts (Critical -> High -> Moderate -> Low) */}
               {regularAlerts.map((alt) => {
                 const aLat = alt.lat ?? alt.latitude;
                 const aLng = alt.lng ?? alt.longitude;
                 const distKm = alt.distance_km != null ? alt.distance_km : (hasUserLocation && aLat && aLng ? calcDistanceKm(userLat, userLng, aLat, aLng) : null);
-                const isCritical = alt.severity === "CRITICAL" || alt.severity === "High" || alt.level === "RED";
+                const sevRank = getAlertRank(alt);
+                const cardClass = sevRank === 1 ? "critical" : sevRank === 2 ? "high" : sevRank === 3 ? "moderate" : "info";
+                const sevLabel = (alt.severity || alt.level || (sevRank === 1 ? "CRITICAL" : sevRank === 2 ? "HIGH" : sevRank === 3 ? "MODERATE" : "INFO")).toUpperCase();
+                const sevColor = sevRank === 1 ? "#dc2626" : sevRank === 2 ? "#ea580c" : sevRank === 3 ? "#d97706" : "#2563eb";
 
                 return (
                   <div
-                    key={alt.id}
-                    className={`regular-alert-card ${isCritical ? "critical" : "warning"}`}
+                    key={alt.id || `${alt.title}_${alt.timestamp}`}
+                    className={`regular-alert-card ${cardClass}`}
                     style={{ cursor: "pointer" }}
                     onClick={() => {
                       onClose();
@@ -2066,7 +2179,7 @@ function NotificationsDrawer({ isOpen, onClose, alerts = [], incidents = [], onA
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <b style={{ fontSize: "12px", color: "#0f172a" }}>{alt.title || alt.headline || "Flood Advisory"}</b>
-                      <span style={{ fontSize: "9px", color: isCritical ? "#dc2626" : "#64748b", fontWeight: "800" }}>{alt.severity || alt.level || "Warning"}</span>
+                      <span style={{ fontSize: "9px", color: sevColor, fontWeight: "800", letterSpacing: "0.5px" }}>{sevLabel}</span>
                     </div>
                     <div style={{ fontSize: "11px", color: "#475569", margin: "2px 0" }}>{alt.description || alt.message}</div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "10px", color: "#64748b", marginTop: "4px" }}>
@@ -2202,6 +2315,7 @@ function AlertsPage({
     }
 
     const severityOrder = {
+      SOS: 0,
       CRITICAL: 1,
       RED: 1,
       HIGH: 2,
@@ -2212,10 +2326,12 @@ function AlertsPage({
       NORMAL: 5,
       GREEN: 5
     };
-    const sevScore = severityOrder[String(alt.severity || alt.level || "NORMAL").toUpperCase()] || 4;
+    const isSosAlert = Boolean(alt.isSos || alt.type === "sos" || alt.type === "SOS" || alt.incident_type === "ACTIVE_SOS" || alt.causeCode === "SOS_EMERGENCY");
+    const sevScore = isSosAlert ? 0 : (severityOrder[String(alt.severity || alt.level || "NORMAL").toUpperCase()] || 4);
 
     return {
       ...alt,
+      isSos: isSosAlert,
       aLat: hasAlertLocation ? Number(aLat) : null,
       aLng: hasAlertLocation ? Number(aLng) : null,
       hasAlertLocation,
@@ -2435,17 +2551,17 @@ function AlertsPage({
             return (
               <div
                 key={alt.id}
-                className={`alert-card-rich ${isCritical ? "critical" : isHigh ? "high" : isOrange ? "elevated" : "normal"}`}
+                className={`alert-card-rich ${isSosAlert ? "critical sos-live" : isCritical ? "critical" : isHigh ? "high" : isOrange ? "elevated" : "normal"}`}
                 style={{
-                  background: "#ffffff",
-                  border: "1px solid #e2e8f0",
-                  borderLeft: isCritical ? "4px solid #dc2626" : isHigh ? "4px solid #f97316" : isOrange ? "4px solid #f59e0b" : "4px solid #16a34a",
+                  background: isSosAlert ? "#fef2f2" : "#ffffff",
+                  border: isSosAlert ? "1.5px solid #fca5a5" : "1px solid #e2e8f0",
+                  borderLeft: isSosAlert ? "6px solid #dc2626" : isCritical ? "4px solid #dc2626" : isHigh ? "4px solid #f97316" : isOrange ? "4px solid #f59e0b" : "4px solid #16a34a",
                   borderRadius: "10px",
                   padding: "16px",
                   display: "flex",
                   flexDirection: "column",
                   gap: "10px",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)"
+                  boxShadow: isSosAlert ? "0 4px 14px rgba(220, 38, 38, 0.12)" : "0 1px 3px rgba(0,0,0,0.04)"
                 }}
               >
                 {/* 1. Incident Type and Severity */}
@@ -9925,6 +10041,7 @@ function App() {
         <Topbar
           onMenu={() => setSidebarOpen(!sidebarOpen)}
           alertCount={totalUnreadAlerts}
+          sosCount={activeSosIncidents.length}
           onRefresh={loadInitialData}
           onToggleNotifications={() => setNotificationsOpen(!notificationsOpen)}
           hasActiveSos={hasActiveSos}
@@ -9936,6 +10053,7 @@ function App() {
           alerts={alerts}
           incidents={incidents}
           onAutoDispatch={handleAutoDispatch}
+          onResolve={handleResolve}
           onClearAlerts={() => setAlerts([])}
           userLat={userLat}
           userLng={userLng}

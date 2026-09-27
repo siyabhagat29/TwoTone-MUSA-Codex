@@ -4673,30 +4673,48 @@ function AlertsScreen({ alerts = [], lightning, zone, apiUrl, userLoc, onRequest
         </View>
       )}
 
-      {/* Multi-Source Alerts */}
-      {alerts.map((a) => {
+      {/* Multi-Source Alerts Sorted by Priority (SOS First) */}
+      {[...alerts].sort((a, b) => {
+        const isSosA = a.isSos || a.type === "sos" || a.type === "SOS" || a.source === "incident";
+        const isSosB = b.isSos || b.type === "sos" || b.type === "SOS" || b.source === "incident";
+        if (isSosA && !isSosB) return -1;
+        if (!isSosA && isSosB) return 1;
+        const rankA = (a.level === "RED" || a.severity === "CRITICAL") ? 1 : (a.level === "ORANGE" || a.severity === "HIGH") ? 2 : 3;
+        const rankB = (b.level === "RED" || b.severity === "CRITICAL") ? 1 : (b.level === "ORANGE" || b.severity === "HIGH") ? 2 : 3;
+        return rankA - rankB;
+      }).map((a) => {
         const aLat = a.lat ?? a.latitude;
         const aLng = a.lng ?? a.longitude;
         const distKm = a.distance_km != null ? a.distance_km : (hasUserLoc && aLat && aLng ? calcHaversineDistanceKm(userLoc.latitude, userLoc.longitude, aLat, aLng) : null);
         const eta = a.eta || (distKm != null ? `~${Math.max(1, Math.round(distKm * 3.5 + 1))} min` : null);
 
-        const isRed = a.level === "RED" || a.severity === "CRITICAL";
-        const color = isRed ? RED : ORANGE;
-        const sourceIcon = a.source === "lightning" ? "⚡" : a.source === "rainfall" ? "🌧️" : a.source === "drainage" ? "🚧" : a.source === "incident" || a.type === "sos" ? "🚨" : "🌊";
-        const sourceTitle = a.source === "lightning" ? "LIGHTNING" : a.source === "rainfall" ? "RAINFALL RADAR" : a.source === "drainage" ? "DRAINAGE" : a.source === "incident" ? "INCIDENT SOS" : "FLOOD RISK";
-
         const isSosAlert = a.isSos || a.type === "sos" || a.type === "SOS" || a.source === "incident";
+        const isRed = a.level === "RED" || a.severity === "CRITICAL" || isSosAlert;
+        const color = isSosAlert ? "#DC2626" : isRed ? RED : ORANGE;
+        const sourceIcon = isSosAlert ? "🚨" : a.source === "lightning" ? "⚡" : a.source === "rainfall" ? "🌧️" : a.source === "drainage" ? "🚧" : "🌊";
+        const sourceTitle = isSosAlert ? "CRITICAL SOS" : a.source === "lightning" ? "LIGHTNING" : a.source === "rainfall" ? "RAINFALL RADAR" : a.source === "drainage" ? "DRAINAGE" : "FLOOD RISK";
         const repCount = a.reporter_count || a.reporterCount || (Array.isArray(a.reports) ? a.reports.length : (a.description && a.description.includes("reports within 500m") ? parseInt(a.description.match(/(\d+)\s+reports/)?.[1] || "1", 10) : 1));
 
         return (
-          <View style={[s.bigAlert, { borderLeftWidth: 4, borderLeftColor: color }]} key={a.id}>
+          <View
+            style={[
+              s.bigAlert,
+              {
+                borderLeftWidth: isSosAlert ? 6 : 4,
+                borderLeftColor: color,
+                backgroundColor: isSosAlert ? "#FEF2F2" : "#FFFFFF",
+                borderColor: isSosAlert ? "#FCA5A5" : "#E2E8F0"
+              }
+            ]}
+            key={a.id}
+          >
             <View style={s.bigAlertHead}>
-              <View style={[s.alertPill, { backgroundColor: color + "16" }]}>
-                <Text style={{ color, fontSize: 10, fontWeight: "800" }}>
-                  {sourceIcon} {sourceTitle} · {a.level || a.severity || "ACTIVE"}
+              <View style={[s.alertPill, { backgroundColor: isSosAlert ? "#DC2626" : color + "16" }]}>
+                <Text style={{ color: isSosAlert ? "#FFFFFF" : color, fontSize: 10, fontWeight: "800" }}>
+                  {sourceIcon} {sourceTitle} · {isSosAlert ? "EMERGENCY DISTRESS" : (a.level || a.severity || "ACTIVE")}
                 </Text>
               </View>
-              <Text style={s.alertId}>{a.id}</Text>
+              <Text style={[s.alertId, isSosAlert && { color: "#991B1B", fontWeight: "800" }]}>{a.id}</Text>
             </View>
             <Text style={s.bigAlertTitle}>{a.title}</Text>
             {isSosAlert && repCount > 1 && (
