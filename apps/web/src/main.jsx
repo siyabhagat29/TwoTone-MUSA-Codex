@@ -522,17 +522,18 @@ function LeafletMap({
         mapInstance.current.closePopup();
       }
       const matched = (incId === "SOS-LIVE" || !incId)
-        ? incidents.find((i) => Boolean(i?.isSos || i?.type === "SOS" || i?.causeCode === "SOS_EMERGENCY"))
-        : null;
-      const targetId = matched?.id || incId;
+        ? incidents.find((i) => !isInactiveIncident(i) && Boolean(i?.isSos || i?.type === "SOS" || i?.causeCode === "SOS_EMERGENCY"))
+        : incidents.find((i) => i.id === incId);
+      const targetId = matched?.id || incId || "SOS-LIVE";
       if (typeof onResolve === "function") {
         onResolve(targetId);
-      } else {
-        try {
+      }
+      try {
+        if (targetId && targetId !== "SOS-LIVE") {
           await apiFetch(`/incidents/${targetId}/resolve`, { method: "POST" });
-        } catch (err) {
-          console.error("Resolve error:", err);
         }
+      } catch (err) {
+        console.error("Resolve error:", err);
       }
     };
 
@@ -541,17 +542,18 @@ function LeafletMap({
         mapInstance.current.closePopup();
       }
       const matched = (incId === "SOS-LIVE" || !incId)
-        ? incidents.find((i) => Boolean(i?.isSos || i?.type === "SOS" || i?.causeCode === "SOS_EMERGENCY"))
-        : null;
-      const targetId = matched?.id || incId;
+        ? incidents.find((i) => !isInactiveIncident(i) && Boolean(i?.isSos || i?.type === "SOS" || i?.causeCode === "SOS_EMERGENCY"))
+        : incidents.find((i) => i.id === incId);
+      const targetId = matched?.id || incId || "SOS-LIVE";
       if (typeof onFalseAlarm === "function") {
         onFalseAlarm(targetId);
-      } else {
-        try {
+      }
+      try {
+        if (targetId && targetId !== "SOS-LIVE") {
           await apiFetch(`/incidents/${targetId}/false-alarm`, { method: "POST" });
-        } catch (err) {
-          console.error("False alarm error:", err);
         }
+      } catch (err) {
+        console.error("False alarm error:", err);
       }
     };
 
@@ -643,18 +645,11 @@ function LeafletMap({
     if (!userLayer) return;
 
     if (userLocation && userLocation.length === 2 && userLocation[0] && userLocation[1]) {
-      const userIcon = getCachedDivIcon("user-location-sos-siren", {
-        className: "custom-sos-siren-marker",
-        html: `<div class="custom-sos-siren-wrapper"><div class="custom-sos-siren-pulse"></div><div class="custom-sos-siren-beacon" title="🚨 SOS Active Location: ${userLocationName || "Your Active Emergency GPS"}">🚨</div></div>`,
-        iconSize: [44, 44],
-        iconAnchor: [22, 22]
-      });
-
-      // Find matched active SOS incident or construct rich fallback with action buttons
-      const matchedSos = (incidents || []).find((inc) => {
-        if (!inc) return false;
+      // Find if there is an ACTUAL active (unresolved) SOS incident
+      const activeSos = (incidents || []).find((inc) => {
+        if (!inc || isInactiveIncident(inc)) return false;
         const statusUp = String(inc.status || "").toUpperCase();
-        const isSos = Boolean(
+        return Boolean(
           inc.isSos ||
           inc.type === "SOS" ||
           inc.causeCode === "SOS_EMERGENCY" ||
@@ -664,45 +659,58 @@ function LeafletMap({
           String(inc.id || "").toUpperCase().startsWith("SOS") ||
           String(inc.cause || "").toUpperCase().includes("SOS")
         );
-        if (!isSos) return false;
-        const dLat = (inc.lat || inc.latitude || 0) - userLocation[0];
-        const dLng = (inc.lng || inc.longitude || 0) - userLocation[1];
-        return Math.hypot(dLat, dLng) < 0.015;
-      }) || (incidents || []).find(i => Boolean(
-        i?.isSos ||
-        i?.type === "SOS" ||
-        i?.causeCode === "SOS_EMERGENCY" ||
-        String(i?.status || "").toUpperCase().includes("SOS") ||
-        String(i?.id || "").toUpperCase().startsWith("SOS") ||
-        String(i?.cause || "").toUpperCase().includes("SOS")
-      ));
+      });
 
-      const activeSosObj = matchedSos || {
-        id: "SOS-LIVE",
-        status: "ACTIVE SOS",
-        isSos: true,
-        reporter: "Citizen",
-        role: "Shop Owner",
-        address: userLocationName || "Powai, Mumbai",
-        cause: "Emergency Life-Safety SOS",
-        severity: 95,
-        lat: userLocation[0],
-        lng: userLocation[1],
-        nearestResource: (resources && resources[0]) ? { name: resources[0].name, distanceKm: 0.4 } : { name: "Municipal Flood Rescue Fleet", distanceKm: 0.4 },
-        assignedTeam: (resources && resources[0]?.name) || "Municipal Flood Rescue Fleet"
-      };
+      if (activeSos) {
+        const userIcon = getCachedDivIcon(`user-sos-siren-${activeSos.id}`, {
+          className: "custom-sos-siren-marker",
+          html: `<div class="custom-sos-siren-wrapper"><div class="custom-sos-siren-pulse"></div><div class="custom-sos-siren-beacon" title="🚨 Active SOS Incident: ${activeSos.id}">🚨</div></div>`,
+          iconSize: [44, 44],
+          iconAnchor: [22, 22]
+        });
+        const popupHtml = getIncidentPopupHtml(activeSos);
+        const sosCoords = [activeSos.lat || userLocation[0], activeSos.lng || userLocation[1]];
 
-      const popupHtml = getIncidentPopupHtml(activeSosObj);
-
-      if (!userMarkerRef.current) {
-        const marker = L.marker(userLocation, { icon: userIcon, zIndexOffset: 950 });
-        marker.bindPopup(popupHtml);
-        marker.addTo(userLayer);
-        userMarkerRef.current = marker;
+        if (!userMarkerRef.current) {
+          const marker = L.marker(sosCoords, { icon: userIcon, zIndexOffset: 950 });
+          marker.bindPopup(popupHtml);
+          marker.addTo(userLayer);
+          userMarkerRef.current = marker;
+        } else {
+          userMarkerRef.current.setIcon(userIcon);
+          userMarkerRef.current.setLatLng(sosCoords);
+          userMarkerRef.current.setPopupContent(popupHtml);
+        }
       } else {
-        userMarkerRef.current.setIcon(userIcon);
-        userMarkerRef.current.setLatLng(userLocation);
-        userMarkerRef.current.setPopupContent(popupHtml);
+        // NO active SOS: render standard calm user location indicator
+        const userIcon = getCachedDivIcon("user-location-live-dot", {
+          className: "custom-user-location-marker",
+          html: `
+            <div style="position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+              <div style="position:absolute;inset:-6px;border-radius:50%;background:rgba(37,99,235,0.3);animation:pulse-ring 2.5s infinite ease-in-out;"></div>
+              <div style="width:16px;height:16px;border-radius:50%;background:#2563eb;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);"></div>
+            </div>
+          `,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12]
+        });
+        const popupHtml = `
+          <div style="min-width:170px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+            <div style="font-size:10px;font-weight:800;color:#2563eb;letter-spacing:0.5px;margin-bottom:2px;">📍 LIVE LOCATION</div>
+            <div style="font-size:13px;font-weight:700;color:#0f172a;">${userLocationName || "Vashi, Vashi"}</div>
+            <div style="font-size:10px;color:#64748b;margin-top:2px;">${userLocation[0].toFixed(4)}, ${userLocation[1].toFixed(4)}</div>
+          </div>
+        `;
+        if (!userMarkerRef.current) {
+          const marker = L.marker(userLocation, { icon: userIcon, zIndexOffset: 200 });
+          marker.bindPopup(popupHtml);
+          marker.addTo(userLayer);
+          userMarkerRef.current = marker;
+        } else {
+          userMarkerRef.current.setIcon(userIcon);
+          userMarkerRef.current.setLatLng(userLocation);
+          userMarkerRef.current.setPopupContent(popupHtml);
+        }
       }
     } else if (userMarkerRef.current) {
       userLayer.removeLayer(userMarkerRef.current);
@@ -9830,14 +9838,22 @@ function App() {
   };
 
   const handleResolve = async (id) => {
-    setIncidents((prev) => prev.map((i) => (i.id === id || i.sosId === id ? { ...i, status: "Resolved", resolvedAt: new Date().toISOString() } : i)));
-    setAlerts((prev) => prev.filter((a) => a.incidentId !== id && a.sosId !== id && a.id !== id));
-    notify(`Incident / SOS ${id} marked as RESOLVED.`);
+    const isSosLive = id === "SOS-LIVE" || !id;
+    setIncidents((prev) =>
+      prev.map((i) => {
+        const matches = i.id === id || i.sosId === id || (isSosLive && (i.isSos || i.type === "SOS" || i.causeCode === "SOS_EMERGENCY"));
+        return matches ? { ...i, status: "Resolved", resolvedAt: new Date().toISOString() } : i;
+      })
+    );
+    setAlerts((prev) => prev.filter((a) => a.incidentId !== id && a.sosId !== id && a.id !== id && (!isSosLive || a.type !== "SOS")));
+    notify(`Incident / SOS ${id || "Live SOS"} marked as RESOLVED.`);
     try {
-      await apiFetch(`/incidents/${id}/resolve`, { method: "POST" });
+      if (id && id !== "SOS-LIVE") {
+        await apiFetch(`/incidents/${id}/resolve`, { method: "POST" });
+      }
       loadInitialData();
     } catch (err) {
-      notify("Resolution failed: " + err.message);
+      notify("Resolution notice: " + err.message);
       loadInitialData();
     }
   };
